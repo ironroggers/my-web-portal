@@ -1,0 +1,79 @@
+.landing-container {
+  padding: 24px 0;
+}
+
+.welcome-section {
+  text-align: center;
+  padding: 20px 0 40px;
+  background: linear-gradient(to right, rgba(245, 247, 250, 0.8), rgba(245, 247, 250, 0.4));
+  border-radius: 8px;
+  margin-bottom: 40px;
+}
+
+.welcome-title {
+  font-weight: 700 !important;
+  color: #1976d2;
+  margin-bottom: 16px !important;
+  animation: fadeIn 1s ease-in-out;
+}
+
+.welcome-subtitle {
+  opacity: 0.85;
+  max-width: 600px;
+  margin: 0 auto !important;
+  animation: fadeIn 1.5s ease-in-out;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Card hover effects */
+.MuiCard-root {
+  transition: all 0.3s ease;
+}
+
+.MuiCard-root:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 960px) {
+  .welcome-title {
+    font-size: 2.2rem !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .welcome-title {
+    font-size: 1.8rem !important;
+  }
+  
+  .welcome-subtitle {
+    font-size: 1rem !important;
+  }
+  
+  .landing-container {
+    padding: 16px 0;
+  }
+}
+
+/* Progress bar styling */
+.MuiLinearProgress-root {
+  height: 10px !important;
+  border-radius: 5px;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.MuiLinearProgress-bar {
+  border-radius: 5px;
+} 

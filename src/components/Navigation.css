@@ -1,0 +1,13 @@
+.navigation {
+  margin-bottom: 20px;
+}
+
+/* Styles for active navigation links */
+.MuiButton-root.active {
+  background-color: rgba(255, 255, 255, 0.2);
+  font-weight: bold;
+}
+
+.MuiButton-root:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+} 

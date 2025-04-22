@@ -1,0 +1,225 @@
+.attendance-container {
+  width: 100%;
+  padding: 20px 0;
+}
+
+.attendance-paper {
+  padding: 24px;
+  margin-bottom: 20px;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px;
+  gap: 16px;
+}
+
+.error-container {
+  padding: 20px;
+  text-align: center;
+  background-color: rgba(244, 67, 54, 0.1);
+  border-radius: 8px;
+  margin: 20px 0;
+}
+
+/* Stats Styling */
+.stats-container {
+  margin-bottom: 24px;
+}
+
+.stats-card {
+  height: 100%;
+  transition: transform 0.2s, box-shadow 0.2s;
+  border-radius: 8px !important;
+}
+
+.stats-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Calendar Styling */
+.calendar-container {
+  margin-top: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.rbc-calendar {
+  background-color: white;
+  border-radius: 8px;
+}
+
+.rbc-header {
+  padding: 12px 4px !important;
+  font-weight: 600;
+  background-color: #f5f5f5;
+}
+
+.rbc-month-view {
+  border: 1px solid #eaeaea;
+  border-radius: 8px;
+}
+
+.rbc-day-bg {
+  transition: background-color 0.2s;
+}
+
+.rbc-day-bg:hover {
+  background-color: #f9f9f9;
+}
+
+.rbc-today {
+  background-color: rgba(25, 118, 210, 0.05) !important;
+}
+
+.rbc-event {
+  border-radius: 4px !important;
+  padding: 2px 5px !important;
+}
+
+.rbc-toolbar {
+  margin-bottom: 16px;
+}
+
+.rbc-toolbar button {
+  color: #1976d2;
+  border-color: #1976d2;
+}
+
+.rbc-toolbar button.rbc-active {
+  background-color: #1976d2;
+  color: white;
+}
+
+.rbc-toolbar button:hover {
+  background-color: rgba(25, 118, 210, 0.1);
+}
+
+/* Status Badge Styling */
+.status-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-badge.present {
+  background-color: rgba(76, 175, 80, 0.1);
+  color: #4caf50;
+  border: 1px solid #4caf50;
+}
+
+.status-badge.absent {
+  background-color: rgba(244, 67, 54, 0.1);
+  color: #f44336;
+  border: 1px solid #f44336;
+}
+
+.status-badge.late {
+  background-color: rgba(255, 152, 0, 0.1);
+  color: #ff9800;
+  border: 1px solid #ff9800;
+}
+
+/* Month Navigation Styling */
+.month-navigation {
+  margin: 16px 0 24px;
+  padding: 12px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  border: 1px solid #eaeaea;
+}
+
+.month-year-selector {
+  margin: 0 12px;
+  display: flex;
+  align-items: center;
+}
+
+.month-year-selector button {
+  font-weight: 500;
+  text-transform: none;
+  padding: 8px 16px;
+}
+
+/* History View Styling */
+.history-container {
+  padding: 16px;
+}
+
+.history-card {
+  border-radius: 8px !important;
+  transition: transform 0.2s;
+  overflow: hidden;
+}
+
+.history-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Table View Styling */
+.attendance-table-container {
+  margin-top: 16px;
+}
+
+.table-container {
+  padding: 8px;
+}
+
+.MuiTableHead-root .MuiTableCell-root {
+  font-weight: 600;
+  background-color: #f5f5f5;
+}
+
+.MuiTableRow-root:hover {
+  background-color: rgba(25, 118, 210, 0.04);
+}
+
+.MuiTablePagination-root {
+  border-top: 1px solid #eaeaea;
+}
+
+/* Responsive styles for Table */
+@media (max-width: 768px) {
+  .attendance-paper {
+    padding: 16px;
+  }
+  
+  .rbc-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .rbc-toolbar-label {
+    margin: 8px 0;
+  }
+
+  .month-navigation {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .month-year-selector {
+    margin: 8px 0;
+  }
+
+  .MuiTable-root {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  
+  .MuiTableCell-root {
+    padding: 8px;
+  }
+} 

@@ -1,0 +1,28 @@
+.help-center-container {
+  padding: 20px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.help-center-paper {
+  padding: 24px;
+}
+
+.help-icon {
+  vertical-align: middle;
+  margin-right: 10px;
+}
+
+.faqs-section {
+  margin: 20px 0 40px 0;
+}
+
+.contact-support-section {
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.contact-form {
+  margin-top: 20px;
+} 
