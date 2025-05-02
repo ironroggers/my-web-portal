@@ -37,6 +37,12 @@ const MapViewPage = () => {
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [mapZoom, setMapZoom] = useState(11);
   
+  // New state for route visibility
+  const [routeVisibility, setRouteVisibility] = useState({
+    desktopSurvey: true, // Blue OFC routes
+    physicalSurvey: true  // Yellow survey routes
+  });
+  
   // New state variables for location creation
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
   const [newLocation, setNewLocation] = useState({
@@ -73,6 +79,7 @@ const MapViewPage = () => {
   // Export menu state
   const [exportAnchorEl, setExportAnchorEl] = useState(null);
   const openExportMenu = Boolean(exportAnchorEl);
+  const [exportType, setExportType] = useState('desktop'); // new state to track export type
 
   // New state variables for survey sidebar
   const [selectedSurvey, setSelectedSurvey] = useState(null);
@@ -338,9 +345,11 @@ const MapViewPage = () => {
   };
 
   // Find a center for the map (first available point, or default)
-  const mapCenter = selectedLocation && selectedLocation.points && selectedLocation.points.length > 0
-    ? selectedLocation.points[0]
-    : locationRoutes.find(r => r.points && r.points.length > 0)?.points[0] || defaultCenter;
+  const mapCenter = selectedSurvey && selectedSurvey.latlong
+    ? { lat: selectedSurvey.latlong[0], lng: selectedSurvey.latlong[1] }
+    : selectedLocation && selectedLocation.points && selectedLocation.points.length > 0
+      ? selectedLocation.points[0]
+      : locationRoutes.find(r => r.points && r.points.length > 0)?.points[0] || defaultCenter;
 
   // Handle location selection from dropdown
   const handleLocationSelect = (event, value) => {
@@ -759,8 +768,13 @@ const MapViewPage = () => {
   };
 
   // Export to Excel
-  const handleExportToExcel = () => {
+  const handleExportToExcel = (type = 'desktop') => {
     if (!selectedLocation || !selectedLocation.location) return;
+    
+    handleExportClose();
+    
+    // Set the export type
+    setExportType(type);
     
     // Create data in the format shown in the image
     const routePoints = selectedLocation.location.route || [];
@@ -768,88 +782,310 @@ const MapViewPage = () => {
     // Format data to match the table in the image
     const excelData = [];
     
-    // Add header row (optional)
-    excelData.push([
-      'Sl. No.',
-      'District',
-      'Block',
-      'Gram Panchayat',
-      'From',
-      'Lat',
-      'Long',
-      'To',
-      'Lat',
-      'Long',
-      'Desktop Survey OFC Length (Mtr)',
-      'Total Length in (Mtr)'
-    ]);
+    // Find survey route for comparison (if it exists)
+    const surveyRoute = surveyRoutes.find(route => route.locationId === selectedLocation.location._id);
+    let physicalTotalLength = 0;
     
-    // Calculate total length - sum of all segment lengths
-    let totalLength = 0;
-    if (selectedLocation.routeInfo && selectedLocation.routeInfo.distance) {
-      totalLength = Math.round(selectedLocation.routeInfo.distance);
+    // Calculate total physical survey length if available
+    if (surveyRoute && surveyRoute.directions && surveyRoute.directions.routes && 
+        surveyRoute.directions.routes[0] && surveyRoute.directions.routes[0].legs) {
+      surveyRoute.directions.routes[0].legs.forEach(leg => {
+        physicalTotalLength += leg.distance.value;
+      });
+      physicalTotalLength = Math.round(physicalTotalLength);
     }
     
-    // Add rows for each segment of the route
-    if (routePoints.length > 1) {
-      for (let i = 0; i < routePoints.length - 1; i++) {
-        const fromPoint = routePoints[i];
-        const toPoint = routePoints[i + 1];
+    // Calculate desktop survey total length
+    let desktopTotalLength = 0;
+    if (selectedLocation.routeInfo && selectedLocation.routeInfo.distance) {
+      desktopTotalLength = Math.round(selectedLocation.routeInfo.distance);
+    }
+    
+    // Calculate difference between physical and desktop survey
+    const lengthDifference = physicalTotalLength - desktopTotalLength;
+    const percentDifference = desktopTotalLength > 0 ? 
+      ((lengthDifference / desktopTotalLength) * 100).toFixed(2) : 0;
+    
+    // Add header row with additional columns for comparison
+    if (type === 'desktop') {
+      // For desktop survey export, include comparison with physical survey if available
+      excelData.push([
+        'Sl. No.',
+        'District',
+        'Block',
+        'Gram Panchayat',
+        'From',
+        'Lat',
+        'Long',
+        'To',
+        'Lat',
+        'Long',
+        'Desktop Survey OFC Length (Mtr)',
+        'Physical Survey Length (Mtr)',
+        'Difference (Mtr)',
+        'Difference (%)',
+        'Total Desktop Length (Mtr)',
+        'Total Physical Length (Mtr)'
+      ]);
+      
+      // Desktop survey export (OFC routes - blue)
+      // Add rows for each segment of the route
+      if (routePoints.length > 1) {
+        for (let i = 0; i < routePoints.length - 1; i++) {
+          const fromPoint = routePoints[i];
+          const toPoint = routePoints[i + 1];
+          
+          // Calculate distance for this segment (in meters)
+          let segmentDistance = 0;
+          if (selectedLocation.directions && 
+              selectedLocation.directions.routes && 
+              selectedLocation.directions.routes[0] && 
+              selectedLocation.directions.routes[0].legs && 
+              selectedLocation.directions.routes[0].legs[i]) {
+            segmentDistance = Math.round(selectedLocation.directions.routes[0].legs[i].distance.value);
+          }
+          
+          // For comparison - try to find equivalent segment in physical survey
+          // This is a simplified approach - in real life, segments may not match exactly
+          let physicalSegmentDistance = 0;
+          if (i < (surveyRoute?.directions?.routes?.[0]?.legs?.length || 0)) {
+            physicalSegmentDistance = Math.round(surveyRoute.directions.routes[0].legs[i].distance.value);
+          }
+          
+          // Calculate segment difference
+          const segmentDifference = physicalSegmentDistance - segmentDistance;
+          const segmentPercentDiff = segmentDistance > 0 ? 
+            ((segmentDifference / segmentDistance) * 100).toFixed(2) : 0;
+          
+          excelData.push([
+            i + 1, // Sl. No.
+            selectedLocation.location.district,
+            selectedLocation.location.block,
+            fromPoint.place, // Gram Panchayat
+            fromPoint.place, // From
+            Number(fromPoint.latitude).toFixed(6), // Lat of From
+            Number(fromPoint.longitude).toFixed(6), // Long of From
+            toPoint.place, // To
+            Number(toPoint.latitude).toFixed(6), // Lat of To
+            Number(toPoint.longitude).toFixed(6), // Long of To
+            segmentDistance, // Desktop Survey OFC Length (Mtr)
+            physicalSegmentDistance || 'N/A', // Physical Survey Length (Mtr)
+            physicalSegmentDistance ? segmentDifference : 'N/A', // Difference (Mtr)
+            physicalSegmentDistance ? segmentPercentDiff + '%' : 'N/A', // Difference (%)
+            desktopTotalLength, // Total Desktop Length (Mtr) - same for all rows
+            physicalTotalLength || 'N/A' // Total Physical Length (Mtr) - same for all rows
+          ]);
+        }
         
-        // Calculate distance for this segment (in meters)
-        let segmentDistance = 0;
+        // Add last row to connect back to start (for complete loop)
+        const lastPoint = routePoints[routePoints.length - 1];
+        const firstPoint = routePoints[0];
+        
+        // Calculate distance for the final segment
+        let finalSegmentDistance = 0;
         if (selectedLocation.directions && 
             selectedLocation.directions.routes && 
             selectedLocation.directions.routes[0] && 
             selectedLocation.directions.routes[0].legs && 
-            selectedLocation.directions.routes[0].legs[i]) {
-          segmentDistance = Math.round(selectedLocation.directions.routes[0].legs[i].distance.value);
+            selectedLocation.directions.routes[0].legs[routePoints.length - 1]) {
+          finalSegmentDistance = Math.round(selectedLocation.directions.routes[0].legs[routePoints.length - 1].distance.value);
         }
         
+        // Final segment for physical survey
+        let finalPhysicalSegmentDistance = 0;
+        if (surveyRoute?.directions?.routes?.[0]?.legs?.[routePoints.length - 1]) {
+          finalPhysicalSegmentDistance = Math.round(surveyRoute.directions.routes[0].legs[routePoints.length - 1].distance.value);
+        }
+        
+        // Calculate final segment difference
+        const finalSegmentDifference = finalPhysicalSegmentDistance - finalSegmentDistance;
+        const finalSegmentPercentDiff = finalSegmentDistance > 0 ? 
+          ((finalSegmentDifference / finalSegmentDistance) * 100).toFixed(2) : 0;
+        
         excelData.push([
-          i + 1, // Sl. No.
+          routePoints.length, // Sl. No.
           selectedLocation.location.district,
           selectedLocation.location.block,
-          fromPoint.place, // Gram Panchayat
-          fromPoint.place, // From
-          Number(fromPoint.latitude).toFixed(6), // Lat of From
-          Number(fromPoint.longitude).toFixed(6), // Long of From
-          toPoint.place, // To
-          Number(toPoint.latitude).toFixed(6), // Lat of To
-          Number(toPoint.longitude).toFixed(6), // Long of To
-          segmentDistance, // Desktop Survey OFC Length (Mtr)
-          totalLength // Total Length in (Mtr) - same for all rows
+          lastPoint.place, // Gram Panchayat
+          lastPoint.place, // From
+          Number(lastPoint.latitude).toFixed(6), // Lat of From
+          Number(lastPoint.longitude).toFixed(6), // Long of From
+          firstPoint.place, // To
+          Number(firstPoint.latitude).toFixed(6), // Lat of To
+          Number(firstPoint.longitude).toFixed(6), // Long of To
+          finalSegmentDistance, // Desktop Survey OFC Length (Mtr)
+          finalPhysicalSegmentDistance || 'N/A', // Physical Survey Length (Mtr)
+          finalPhysicalSegmentDistance ? finalSegmentDifference : 'N/A', // Difference (Mtr)
+          finalPhysicalSegmentDistance ? finalSegmentPercentDiff + '%' : 'N/A', // Difference (%)
+          desktopTotalLength, // Total Desktop Length (Mtr) - same for all rows
+          physicalTotalLength || 'N/A' // Total Physical Length (Mtr) - same for all rows
+        ]);
+        
+        // Add summary row with totals and overall difference
+        excelData.push([
+          '', // Sl. No.
+          '', // District
+          '', // Block
+          'TOTALS', // Gram Panchayat
+          '', // From
+          '', // Lat
+          '', // Long
+          '', // To
+          '', // Lat
+          '', // Long
+          desktopTotalLength, // Desktop Survey OFC Length (Mtr)
+          physicalTotalLength || 'N/A', // Physical Survey Length (Mtr)
+          lengthDifference || 'N/A', // Difference (Mtr)
+          percentDifference + '%' || 'N/A', // Difference (%)
+          '', // Total Desktop Length
+          '' // Total Physical Length
         ]);
       }
+    } else {
+      // For physical survey export, include comparison with desktop survey
+      excelData.push([
+        'Sl. No.',
+        'District',
+        'Block',
+        'Gram Panchayat',
+        'From',
+        'Lat',
+        'Long',
+        'To',
+        'Lat',
+        'Long',
+        'Physical Survey OFC Length (Mtr)',
+        'Desktop Survey Length (Mtr)',
+        'Difference (Mtr)',
+        'Difference (%)',
+        'Total Physical Length (Mtr)',
+        'Total Desktop Length (Mtr)'
+      ]);
       
-      // Add last row to connect back to start (for complete loop)
-      const lastPoint = routePoints[routePoints.length - 1];
-      const firstPoint = routePoints[0];
+      // Original physical survey export code remains largely unchanged
+      const locationSurveys = getSurveysForLocation(selectedLocation.location._id);
       
-      // Calculate distance for the final segment
-      let finalSegmentDistance = 0;
-      if (selectedLocation.directions && 
-          selectedLocation.directions.routes && 
-          selectedLocation.directions.routes[0] && 
-          selectedLocation.directions.routes[0].legs && 
-          selectedLocation.directions.routes[0].legs[routePoints.length - 1]) {
-        finalSegmentDistance = Math.round(selectedLocation.directions.routes[0].legs[routePoints.length - 1].distance.value);
+      if (locationSurveys.length < 2) {
+        setSnackbar({
+          open: true,
+          message: 'Not enough survey points to create a route export',
+          severity: 'warning'
+        });
+        return;
       }
       
-      excelData.push([
-        routePoints.length, // Sl. No.
-        selectedLocation.location.district,
-        selectedLocation.location.block,
-        lastPoint.place, // Gram Panchayat
-        lastPoint.place, // From
-        Number(lastPoint.latitude).toFixed(6), // Lat of From
-        Number(lastPoint.longitude).toFixed(6), // Long of From
-        firstPoint.place, // To
-        Number(firstPoint.latitude).toFixed(6), // Lat of To
-        Number(firstPoint.longitude).toFixed(6), // Long of To
-        finalSegmentDistance, // Desktop Survey OFC Length (Mtr)
-        totalLength // Total Length in (Mtr) - same for all rows
-      ]);
+      // Filter surveys with valid latlong
+      const validSurveys = locationSurveys.filter(s => Array.isArray(s.latlong) && s.latlong.length === 2);
+      
+      // Add rows for each segment of the route
+      if (validSurveys.length > 1) {
+        for (let i = 0; i < validSurveys.length - 1; i++) {
+          const fromSurvey = validSurveys[i];
+          const toSurvey = validSurveys[i + 1];
+          
+          // Calculate distance for this segment (in meters)
+          let segmentDistance = 0;
+          if (surveyRoute.directions.routes && 
+              surveyRoute.directions.routes[0] && 
+              surveyRoute.directions.routes[0].legs && 
+              surveyRoute.directions.routes[0].legs[i]) {
+            segmentDistance = Math.round(surveyRoute.directions.routes[0].legs[i].distance.value);
+          }
+          
+          // For comparison - try to find equivalent segment in desktop survey
+          let desktopSegmentDistance = 0;
+          if (i < (selectedLocation.directions?.routes?.[0]?.legs?.length || 0)) {
+            desktopSegmentDistance = Math.round(selectedLocation.directions.routes[0].legs[i].distance.value);
+          }
+          
+          // Calculate segment difference
+          const segmentDifference = segmentDistance - desktopSegmentDistance;
+          const segmentPercentDiff = desktopSegmentDistance > 0 ? 
+            ((segmentDifference / desktopSegmentDistance) * 100).toFixed(2) : 0;
+          
+          excelData.push([
+            i + 1, // Sl. No.
+            selectedLocation.location.district,
+            selectedLocation.location.block,
+            fromSurvey.title || 'Survey Point', // Gram Panchayat
+            fromSurvey.title || 'Survey Point', // From
+            Number(fromSurvey.latlong[0]).toFixed(6), // Lat of From
+            Number(fromSurvey.latlong[1]).toFixed(6), // Long of From
+            toSurvey.title || 'Survey Point', // To
+            Number(toSurvey.latlong[0]).toFixed(6), // Lat of To
+            Number(toSurvey.latlong[1]).toFixed(6), // Long of To
+            segmentDistance, // Physical Survey OFC Length (Mtr)
+            desktopSegmentDistance || 'N/A', // Desktop Survey Length
+            desktopSegmentDistance ? segmentDifference : 'N/A', // Difference
+            desktopSegmentDistance ? segmentPercentDiff + '%' : 'N/A', // Percent Difference
+            physicalTotalLength, // Total Physical Length (Mtr) - same for all rows
+            desktopTotalLength || 'N/A' // Total Desktop Length (Mtr)
+          ]);
+        }
+        
+        // Add last row to connect back to start (for complete loop)
+        const lastSurvey = validSurveys[validSurveys.length - 1];
+        const firstSurvey = validSurveys[0];
+        
+        // Calculate distance for the final segment
+        let finalSegmentDistance = 0;
+        if (surveyRoute.directions.routes && 
+            surveyRoute.directions.routes[0] && 
+            surveyRoute.directions.routes[0].legs && 
+            surveyRoute.directions.routes[0].legs[validSurveys.length - 1]) {
+          finalSegmentDistance = Math.round(surveyRoute.directions.routes[0].legs[validSurveys.length - 1].distance.value);
+        }
+        
+        // Final segment for desktop survey
+        let finalDesktopSegmentDistance = 0;
+        if (selectedLocation.directions?.routes?.[0]?.legs?.[validSurveys.length - 1]) {
+          finalDesktopSegmentDistance = Math.round(selectedLocation.directions.routes[0].legs[validSurveys.length - 1].distance.value);
+        }
+        
+        // Calculate final segment difference
+        const finalSegmentDifference = finalSegmentDistance - finalDesktopSegmentDistance;
+        const finalSegmentPercentDiff = finalDesktopSegmentDistance > 0 ? 
+          ((finalSegmentDifference / finalDesktopSegmentDistance) * 100).toFixed(2) : 0;
+        
+        excelData.push([
+          validSurveys.length, // Sl. No.
+          selectedLocation.location.district,
+          selectedLocation.location.block,
+          lastSurvey.title || 'Survey Point', // Gram Panchayat
+          lastSurvey.title || 'Survey Point', // From
+          Number(lastSurvey.latlong[0]).toFixed(6), // Lat of From
+          Number(lastSurvey.latlong[1]).toFixed(6), // Long of From
+          firstSurvey.title || 'Survey Point', // To
+          Number(firstSurvey.latlong[0]).toFixed(6), // Lat of To
+          Number(firstSurvey.latlong[1]).toFixed(6), // Long of To
+          finalSegmentDistance, // Physical Survey OFC Length (Mtr)
+          finalDesktopSegmentDistance || 'N/A', // Desktop Survey Length
+          finalDesktopSegmentDistance ? finalSegmentDifference : 'N/A', // Difference
+          finalDesktopSegmentDistance ? finalSegmentPercentDiff + '%' : 'N/A', // Percent Difference
+          physicalTotalLength, // Total Physical Length (Mtr) - same for all rows
+          desktopTotalLength || 'N/A' // Total Desktop Length (Mtr)
+        ]);
+        
+        // Add summary row with totals and overall difference
+        excelData.push([
+          '', // Sl. No.
+          '', // District
+          '', // Block
+          'TOTALS', // Gram Panchayat
+          '', // From
+          '', // Lat
+          '', // Long
+          '', // To
+          '', // Lat
+          '', // Long
+          physicalTotalLength, // Physical Survey OFC Length (Mtr)
+          desktopTotalLength || 'N/A', // Desktop Survey Length (Mtr)
+          lengthDifference || 'N/A', // Difference (Mtr)
+          percentDifference + '%' || 'N/A', // Difference (%)
+          '', // Total Physical Length
+          '' // Total Desktop Length
+        ]);
+      }
     }
     
     // Create workbook and worksheet
@@ -857,90 +1093,186 @@ const MapViewPage = () => {
     const ws = XLSX.utils.aoa_to_sheet(excelData);
     
     // Add worksheet to workbook
-    XLSX.utils.book_append_sheet(wb, ws, 'OFC Route');
+    XLSX.utils.book_append_sheet(wb, ws, type === 'desktop' ? 'OFC Route Comparison' : 'Survey Route Comparison');
     
     // Generate filename from location info
-    const fileName = `${selectedLocation.location.block}_${selectedLocation.location.district}_OFC_Route.xlsx`;
+    const fileName = `${selectedLocation.location.block}_${selectedLocation.location.district}_${type === 'desktop' ? 'OFC' : 'Survey'}_Route_Comparison.xlsx`;
     
     // Write and download the file
     XLSX.writeFile(wb, fileName);
     
-    // Close the menu
-    handleExportClose();
-    
     // Show success message
     setSnackbar({
       open: true,
-      message: 'Excel file exported successfully!',
+      message: `Excel file exported successfully!`,
       severity: 'success'
     });
   };
   
   // Export to KML
-  const handleExportToKML = () => {
-    if (!selectedLocation || !selectedLocation.location || !selectedLocation.directions) {
+  const handleExportToKML = (type = 'desktop') => {
+    if (!selectedLocation || !selectedLocation.location) {
       setSnackbar({
         open: true,
-        message: 'Error: No route data available for export',
+        message: 'Error: No location selected',
         severity: 'error'
       });
       return;
     }
     
+    handleExportClose();
+    
+    // Set the export type
+    setExportType(type);
+    
     // Create KML data
-    const routePoints = selectedLocation.location.route || [];
-    
-    // Extract route path points from directions
     let routePath = [];
+    let waypoints = [];
     
-    try {
-      // Extract the detailed path from Google's directions response
-      const routes = selectedLocation.directions.routes;
+    if (type === 'desktop') {
+      // Desktop survey export (OFC routes - blue)
+      const routePoints = selectedLocation.location.route || [];
       
-      if (routes && routes.length > 0) {
-        // Get the overview path (encoded polyline)
-        routes[0].legs.forEach(leg => {
-          if (leg.steps) {
-            leg.steps.forEach(step => {
-              if (step.path) {
-                // Add each path point 
-                step.path.forEach(point => {
-                  routePath.push({
-                    lat: point.lat(),
-                    lng: point.lng()
+      if (!selectedLocation.directions) {
+        setSnackbar({
+          open: true,
+          message: 'Error: No route data available for export',
+          severity: 'error'
+        });
+        return;
+      }
+      
+      // Extract route path points from directions
+      try {
+        // Extract the detailed path from Google's directions response
+        const routes = selectedLocation.directions.routes;
+        
+        if (routes && routes.length > 0) {
+          // Get the overview path (encoded polyline)
+          routes[0].legs.forEach(leg => {
+            if (leg.steps) {
+              leg.steps.forEach(step => {
+                if (step.path) {
+                  // Add each path point 
+                  step.path.forEach(point => {
+                    routePath.push({
+                      lat: point.lat(),
+                      lng: point.lng()
+                    });
                   });
-                });
-              }
+                }
+              });
+            }
+          });
+        }
+        
+        // If we couldn't get the detailed path, use the overview polyline
+        if (routePath.length === 0 && routes[0].overview_path) {
+          routes[0].overview_path.forEach(point => {
+            routePath.push({
+              lat: point.lat(),
+              lng: point.lng() 
             });
-          }
-        });
+          });
+        }
+      } catch (error) {
+        console.error("Error extracting route path:", error);
+        // If extraction fails, fall back to direct lines between waypoints
+        if (routePoints.length > 1) {
+          routePoints.forEach(point => {
+            routePath.push({
+              lat: point.latitude,
+              lng: point.longitude
+            });
+          });
+          // Add first point again to close the loop
+          routePath.push({
+            lat: routePoints[0].latitude,
+            lng: routePoints[0].longitude
+          });
+        }
       }
       
-      // If we couldn't get the detailed path, use the overview polyline
-      if (routePath.length === 0 && routes[0].overview_path) {
-        routes[0].overview_path.forEach(point => {
-          routePath.push({
-            lat: point.lat(),
-            lng: point.lng() 
-          });
+      // Use route points as waypoints
+      waypoints = routePoints.map(point => ({
+        name: point.place,
+        type: point.type,
+        lat: point.latitude,
+        lng: point.longitude
+      }));
+      
+    } else {
+      // Physical survey export (survey routes - yellow)
+      // Find survey route for this location
+      const surveyRoute = surveyRoutes.find(route => route.locationId === selectedLocation.location._id);
+      
+      if (!surveyRoute || !surveyRoute.directions) {
+        setSnackbar({
+          open: true,
+          message: 'No physical survey route data available for this location',
+          severity: 'warning'
         });
+        return;
       }
-    } catch (error) {
-      console.error("Error extracting route path:", error);
-      // If extraction fails, fall back to direct lines between waypoints
-      if (routePoints.length > 1) {
-        routePoints.forEach(point => {
-          routePath.push({
-            lat: point.latitude,
-            lng: point.longitude
-          });
+      
+      // Get surveys for this location
+      const locationSurveys = getSurveysForLocation(selectedLocation.location._id);
+      
+      if (locationSurveys.length < 2) {
+        setSnackbar({
+          open: true,
+          message: 'Not enough survey points to create a route export',
+          severity: 'warning'
         });
-        // Add first point again to close the loop
-        routePath.push({
-          lat: routePoints[0].latitude,
-          lng: routePoints[0].longitude
-        });
+        return;
       }
+      
+      // Extract route path points from directions
+      try {
+        // Extract the detailed path from Google's directions response
+        const routes = surveyRoute.directions.routes;
+        
+        if (routes && routes.length > 0) {
+          // Get the overview path (encoded polyline)
+          routes[0].legs.forEach(leg => {
+            if (leg.steps) {
+              leg.steps.forEach(step => {
+                if (step.path) {
+                  // Add each path point 
+                  step.path.forEach(point => {
+                    routePath.push({
+                      lat: point.lat(),
+                      lng: point.lng()
+                    });
+                  });
+                }
+              });
+            }
+          });
+        }
+        
+        // If we couldn't get the detailed path, use the overview polyline
+        if (routePath.length === 0 && routes[0].overview_path) {
+          routes[0].overview_path.forEach(point => {
+            routePath.push({
+              lat: point.lat(),
+              lng: point.lng() 
+            });
+          });
+        }
+      } catch (error) {
+        console.error("Error extracting survey route path:", error);
+      }
+      
+      // Use survey points as waypoints
+      waypoints = locationSurveys
+        .filter(survey => Array.isArray(survey.latlong) && survey.latlong.length === 2)
+        .map(survey => ({
+          name: survey.title || 'Survey Point',
+          type: 'Survey',
+          lat: survey.latlong[0],
+          lng: survey.latlong[1]
+        }));
     }
     
     // If we still don't have a path, show an error
@@ -957,17 +1289,17 @@ const MapViewPage = () => {
     let kml = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
-    <name>${selectedLocation.location.block} - ${selectedLocation.location.district} OFC Route</name>
-    <description>Optimized OFC Route for ${selectedLocation.location.block}, ${selectedLocation.location.district}</description>
+    <name>${selectedLocation.location.block} - ${selectedLocation.location.district} ${type === 'desktop' ? 'OFC' : 'Survey'} Route</name>
+    <description>${type === 'desktop' ? 'Optimized OFC' : 'Physical Survey'} Route for ${selectedLocation.location.block}, ${selectedLocation.location.district}</description>
     <Style id="routeStyle">
       <LineStyle>
-        <color>ff0000ff</color>
+        <color>${type === 'desktop' ? 'ff0000ff' : 'ff00aaff'}</color>
         <width>4</width>
       </LineStyle>
     </Style>
     <Style id="waypointStyle">
       <IconStyle>
-        <color>ff0000ff</color>
+        <color>${type === 'desktop' ? 'ff0000ff' : 'ff00aaff'}</color>
         <scale>1.0</scale>
         <Icon>
           <href>http://maps.google.com/mapfiles/kml/pushpin/red-pushpin.png</href>
@@ -978,7 +1310,7 @@ const MapViewPage = () => {
     // Add optimized route as LineString
     kml += `
     <Placemark>
-      <name>OFC Route (Optimized)</name>
+      <name>${type === 'desktop' ? 'OFC' : 'Survey'} Route (Optimized)</name>
       <description>Google Maps optimized route</description>
       <styleUrl>#routeStyle</styleUrl>
       <LineString>
@@ -997,15 +1329,15 @@ const MapViewPage = () => {
       </LineString>
     </Placemark>`;
     
-    // Add waypoints (the actual stops)
-    routePoints.forEach((point, index) => {
+    // Add waypoints
+    waypoints.forEach((point, index) => {
       kml += `
     <Placemark>
-      <name>${point.place}</name>
-      <description>Point ${index + 1}: ${point.place} (${point.type})</description>
+      <name>${point.name}</name>
+      <description>Point ${index + 1}: ${point.name} (${point.type})</description>
       <styleUrl>#waypointStyle</styleUrl>
       <Point>
-        <coordinates>${point.longitude},${point.latitude},0</coordinates>
+        <coordinates>${point.lng},${point.lat},0</coordinates>
       </Point>
     </Placemark>`;
     });
@@ -1022,19 +1354,16 @@ const MapViewPage = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${selectedLocation.location.block}_${selectedLocation.location.district}_OFC_Route.kml`;
+    a.download = `${selectedLocation.location.block}_${selectedLocation.location.district}_${type === 'desktop' ? 'OFC' : 'Survey'}_Route.kml`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     
-    // Close the menu
-    handleExportClose();
-    
     // Show success message
     setSnackbar({
       open: true,
-      message: 'KML file with optimized route exported successfully!',
+      message: `KML file with ${type === 'desktop' ? 'OFC' : 'survey'} route exported successfully!`,
       severity: 'success'
     });
   };
@@ -1044,6 +1373,7 @@ const MapViewPage = () => {
     try {
       setLoadingSurvey(true);
       setSidebarOpen(true);
+      setMapZoom(17); // Set higher zoom level for survey points
       
       // Check if we already have the full survey data
       const existingSurvey = surveys.find(s => s._id === surveyId);
@@ -1072,6 +1402,22 @@ const MapViewPage = () => {
   // Add this function to handle sidebar close
   const handleSidebarClose = () => {
     setSidebarOpen(false);
+    setSelectedSurvey(null);
+    
+    // Reset map zoom based on whether a location is selected
+    if (selectedLocation) {
+      setMapZoom(15);
+    } else {
+      setMapZoom(11);
+    }
+  };
+
+  // Handle route visibility toggle
+  const handleRouteVisibilityChange = (type) => {
+    setRouteVisibility(prev => ({
+      ...prev,
+      [type]: !prev[type]
+    }));
   };
 
   return (
@@ -1182,8 +1528,8 @@ const MapViewPage = () => {
               borderRadius: '8px'
             }}>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Box sx={{ width: 24, height: 5, bgcolor: routeColor, mr: 1, borderRadius: '4px' }} />
-                <Typography variant="body2" fontWeight={500}>OFC Routes</Typography>
+                <Box sx={{ width: 24, height: 5, bgcolor: routeColor, mr: 1, borderRadius: '4px', opacity: routeVisibility.desktopSurvey ? 1 : 0.3 }} />
+                <Typography variant="body2" fontWeight={500} sx={{ opacity: routeVisibility.desktopSurvey ? 1 : 0.5 }}>OFC Routes</Typography>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <Box sx={{ width: 18, height: 18, bgcolor: '#f44336', borderRadius: '50%', mr: 1, border: '2px solid #fff' }} />
@@ -1198,8 +1544,8 @@ const MapViewPage = () => {
                 <Typography variant="body2" fontWeight={500}>Survey Points</Typography>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Box sx={{ width: 24, height: 5, bgcolor: surveyRouteColor, mr: 1, borderRadius: '4px' }} />
-                <Typography variant="body2" fontWeight={500}>Survey Routes (Status 5)</Typography>
+                <Box sx={{ width: 24, height: 5, bgcolor: surveyRouteColor, mr: 1, borderRadius: '4px', opacity: routeVisibility.physicalSurvey ? 1 : 0.3 }} />
+                <Typography variant="body2" fontWeight={500} sx={{ opacity: routeVisibility.physicalSurvey ? 1 : 0.5 }}>Survey Routes (Status 5)</Typography>
               </Box>
             </Box>
 
@@ -1241,18 +1587,66 @@ const MapViewPage = () => {
                         <>
                           <Grid container spacing={2} sx={{ mb: 2 }}>
                             <Grid item xs={6}>
-                              <Typography variant="subtitle2" color="text.secondary">Total Distance:</Typography>
+                              <Typography variant="subtitle2" color="text.secondary">Desktop Survey Distance:</Typography>
                               <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
                                 {formatDistance(selectedLocation.routeInfo.distance)}
                               </Typography>
                             </Grid>
                             <Grid item xs={6}>
-                              <Typography variant="subtitle2" color="text.secondary">Est. Travel Time:</Typography>
+                              <Typography variant="subtitle2" color="text.secondary">Est. Survey Time:</Typography>
                               <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
                                 {formatTime(selectedLocation.routeInfo.time)}
                               </Typography>
                             </Grid>
                           </Grid>
+                          
+                          {/* Add Physical Survey Distance and Difference */}
+                          {selectedLocation.location && selectedLocation.location.status === 5 && (() => {
+                            // Find survey route for this location
+                            const surveyRoute = surveyRoutes.find(route => route.locationId === selectedLocation.location._id);
+                            
+                            if (surveyRoute && surveyRoute.directions) {
+                              // Calculate total physical survey distance
+                              let physicalDistance = 0;
+                              if (surveyRoute.directions.routes && 
+                                  surveyRoute.directions.routes[0] && 
+                                  surveyRoute.directions.routes[0].legs) {
+                                surveyRoute.directions.routes[0].legs.forEach(leg => {
+                                  physicalDistance += leg.distance.value;
+                                });
+                              }
+                              
+                              // Calculate difference
+                              const difference = physicalDistance - selectedLocation.routeInfo.distance;
+                              const percentDiff = ((difference / selectedLocation.routeInfo.distance) * 100).toFixed(1);
+                              
+                              return (
+                                <Grid container spacing={2} sx={{ mb: 2, mt: 0.5, pt: 2, borderTop: '1px dashed rgba(0,0,0,0.1)' }}>
+                                  <Grid item xs={6}>
+                                    <Typography variant="subtitle2" color="text.secondary">Physical Survey Distance:</Typography>
+                                    <Typography variant="body1" color="warning.dark" sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
+                                      {formatDistance(physicalDistance)}
+                                    </Typography>
+                                  </Grid>
+                                  <Grid item xs={6}>
+                                    <Typography variant="subtitle2" color="text.secondary">Difference:</Typography>
+                                    <Typography 
+                                      variant="body1" 
+                                      color={difference > 0 ? "error.main" : "success.main"} 
+                                      sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}
+                                    >
+                                      {formatDistance(Math.abs(difference))} ({difference > 0 ? '+' : '-'}{Math.abs(percentDiff)}%)
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {difference > 0 ? 'Physical survey is longer' : 'Physical survey is shorter'}
+                                    </Typography>
+                                  </Grid>
+                                </Grid>
+                              );
+                            }
+                            return null;
+                          })()}
+                          
                           <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
                             Survey Points: {getSurveysForLocation(selectedLocation.location?._id).length}
                           </Typography>
@@ -1289,7 +1683,7 @@ const MapViewPage = () => {
                           </Typography>
                           <Grid container spacing={2} sx={{ mb: 2 }}>
                             <Grid item xs={6}>
-                              <Typography variant="subtitle2" color="text.secondary">Total Distance:</Typography>
+                              <Typography variant="subtitle2" color="text.secondary">Total Desktop Distance:</Typography>
                               <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
                                 {formatDistance(total.distance)}
                               </Typography>
@@ -1301,6 +1695,71 @@ const MapViewPage = () => {
                               </Typography>
                             </Grid>
                           </Grid>
+                          
+                          {/* Calculate total physical survey distance */}
+                          {(() => {
+                            // Calculate total physical distance across all survey routes
+                            let totalPhysicalDistance = 0;
+                            let validSurveyRoutes = 0;
+                            
+                            surveyRoutes.forEach(route => {
+                              if (route.directions && route.directions.routes && 
+                                  route.directions.routes[0] && route.directions.routes[0].legs) {
+                                let physicalDistance = 0;
+                                route.directions.routes[0].legs.forEach(leg => {
+                                  physicalDistance += leg.distance.value;
+                                });
+                                totalPhysicalDistance += physicalDistance;
+                                validSurveyRoutes++;
+                              }
+                            });
+                            
+                            if (validSurveyRoutes > 0) {
+                              // Calculate overall difference
+                              const physicalSurveyTotal = surveyRoutes.length > 0 ? 
+                                (
+                                  <Grid container spacing={2} sx={{ mb: 2, mt: 1, pt: 2, borderTop: '1px dashed rgba(0,0,0,0.1)' }}>
+                                    <Grid item xs={6}>
+                                      <Typography variant="subtitle2" color="text.secondary">Total Physical Distance:</Typography>
+                                      <Typography variant="body1" color="warning.dark" sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
+                                        {formatDistance(totalPhysicalDistance)}
+                                      </Typography>
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                      <Typography variant="subtitle2" color="text.secondary">Avg. Difference:</Typography>
+                                      {(() => {
+                                        // Only calculate if we have desktop distance
+                                        if (total.distance > 0) {
+                                          const difference = totalPhysicalDistance - total.distance;
+                                          const percentDiff = ((difference / total.distance) * 100).toFixed(1);
+                                          
+                                          return (
+                                            <>
+                                              <Typography 
+                                                variant="body1" 
+                                                color={difference > 0 ? "error.main" : "success.main"} 
+                                                sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}
+                                              >
+                                                {difference > 0 ? '+' : '-'}{Math.abs(percentDiff)}%
+                                              </Typography>
+                                              <Typography variant="caption" color="text.secondary">
+                                                {difference > 0 ? 'Physical surveys are longer on average' : 'Physical surveys are shorter on average'}
+                                              </Typography>
+                                            </>
+                                          );
+                                        }
+                                        return <Typography variant="body2">Not available</Typography>;
+                                      })()}
+                                    </Grid>
+                                  </Grid>
+                                ) : null;
+                              
+                              return physicalSurveyTotal;
+                            }
+                            
+                            return null;
+                          })()}
+                          
                           <Box sx={{ mt: 2, p: 1.5, bgcolor: 'rgba(0,0,0,0.03)', borderRadius: '8px' }}>
                             <Typography variant="subtitle2" color="text.secondary">
                               Total Survey Points: <strong>{surveys.length}</strong>
@@ -1316,8 +1775,42 @@ const MapViewPage = () => {
                 })()
               )}
             </Grid>
+
             {/* Single map for all locations */}
             <Box>
+              {/* Route Visibility Controls */}
+              <Box sx={{ 
+                display: 'flex', 
+                mb: 2, 
+                p: 2, 
+                bgcolor: 'rgba(0,0,0,0.03)', 
+                borderRadius: '8px 8px 0 0',
+                alignItems: 'center',
+                gap: 2,
+                flexWrap: 'wrap',
+                border: '1px solid rgba(0,0,0,0.08)',
+                borderBottom: 'none'
+              }}>
+                <Typography variant="subtitle2" fontWeight={600}>
+                  Route Visibility:
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Chip
+                    label="Desktop Survey (Blue)"
+                    color={routeVisibility.desktopSurvey ? "primary" : "default"}
+                    onClick={() => handleRouteVisibilityChange('desktopSurvey')}
+                    variant={routeVisibility.desktopSurvey ? "filled" : "outlined"}
+                    sx={{ fontWeight: 500, cursor: 'pointer' }}
+                  />
+                  <Chip
+                    label="Physical Survey (Yellow)"
+                    color={routeVisibility.physicalSurvey ? "warning" : "default"}
+                    onClick={() => handleRouteVisibilityChange('physicalSurvey')}
+                    variant={routeVisibility.physicalSurvey ? "filled" : "outlined"}
+                    sx={{ fontWeight: 500, cursor: 'pointer' }}
+                  />
+                </Box>
+              </Box>
               <GoogleMap
                 mapContainerStyle={containerStyle}
                 center={mapCenter}
@@ -1351,7 +1844,7 @@ const MapViewPage = () => {
                           />
                         );
                       })}
-                      {route.directions && (
+                      {route.directions && routeVisibility.desktopSurvey && (
                         <DirectionsRenderer
                           directions={route.directions}
                           options={{
@@ -1387,7 +1880,7 @@ const MapViewPage = () => {
                 })}
 
                 {/* Render survey routes for locations with status 5 */}
-                {surveyRoutes.map((route, idx) => {
+                {routeVisibility.physicalSurvey && surveyRoutes.map((route, idx) => {
                   if (!route.directions) return null;
                   const locationData = locations.find(loc => loc._id === route.locationId);
                   const isSelected = selectedLocation && selectedLocation.location && 
@@ -1955,15 +2448,38 @@ const MapViewPage = () => {
           }
         }}
       >
-        <MenuItem onClick={handleExportToExcel} sx={{ py: 1.5, px: 3 }}>
+        <Box sx={{ px: 2, py: 1, borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
+          <Typography variant="subtitle2" fontWeight={600} color="text.secondary">
+            OFC Routes (Desktop Survey)
+          </Typography>
+        </Box>
+        <MenuItem onClick={() => handleExportToExcel('desktop')} sx={{ py: 1.5, px: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <FileDownloadIcon color="primary" />
             <Typography>Export to Excel</Typography>
           </Box>
         </MenuItem>
-        <MenuItem onClick={handleExportToKML} sx={{ py: 1.5, px: 3 }}>
+        <MenuItem onClick={() => handleExportToKML('desktop')} sx={{ py: 1.5, px: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <FileDownloadIcon color="success" />
+            <FileDownloadIcon color="primary" />
+            <Typography>Export to KML</Typography>
+          </Box>
+        </MenuItem>
+        
+        <Box sx={{ px: 2, py: 1, borderBottom: '1px solid rgba(0,0,0,0.1)', mt: 1 }}>
+          <Typography variant="subtitle2" fontWeight={600} color="text.secondary">
+            Survey Routes (Physical Survey)
+          </Typography>
+        </Box>
+        <MenuItem onClick={() => handleExportToExcel('physical')} sx={{ py: 1.5, px: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <FileDownloadIcon color="warning" />
+            <Typography>Export to Excel</Typography>
+          </Box>
+        </MenuItem>
+        <MenuItem onClick={() => handleExportToKML('physical')} sx={{ py: 1.5, px: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <FileDownloadIcon color="warning" />
             <Typography>Export to KML</Typography>
           </Box>
         </MenuItem>
