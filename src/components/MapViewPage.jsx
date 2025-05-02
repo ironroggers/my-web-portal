@@ -1,27 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { GoogleMap, Marker, DirectionsRenderer, useJsApiLoader } from '@react-google-maps/api';
-import { Box, Typography, Paper, CircularProgress, Alert, Container, Card, CardContent, Grid, Chip, Stack, Autocomplete, TextField, Button, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Snackbar } from '@mui/material';
+import { Box, Typography, Paper, CircularProgress, Alert, Container, Card, CardContent, Grid, Chip, Stack, Autocomplete, TextField, Button, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Snackbar, Menu, MenuItem } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import * as XLSX from 'xlsx';
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyC2pds2TL5_lGUM-7Y1CFiGq8Wrn0oULr0'; // Replace with your API Key
 
 const containerStyle = {
   width: '100%',
-  height: '600px',
-  borderRadius: '8px',
+  height: '70vh', // More responsive height
+  borderRadius: '12px',
   margin: 'auto',
   marginBottom: '32px',
+  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)' // Add shadow for depth
 };
 
 const defaultCenter = { lat: 9.31, lng: 76.45 }; // Kerala
 
 // Set color palette for OFC routes to blue shades
-const routeColor = '#1976d2';
-const surveyRouteColor = '#FFD700'; // Yellow color for survey routes
+const routeColor = '#2563eb'; // Brighter blue
+const surveyRouteColor = '#f59e0b'; // More vibrant yellow
 
 const MapViewPage = () => {
   const [locations, setLocations] = useState([]);
@@ -45,7 +48,7 @@ const MapViewPage = () => {
     place: '',
     latitude: 0,
     longitude: 0,
-    type: 'waypoint'
+    type: 'GP'
   });
   const [creatingLocation, setCreatingLocation] = useState(false);
   
@@ -56,7 +59,7 @@ const MapViewPage = () => {
     place: '',
     latitude: 0,
     longitude: 0,
-    type: 'waypoint'
+    type: 'GP'
   });
   const [updatingLocation, setUpdatingLocation] = useState(false);
   
@@ -65,6 +68,10 @@ const MapViewPage = () => {
     message: '',
     severity: 'success'
   });
+
+  // Export menu state
+  const [exportAnchorEl, setExportAnchorEl] = useState(null);
+  const openExportMenu = Boolean(exportAnchorEl);
 
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
@@ -359,7 +366,7 @@ const MapViewPage = () => {
     setNewLocation({
       district: '',
       block: '',
-      status: 1,
+      status: 1, // Keep status as 1 by default
       route: []
     });
   };
@@ -369,7 +376,7 @@ const MapViewPage = () => {
     const { name, value } = e.target;
     setNewLocation(prev => ({
       ...prev,
-      [name]: name === 'status' ? parseInt(value, 10) : value
+      [name]: value
     }));
   };
 
@@ -392,6 +399,17 @@ const MapViewPage = () => {
 
   // Add new route point to the route array
   const handleAddRoutePoint = () => {
+    // Check if trying to add BHQ when one already exists
+    if (newRoutePoint.type === 'BHQ' && 
+        newLocation.route.some(point => point.type === 'BHQ')) {
+      setSnackbar({
+        open: true,
+        message: 'Only one BHQ (Block Head Quarter) can be added per location',
+        severity: 'warning'
+      });
+      return;
+    }
+    
     setNewLocation(prev => ({
       ...prev,
       route: [...prev.route, { ...newRoutePoint }]
@@ -402,7 +420,7 @@ const MapViewPage = () => {
       place: '',
       latitude: 0,
       longitude: 0,
-      type: 'waypoint'
+      type: 'GP'
     });
   };
 
@@ -435,6 +453,8 @@ const MapViewPage = () => {
       // Format data for API
       const formattedData = {
         ...newLocation,
+        // Always set status to 1 for new locations
+        status: 1,
         // Ensure coordinates are numbers, not strings
         route: newLocation.route.map(point => ({
           ...point,
@@ -535,7 +555,7 @@ const MapViewPage = () => {
       place: '',
       latitude: 0,
       longitude: 0,
-      type: 'waypoint'
+      type: 'GP'
     });
   };
 
@@ -544,7 +564,7 @@ const MapViewPage = () => {
     const { name, value } = e.target;
     setEditLocation(prev => ({
       ...prev,
-      [name]: name === 'status' ? parseInt(value, 10) : value
+      [name]: value
     }));
   };
 
@@ -567,6 +587,17 @@ const MapViewPage = () => {
 
   // Add new route point to the edit route array
   const handleAddEditRoutePoint = () => {
+    // Check if trying to add BHQ when one already exists
+    if (editRoutePoint.type === 'BHQ' && 
+        editLocation.route.some(point => point.type === 'BHQ')) {
+      setSnackbar({
+        open: true,
+        message: 'Only one BHQ (Block Head Quarter) can be added per location',
+        severity: 'warning'
+      });
+      return;
+    }
+    
     setEditLocation(prev => ({
       ...prev,
       route: [...prev.route, { ...editRoutePoint }]
@@ -577,12 +608,22 @@ const MapViewPage = () => {
       place: '',
       latitude: 0,
       longitude: 0,
-      type: 'waypoint'
+      type: 'GP'
     });
   };
 
   // Remove route point from the edit array
   const handleRemoveEditRoutePoint = (index) => {
+    // Don't allow removing the last point
+    if (editLocation.route.length <= 1) {
+      setSnackbar({
+        open: true,
+        message: 'Cannot remove the last point. A route must have at least one point.',
+        severity: 'warning'
+      });
+      return;
+    }
+    
     setEditLocation(prev => ({
       ...prev,
       route: prev.route.filter((_, i) => i !== index)
@@ -701,106 +742,483 @@ const MapViewPage = () => {
     });
   };
 
+  // Handle opening export menu
+  const handleExportClick = (event) => {
+    setExportAnchorEl(event.currentTarget);
+  };
+
+  // Handle closing export menu
+  const handleExportClose = () => {
+    setExportAnchorEl(null);
+  };
+
+  // Export to Excel
+  const handleExportToExcel = () => {
+    if (!selectedLocation || !selectedLocation.location) return;
+    
+    // Create data in the format shown in the image
+    const routePoints = selectedLocation.location.route || [];
+    
+    // Format data to match the table in the image
+    const excelData = [];
+    
+    // Add header row (optional)
+    excelData.push([
+      'Sl. No.',
+      'District',
+      'Block',
+      'Gram Panchayat',
+      'From',
+      'Lat',
+      'Long',
+      'To',
+      'Lat',
+      'Long',
+      'Desktop Survey OFC Length (Mtr)',
+      'Total Length in (Mtr)'
+    ]);
+    
+    // Calculate total length - sum of all segment lengths
+    let totalLength = 0;
+    if (selectedLocation.routeInfo && selectedLocation.routeInfo.distance) {
+      totalLength = Math.round(selectedLocation.routeInfo.distance);
+    }
+    
+    // Add rows for each segment of the route
+    if (routePoints.length > 1) {
+      for (let i = 0; i < routePoints.length - 1; i++) {
+        const fromPoint = routePoints[i];
+        const toPoint = routePoints[i + 1];
+        
+        // Calculate distance for this segment (in meters)
+        let segmentDistance = 0;
+        if (selectedLocation.directions && 
+            selectedLocation.directions.routes && 
+            selectedLocation.directions.routes[0] && 
+            selectedLocation.directions.routes[0].legs && 
+            selectedLocation.directions.routes[0].legs[i]) {
+          segmentDistance = Math.round(selectedLocation.directions.routes[0].legs[i].distance.value);
+        }
+        
+        excelData.push([
+          i + 1, // Sl. No.
+          selectedLocation.location.district,
+          selectedLocation.location.block,
+          fromPoint.place, // Gram Panchayat
+          fromPoint.place, // From
+          Number(fromPoint.latitude).toFixed(6), // Lat of From
+          Number(fromPoint.longitude).toFixed(6), // Long of From
+          toPoint.place, // To
+          Number(toPoint.latitude).toFixed(6), // Lat of To
+          Number(toPoint.longitude).toFixed(6), // Long of To
+          segmentDistance, // Desktop Survey OFC Length (Mtr)
+          totalLength // Total Length in (Mtr) - same for all rows
+        ]);
+      }
+      
+      // Add last row to connect back to start (for complete loop)
+      const lastPoint = routePoints[routePoints.length - 1];
+      const firstPoint = routePoints[0];
+      
+      // Calculate distance for the final segment
+      let finalSegmentDistance = 0;
+      if (selectedLocation.directions && 
+          selectedLocation.directions.routes && 
+          selectedLocation.directions.routes[0] && 
+          selectedLocation.directions.routes[0].legs && 
+          selectedLocation.directions.routes[0].legs[routePoints.length - 1]) {
+        finalSegmentDistance = Math.round(selectedLocation.directions.routes[0].legs[routePoints.length - 1].distance.value);
+      }
+      
+      excelData.push([
+        routePoints.length, // Sl. No.
+        selectedLocation.location.district,
+        selectedLocation.location.block,
+        lastPoint.place, // Gram Panchayat
+        lastPoint.place, // From
+        Number(lastPoint.latitude).toFixed(6), // Lat of From
+        Number(lastPoint.longitude).toFixed(6), // Long of From
+        firstPoint.place, // To
+        Number(firstPoint.latitude).toFixed(6), // Lat of To
+        Number(firstPoint.longitude).toFixed(6), // Long of To
+        finalSegmentDistance, // Desktop Survey OFC Length (Mtr)
+        totalLength // Total Length in (Mtr) - same for all rows
+      ]);
+    }
+    
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(excelData);
+    
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'OFC Route');
+    
+    // Generate filename from location info
+    const fileName = `${selectedLocation.location.block}_${selectedLocation.location.district}_OFC_Route.xlsx`;
+    
+    // Write and download the file
+    XLSX.writeFile(wb, fileName);
+    
+    // Close the menu
+    handleExportClose();
+    
+    // Show success message
+    setSnackbar({
+      open: true,
+      message: 'Excel file exported successfully!',
+      severity: 'success'
+    });
+  };
+  
+  // Export to KML
+  const handleExportToKML = () => {
+    if (!selectedLocation || !selectedLocation.location || !selectedLocation.directions) {
+      setSnackbar({
+        open: true,
+        message: 'Error: No route data available for export',
+        severity: 'error'
+      });
+      return;
+    }
+    
+    // Create KML data
+    const routePoints = selectedLocation.location.route || [];
+    
+    // Extract route path points from directions
+    let routePath = [];
+    
+    try {
+      // Extract the detailed path from Google's directions response
+      const routes = selectedLocation.directions.routes;
+      
+      if (routes && routes.length > 0) {
+        // Get the overview path (encoded polyline)
+        routes[0].legs.forEach(leg => {
+          if (leg.steps) {
+            leg.steps.forEach(step => {
+              if (step.path) {
+                // Add each path point 
+                step.path.forEach(point => {
+                  routePath.push({
+                    lat: point.lat(),
+                    lng: point.lng()
+                  });
+                });
+              }
+            });
+          }
+        });
+      }
+      
+      // If we couldn't get the detailed path, use the overview polyline
+      if (routePath.length === 0 && routes[0].overview_path) {
+        routes[0].overview_path.forEach(point => {
+          routePath.push({
+            lat: point.lat(),
+            lng: point.lng() 
+          });
+        });
+      }
+    } catch (error) {
+      console.error("Error extracting route path:", error);
+      // If extraction fails, fall back to direct lines between waypoints
+      if (routePoints.length > 1) {
+        routePoints.forEach(point => {
+          routePath.push({
+            lat: point.latitude,
+            lng: point.longitude
+          });
+        });
+        // Add first point again to close the loop
+        routePath.push({
+          lat: routePoints[0].latitude,
+          lng: routePoints[0].longitude
+        });
+      }
+    }
+    
+    // If we still don't have a path, show an error
+    if (routePath.length === 0) {
+      setSnackbar({
+        open: true,
+        message: 'Error: Could not extract route data from Google Maps',
+        severity: 'error'
+      });
+      return;
+    }
+    
+    // KML header
+    let kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>${selectedLocation.location.block} - ${selectedLocation.location.district} OFC Route</name>
+    <description>Optimized OFC Route for ${selectedLocation.location.block}, ${selectedLocation.location.district}</description>
+    <Style id="routeStyle">
+      <LineStyle>
+        <color>ff0000ff</color>
+        <width>4</width>
+      </LineStyle>
+    </Style>
+    <Style id="waypointStyle">
+      <IconStyle>
+        <color>ff0000ff</color>
+        <scale>1.0</scale>
+        <Icon>
+          <href>http://maps.google.com/mapfiles/kml/pushpin/red-pushpin.png</href>
+        </Icon>
+      </IconStyle>
+    </Style>`;
+    
+    // Add optimized route as LineString
+    kml += `
+    <Placemark>
+      <name>OFC Route (Optimized)</name>
+      <description>Google Maps optimized route</description>
+      <styleUrl>#routeStyle</styleUrl>
+      <LineString>
+        <extrude>1</extrude>
+        <tessellate>1</tessellate>
+        <coordinates>`;
+      
+    // Add all coordinates from the route path
+    routePath.forEach(point => {
+      kml += `
+        ${point.lng},${point.lat},0`;
+    });
+      
+    kml += `
+        </coordinates>
+      </LineString>
+    </Placemark>`;
+    
+    // Add waypoints (the actual stops)
+    routePoints.forEach((point, index) => {
+      kml += `
+    <Placemark>
+      <name>${point.place}</name>
+      <description>Point ${index + 1}: ${point.place} (${point.type})</description>
+      <styleUrl>#waypointStyle</styleUrl>
+      <Point>
+        <coordinates>${point.longitude},${point.latitude},0</coordinates>
+      </Point>
+    </Placemark>`;
+    });
+    
+    // Close KML
+    kml += `
+  </Document>
+</kml>`;
+    
+    // Create Blob
+    const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
+    
+    // Create download link
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${selectedLocation.location.block}_${selectedLocation.location.district}_OFC_Route.kml`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    // Close the menu
+    handleExportClose();
+    
+    // Show success message
+    setSnackbar({
+      open: true,
+      message: 'KML file with optimized route exported successfully!',
+      severity: 'success'
+    });
+  };
+
   return (
-    <Container maxWidth="lg" sx={{ mt: 4 }}>
-      <Paper elevation={3} sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h4" gutterBottom>
-            OFC Route Map View (Google Maps)
+    <Container maxWidth="xl" sx={{ mt: 4, mb: 6 }}>
+      <Paper elevation={3} sx={{ p: 4, borderRadius: '16px', overflow: 'hidden' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+          <Typography variant="h4" fontWeight="700" sx={{ color: '#1e293b' }}>
+            OFC Route Map View
           </Typography>
           <Button 
             variant="contained" 
             color="primary" 
             startIcon={<AddIcon />}
             onClick={handleOpenCreateDialog}
+            sx={{ 
+              borderRadius: '8px',
+              px: 3,
+              py: 1,
+              fontWeight: 600,
+              boxShadow: '0 4px 6px rgba(37, 99, 235, 0.2)'
+            }}
           >
             Create New Location
           </Button>
         </Box>
-        <Typography variant="subtitle1" sx={{ color: 'text.secondary', mb: 2 }}>
+        <Typography variant="subtitle1" sx={{ color: 'text.secondary', mb: 3, lineHeight: 1.6 }}>
           All locations' routes are shown in blue. Survey points are shown in yellow. For locations with status 5, survey points are connected with yellow routes.
         </Typography>
-        {/* Search Dropdown */}
-        <Box sx={{ mb: 3, maxWidth: 400 }}>
-          <Autocomplete
-            options={locationOptions}
-            value={selectedLocation && selectedLocation.location ? `${selectedLocation.location.block} (${selectedLocation.location.district})` : null}
-            onChange={handleLocationSelect}
-            renderInput={(params) => <TextField {...params} label="Search Location" variant="outlined" />}
-            clearOnEscape
-            isOptionEqualToValue={(option, value) => option === value}
-          />
+        
+        {/* Search and controls section */}
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 4 }}>
+          <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
+            <Autocomplete
+              options={locationOptions}
+              value={selectedLocation && selectedLocation.location ? `${selectedLocation.location.block} (${selectedLocation.location.district})` : null}
+              onChange={handleLocationSelect}
+              renderInput={(params) => <TextField 
+                {...params} 
+                label="Search Location" 
+                variant="outlined" 
+                fullWidth
+                InputProps={{
+                  ...params.InputProps,
+                  sx: { borderRadius: '8px' }
+                }}
+              />}
+              clearOnEscape
+              isOptionEqualToValue={(option, value) => option === value}
+              sx={{ 
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: 'rgba(0, 0, 0, 0.12)' },
+                  '&:hover fieldset': { borderColor: 'primary.main' },
+                },
+                '& .MuiAutocomplete-option': {
+                  fontSize: '0.95rem',
+                  whiteSpace: 'normal',
+                  wordBreak: 'break-word'
+                },
+                '& .MuiAutocomplete-inputRoot': {
+                  minHeight: '52px'
+                }
+              }}
+              ListboxProps={{
+                sx: { maxHeight: 250 }
+              }}
+            />
+          </Box>
+          {selectedLocation && (
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button 
+                variant="outlined" 
+                color="primary" 
+                startIcon={<EditIcon />}
+                onClick={handleOpenEditDialog}
+                sx={{ borderRadius: '8px', fontWeight: 500, flex: 1 }}
+              >
+                Edit
+              </Button>
+              <Button
+                variant="outlined"
+                color="success"
+                startIcon={<FileDownloadIcon />}
+                onClick={handleExportClick}
+                sx={{ borderRadius: '8px', fontWeight: 500, flex: 1 }}
+              >
+                Export
+              </Button>
+            </Box>
+          )}
         </Box>
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        
+        {error && <Alert severity="error" sx={{ mb: 3, borderRadius: '8px' }}>{error}</Alert>}
         {loading || !isLoaded ? (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <CircularProgress />
-            <Typography sx={{ mt: 2 }}>Loading map data...</Typography>
+          <Box sx={{ textAlign: 'center', py: 6 }}>
+            <CircularProgress size={60} thickness={4} />
+            <Typography sx={{ mt: 3, fontWeight: 500 }}>Loading map data...</Typography>
           </Box>
         ) : (
           <>
             {/* Legend */}
-            <Stack direction="row" spacing={2} sx={{ mb: 2, flexWrap: 'wrap' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
-                <Box sx={{ width: 18, height: 4, bgcolor: routeColor, mr: 1, border: '1px solid #fff' }} />
-                <Typography variant="body2">OFC Routes</Typography>
+            <Box sx={{ 
+              display: 'flex', 
+              gap: 3, 
+              mb: 3, 
+              flexWrap: 'wrap',
+              p: 2,
+              bgcolor: 'rgba(0,0,0,0.02)',
+              borderRadius: '8px'
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Box sx={{ width: 24, height: 5, bgcolor: routeColor, mr: 1, borderRadius: '4px' }} />
+                <Typography variant="body2" fontWeight={500}>OFC Routes</Typography>
               </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
-                <Box sx={{ width: 18, height: 18, bgcolor: '#FFD700', borderRadius: '50%', mr: 1, border: '2px solid #fff' }} />
-                <Typography variant="body2">Survey Points</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Box sx={{ width: 18, height: 18, bgcolor: '#f44336', borderRadius: '50%', mr: 1, border: '2px solid #fff' }} />
+                <Typography variant="body2" fontWeight={500}>BHQ (Block Head Quarter)</Typography>
               </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
-                <Box sx={{ width: 18, height: 4, bgcolor: surveyRouteColor, mr: 1, border: '1px solid #fff' }} />
-                <Typography variant="body2">Survey Routes (Status 5)</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Box sx={{ width: 18, height: 18, bgcolor: routeColor, borderRadius: '50%', mr: 1, border: '2px solid #fff' }} />
+                <Typography variant="body2" fontWeight={500}>GP (Gram Panchayat)</Typography>
               </Box>
-            </Stack>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Box sx={{ width: 18, height: 18, bgcolor: '#f59e0b', borderRadius: '50%', mr: 1, border: '2px solid #fff' }} />
+                <Typography variant="body2" fontWeight={500}>Survey Points</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Box sx={{ width: 24, height: 5, bgcolor: surveyRouteColor, mr: 1, borderRadius: '4px' }} />
+                <Typography variant="body2" fontWeight={500}>Survey Routes (Status 5)</Typography>
+              </Box>
+            </Box>
 
             {/* Info cards for each location or summary */}
-            <Grid container spacing={2} sx={{ mb: 2 }}>
+            <Grid container spacing={3} sx={{ mb: 3 }}>
               {selectedLocation ? (
                 <Grid item xs={12} md={6} lg={4}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: routeColor }}>
+                  <Card sx={{ 
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.05)', 
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    border: `1px solid ${routeColor}20`
+                  }}>
+                    <CardContent sx={{ p: 3 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 'bold', color: routeColor }}>
                           {selectedLocation.location?.block} ({selectedLocation.location?.district})
                         </Typography>
-                        <Button 
-                          size="small" 
-                          variant="outlined" 
-                          color="primary" 
-                          startIcon={<EditIcon />}
-                          onClick={handleOpenEditDialog}
-                        >
-                          Edit
-                        </Button>
                       </Box>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        Status: {selectedLocation.location?.status}
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        mb: 2, 
+                        p: 1.5, 
+                        bgcolor: 'rgba(0,0,0,0.03)', 
+                        borderRadius: '8px' 
+                      }}>
+                        <Typography variant="subtitle2" sx={{ mr: 1 }}>
+                          Status: {selectedLocation.location?.status}
+                        </Typography>
                         {selectedLocation.location?.status === 5 && 
-                          <Chip label="Survey Route Enabled" color="warning" size="small" sx={{ ml: 1 }} />
+                          <Chip label="Survey Route Enabled" color="warning" size="small" sx={{ fontWeight: 500 }} />
                         }
-                      </Typography>
+                      </Box>
                       {selectedLocation.error && (
-                        <Alert severity="warning" sx={{ my: 1 }}>{selectedLocation.error}</Alert>
+                        <Alert severity="warning" sx={{ my: 2, borderRadius: '8px' }}>{selectedLocation.error}</Alert>
                       )}
                       {selectedLocation.routeInfo && (
                         <>
-                          <Typography variant="subtitle2" color="text.secondary">Total Distance:</Typography>
-                          <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold' }}>
-                            {formatDistance(selectedLocation.routeInfo.distance)}
-                          </Typography>
-                          <Typography variant="subtitle2" color="text.secondary">Estimated Travel Time:</Typography>
-                          <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold' }}>
-                            {formatTime(selectedLocation.routeInfo.time)}
-                          </Typography>
+                          <Grid container spacing={2} sx={{ mb: 2 }}>
+                            <Grid item xs={6}>
+                              <Typography variant="subtitle2" color="text.secondary">Total Distance:</Typography>
+                              <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
+                                {formatDistance(selectedLocation.routeInfo.distance)}
+                              </Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography variant="subtitle2" color="text.secondary">Est. Travel Time:</Typography>
+                              <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
+                                {formatTime(selectedLocation.routeInfo.time)}
+                              </Typography>
+                            </Grid>
+                          </Grid>
                           <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
                             Survey Points: {getSurveysForLocation(selectedLocation.location?._id).length}
                           </Typography>
-                          <Box sx={{ mt: 1 }}>
-                            <Chip label="Optimized OFC Route" color="success" size="small" sx={{ mr: 1 }} />
-                            <Chip label="Complete Loop" color="primary" size="small" sx={{ mr: 1 }} />
-                            <Chip label={`${selectedLocation.routeInfo.legs} Segments`} color="info" size="small" />
+                          <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                            <Chip label="Optimized OFC Route" color="success" size="small" sx={{ fontWeight: 500 }} />
+                            <Chip label="Complete Loop" color="primary" size="small" sx={{ fontWeight: 500 }} />
+                            <Chip label={`${selectedLocation.routeInfo.legs} Segments`} color="info" size="small" sx={{ fontWeight: 500 }} />
                           </Box>
                         </>
                       )}
@@ -819,25 +1237,37 @@ const MapViewPage = () => {
                   }, { distance: 0, time: 0 });
                   return (
                     <Grid item xs={12} md={6} lg={4}>
-                      <Card variant="outlined">
-                        <CardContent>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                      <Card sx={{ 
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.05)', 
+                        borderRadius: '12px',
+                        overflow: 'hidden' 
+                      }}>
+                        <CardContent sx={{ p: 3 }}>
+                          <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.main', mb: 2 }}>
                             Total for All Locations
                           </Typography>
-                          <Typography variant="subtitle2" color="text.secondary">Total Distance:</Typography>
-                          <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold' }}>
-                            {formatDistance(total.distance)}
-                          </Typography>
-                          <Typography variant="subtitle2" color="text.secondary">Estimated Travel Time:</Typography>
-                          <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold' }}>
-                            {formatTime(total.time)}
-                          </Typography>
-                          <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
-                            Total Survey Points: {surveys.length}
-                          </Typography>
-                          <Typography variant="subtitle2" color="text.secondary">
-                            Locations with Survey Routes: {surveyRoutes.length}
-                          </Typography>
+                          <Grid container spacing={2} sx={{ mb: 2 }}>
+                            <Grid item xs={6}>
+                              <Typography variant="subtitle2" color="text.secondary">Total Distance:</Typography>
+                              <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
+                                {formatDistance(total.distance)}
+                              </Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography variant="subtitle2" color="text.secondary">Est. Travel Time:</Typography>
+                              <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
+                                {formatTime(total.time)}
+                              </Typography>
+                            </Grid>
+                          </Grid>
+                          <Box sx={{ mt: 2, p: 1.5, bgcolor: 'rgba(0,0,0,0.03)', borderRadius: '8px' }}>
+                            <Typography variant="subtitle2" color="text.secondary">
+                              Total Survey Points: <strong>{surveys.length}</strong>
+                            </Typography>
+                            <Typography variant="subtitle2" color="text.secondary">
+                              Locations with Survey Routes: <strong>{surveyRoutes.length}</strong>
+                            </Typography>
+                          </Box>
                         </CardContent>
                       </Card>
                     </Grid>
@@ -859,21 +1289,27 @@ const MapViewPage = () => {
                     route.location.district === selectedLocation.location.district;
                   return (
                     <React.Fragment key={`routefrag-${idx}`}>
-                      {route.points.map((point, pidx) => (
-                        <Marker
-                          key={`marker-${idx}-${pidx}`}
-                          position={point}
-                          label={`${pidx + 1}`}
-                          icon={{
-                            path: window.google && window.google.maps ? window.google.maps.SymbolPath.CIRCLE : undefined,
-                            scale: isSelected ? 11 : 7,
-                            fillColor: routeColor,
-                            fillOpacity: 1,
-                            strokeColor: isSelected ? '#000' : '#fff',
-                            strokeWeight: isSelected ? 4 : 2,
-                          }}
-                        />
-                      ))}
+                      {route.points.map((point, pidx) => {
+                        // Determine if this point corresponds to a BHQ type
+                        const routePoint = route.location?.route[pidx];
+                        const isBHQ = routePoint && routePoint.type === 'BHQ';
+                        
+                        return (
+                          <Marker
+                            key={`marker-${idx}-${pidx}`}
+                            position={point}
+                            label={`${pidx + 1}`}
+                            icon={{
+                              path: window.google && window.google.maps ? window.google.maps.SymbolPath.CIRCLE : undefined,
+                              scale: isSelected ? 11 : 7,
+                              fillColor: isBHQ ? '#f44336' : routeColor, // Red color for BHQ points
+                              fillOpacity: 1,
+                              strokeColor: isSelected ? '#000' : '#fff',
+                              strokeWeight: isSelected ? 4 : 2,
+                            }}
+                          />
+                        );
+                      })}
                       {route.directions && (
                         <DirectionsRenderer
                           directions={route.directions}
@@ -943,176 +1379,237 @@ const MapViewPage = () => {
         onClose={handleCloseCreateDialog}
         fullWidth
         maxWidth="lg"
+        PaperProps={{
+          sx: {
+            borderRadius: '12px',
+            overflow: 'hidden'
+          }
+        }}
       >
-        <DialogTitle>
+        <DialogTitle sx={{ 
+          bgcolor: 'primary.main', 
+          color: 'white',
+          fontSize: '1.3rem',
+          fontWeight: 600,
+          py: 2
+        }}>
           Create New Location
           <IconButton
             aria-label="close"
             onClick={handleCloseCreateDialog}
             sx={{
               position: 'absolute',
-              right: 8,
-              top: 8,
+              right: 16,
+              top: 12,
+              color: 'white'
             }}
           >
             <CloseIcon />
           </IconButton>
         </DialogTitle>
-        <DialogContent dividers>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
-              <TextField
-                label="District"
-                name="district"
-                value={newLocation.district}
-                onChange={handleLocationInputChange}
-                fullWidth
-                margin="normal"
-                required
-              />
+        <DialogContent dividers sx={{ p: 3 }}>
+          <Box sx={{ p: 1 }}>
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label="District"
+                  name="district"
+                  value={newLocation.district}
+                  onChange={handleLocationInputChange}
+                  fullWidth
+                  margin="normal"
+                  required
+                  InputProps={{
+                    sx: { borderRadius: '8px' }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label="Block"
+                  name="block"
+                  value={newLocation.block}
+                  onChange={handleLocationInputChange}
+                  fullWidth
+                  margin="normal"
+                  required
+                  InputProps={{
+                    sx: { borderRadius: '8px' }
+                  }}
+                />
+              </Grid>
             </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                label="Block"
-                name="block"
-                value={newLocation.block}
-                onChange={handleLocationInputChange}
-                fullWidth
-                margin="normal"
-                required
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                label="Status"
-                name="status"
-                type="number"
-                value={newLocation.status}
-                onChange={handleLocationInputChange}
-                fullWidth
-                margin="normal"
-                required
-                inputProps={{ min: 1, max: 6 }}
-              />
-            </Grid>
-          </Grid>
 
-          <Typography variant="h6" sx={{ mt: 3, mb: 2 }}>
-            Add Route Points
-          </Typography>
+            <Box 
+              sx={{ 
+                mt: 4, 
+                mb: 3, 
+                borderLeft: '4px solid',
+                borderColor: 'secondary.main',
+                pl: 2,
+                py: 0.5
+              }}
+            >
+              <Typography variant="h6" fontWeight={600}>
+                Add Route Points
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Add all points in the order they should appear in the route
+              </Typography>
+            </Box>
 
-          {/* New route point form */}
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Place Name"
-                name="place"
-                value={newRoutePoint.place}
-                onChange={handleRoutePointChange}
-                fullWidth
-                margin="normal"
-                required
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Latitude"
-                name="latitude"
-                type="number"
-                value={newRoutePoint.latitude}
-                onChange={handleRoutePointChange}
-                fullWidth
-                margin="normal"
-                required
-                inputProps={{ step: 0.000001, min: -90, max: 90 }}
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Longitude"
-                name="longitude"
-                type="number"
-                value={newRoutePoint.longitude}
-                onChange={handleRoutePointChange}
-                fullWidth
-                margin="normal"
-                required
-                inputProps={{ step: 0.000001, min: -180, max: 180 }}
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                select
-                label="Point Type"
-                name="type"
-                value={newRoutePoint.type}
-                onChange={handleRoutePointChange}
-                fullWidth
-                margin="normal"
-                required
-              >
-                <option value="waypoint">Waypoint</option>
-                <option value="landmark">Landmark</option>
-                <option value="junction">Junction</option>
-                <option value="panchayat">Panchayat Office</option>
-                <option value="other">Other</option>
-              </TextField>
-            </Grid>
-            <Grid item xs={12} display="flex" justifyContent="flex-end">
-              <Button 
-                variant="contained" 
-                color="secondary" 
-                onClick={handleAddRoutePoint}
-                disabled={!newRoutePoint.place || !newRoutePoint.type}
-              >
-                Add Point
-              </Button>
-            </Grid>
-          </Grid>
+            {/* New route point form */}
+            <Paper sx={{ p: 2, borderRadius: '12px', mb: 3, bgcolor: 'rgba(0,0,0,0.02)' }}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    label="Place Name"
+                    name="place"
+                    value={newRoutePoint.place}
+                    onChange={handleRoutePointChange}
+                    fullWidth
+                    margin="normal"
+                    required
+                    InputProps={{
+                      sx: { borderRadius: '8px' }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    label="Latitude"
+                    name="latitude"
+                    type="number"
+                    value={newRoutePoint.latitude}
+                    onChange={handleRoutePointChange}
+                    fullWidth
+                    margin="normal"
+                    required
+                    inputProps={{ step: 0.000001, min: -90, max: 90 }}
+                    InputProps={{
+                      sx: { borderRadius: '8px' }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    label="Longitude"
+                    name="longitude"
+                    type="number"
+                    value={newRoutePoint.longitude}
+                    onChange={handleRoutePointChange}
+                    fullWidth
+                    margin="normal"
+                    required
+                    inputProps={{ step: 0.000001, min: -180, max: 180 }}
+                    InputProps={{
+                      sx: { borderRadius: '8px' }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    select
+                    label="Point Type"
+                    name="type"
+                    value={newRoutePoint.type}
+                    onChange={handleRoutePointChange}
+                    fullWidth
+                    margin="normal"
+                    required
+                    InputProps={{
+                      sx: { borderRadius: '8px' }
+                    }}
+                  >
+                    <MenuItem value="BHQ">BHQ (Block Head Quarter)</MenuItem>
+                    <MenuItem value="GP">GP (Gram Panchayat)</MenuItem>
+                    <MenuItem value="others">Others</MenuItem>
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} display="flex" justifyContent="flex-end">
+                  <Button 
+                    variant="contained" 
+                    color="secondary" 
+                    onClick={handleAddRoutePoint}
+                    disabled={!newRoutePoint.place || !newRoutePoint.type}
+                    sx={{ 
+                      borderRadius: '8px', 
+                      px: 3,
+                      fontWeight: 500,
+                      '&:hover': {
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                      }
+                    }}
+                  >
+                    Add Point
+                  </Button>
+                </Grid>
+              </Grid>
+            </Paper>
 
-          {/* Display route points table */}
-          {newLocation.route.length > 0 && (
-            <TableContainer component={Paper} sx={{ mt: 3 }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Place</TableCell>
-                    <TableCell>Latitude</TableCell>
-                    <TableCell>Longitude</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {newLocation.route.map((point, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{point.place}</TableCell>
-                      <TableCell>{point.latitude.toFixed(6)}</TableCell>
-                      <TableCell>{point.longitude.toFixed(6)}</TableCell>
-                      <TableCell>{point.type}</TableCell>
-                      <TableCell>
-                        <IconButton 
-                          size="small" 
-                          color="error" 
-                          onClick={() => handleRemoveRoutePoint(index)}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </TableCell>
+            {/* Display route points table */}
+            {newLocation.route.length > 0 && (
+              <TableContainer component={Paper} sx={{ 
+                mt: 3, 
+                borderRadius: '12px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.05)' 
+              }}>
+                <Table size="small">
+                  <TableHead sx={{ bgcolor: 'primary.light' }}>
+                    <TableRow>
+                      <TableCell sx={{ color: 'white', fontWeight: 500 }}>Place</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 500 }}>Latitude</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 500 }}>Longitude</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 500 }}>Type</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 500 }}>Actions</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
+                  </TableHead>
+                  <TableBody>
+                    {newLocation.route.map((point, index) => (
+                      <TableRow key={index} sx={{ 
+                        '&:nth-of-type(odd)': { bgcolor: 'rgba(0,0,0,0.02)' } 
+                      }}>
+                        <TableCell>{point.place}</TableCell>
+                        <TableCell>{point.latitude.toFixed(6)}</TableCell>
+                        <TableCell>{point.longitude.toFixed(6)}</TableCell>
+                        <TableCell>{point.type}</TableCell>
+                        <TableCell>
+                          <IconButton 
+                            size="small" 
+                            color="error" 
+                            onClick={() => handleRemoveRoutePoint(index)}
+                            sx={{ '&:hover': { bgcolor: 'error.light', color: 'white' } }}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseCreateDialog}>Cancel</Button>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button 
+            onClick={handleCloseCreateDialog}
+            variant="outlined"
+            sx={{ borderRadius: '8px', px: 3 }}
+          >
+            Cancel
+          </Button>
           <Button 
             onClick={handleCreateLocation} 
             variant="contained" 
             color="primary"
             disabled={creatingLocation || !newLocation.district || !newLocation.block || newLocation.route.length === 0}
+            sx={{ 
+              borderRadius: '8px', 
+              px: 4,
+              fontWeight: 600,
+              ml: 2
+            }}
           >
             {creatingLocation ? 'Creating...' : 'Create Location'}
           </Button>
@@ -1125,16 +1622,29 @@ const MapViewPage = () => {
         onClose={handleCloseEditDialog}
         fullWidth
         maxWidth="lg"
+        PaperProps={{
+          sx: {
+            borderRadius: '12px',
+            overflow: 'hidden'
+          }
+        }}
       >
-        <DialogTitle>
+        <DialogTitle sx={{ 
+          bgcolor: 'primary.main', 
+          color: 'white',
+          fontSize: '1.3rem',
+          fontWeight: 600,
+          py: 2
+        }}>
           Edit Location
           <IconButton
             aria-label="close"
             onClick={handleCloseEditDialog}
             sx={{
               position: 'absolute',
-              right: 8,
-              top: 8,
+              right: 16,
+              top: 12,
+              color: 'white'
             }}
           >
             <CloseIcon />
@@ -1235,11 +1745,9 @@ const MapViewPage = () => {
                     margin="normal"
                     required
                   >
-                    <option value="waypoint">Waypoint</option>
-                    <option value="landmark">Landmark</option>
-                    <option value="junction">Junction</option>
-                    <option value="panchayat">Panchayat Office</option>
-                    <option value="other">Other</option>
+                    <MenuItem value="BHQ">BHQ (Block Head Quarter)</MenuItem>
+                    <MenuItem value="GP">GP (Gram Panchayat)</MenuItem>
+                    <MenuItem value="others">Others</MenuItem>
                   </TextField>
                 </Grid>
                 <Grid item xs={12} display="flex" justifyContent="flex-end">
@@ -1257,19 +1765,34 @@ const MapViewPage = () => {
               {/* Display route points table with drag-and-drop */}
               {editLocation.route && editLocation.route.length > 0 && (
                 <Box sx={{ mt: 3 }}>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                    Drag to reorder points. The first point is the starting point.
-                  </Typography>
-                  <TableContainer component={Paper}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    mb: 2, 
+                    p: 2, 
+                    bgcolor: 'info.light', 
+                    borderRadius: '8px',
+                    color: 'info.contrastText'
+                  }}>
+                    <DragIndicatorIcon sx={{ mr: 1 }} />
+                    <Typography variant="subtitle2" fontWeight={500}>
+                      Drag to reorder points. The first point is both the starting and ending point.
+                    </Typography>
+                  </Box>
+                  
+                  <TableContainer component={Paper} sx={{ 
+                    borderRadius: '12px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                  }}>
                     <Table size="small">
-                      <TableHead>
+                      <TableHead sx={{ bgcolor: 'primary.light' }}>
                         <TableRow>
-                          <TableCell width="60px">Order</TableCell>
-                          <TableCell>Place</TableCell>
-                          <TableCell>Latitude</TableCell>
-                          <TableCell>Longitude</TableCell>
-                          <TableCell>Type</TableCell>
-                          <TableCell>Actions</TableCell>
+                          <TableCell width="80px" sx={{ color: 'white', fontWeight: 500 }}>Order</TableCell>
+                          <TableCell sx={{ color: 'white', fontWeight: 500 }}>Place</TableCell>
+                          <TableCell sx={{ color: 'white', fontWeight: 500 }}>Latitude</TableCell>
+                          <TableCell sx={{ color: 'white', fontWeight: 500 }}>Longitude</TableCell>
+                          <TableCell sx={{ color: 'white', fontWeight: 500 }}>Type</TableCell>
+                          <TableCell sx={{ color: 'white', fontWeight: 500 }}>Actions</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -1283,7 +1806,15 @@ const MapViewPage = () => {
                             sx={{ 
                               cursor: 'move',
                               '&:hover': { bgcolor: 'rgba(0,0,0,0.04)' },
-                              ...(index === 0 ? { bgcolor: 'primary.light', color: 'primary.contrastText' } : {})
+                              ...(index === 0 ? { 
+                                bgcolor: 'primary.light', 
+                                '& .MuiTableCell-root': {
+                                  color: 'white',
+                                  fontWeight: 500
+                                }
+                              } : {
+                                '&:nth-of-type(odd)': { bgcolor: 'rgba(0,0,0,0.02)' }
+                              })
                             }}
                           >
                             <TableCell>
@@ -1295,12 +1826,26 @@ const MapViewPage = () => {
                             <TableCell>{point.place}</TableCell>
                             <TableCell>{Number(point.latitude).toFixed(6)}</TableCell>
                             <TableCell>{Number(point.longitude).toFixed(6)}</TableCell>
-                            <TableCell>{point.type}</TableCell>
+                            <TableCell>
+                              <Chip 
+                                label={point.type} 
+                                size="small" 
+                                color={index === 0 ? "default" : "primary"}
+                                variant={index === 0 ? "default" : "outlined"}
+                                sx={{ fontWeight: 500 }}
+                              />
+                            </TableCell>
                             <TableCell>
                               <IconButton 
                                 size="small" 
-                                color="error" 
+                                color={index === 0 ? "default" : "error"} 
                                 onClick={() => handleRemoveEditRoutePoint(index)}
+                                sx={{ 
+                                  '&:hover': { 
+                                    bgcolor: index === 0 ? 'rgba(255,255,255,0.2)' : 'error.light', 
+                                    color: index === 0 ? 'inherit' : 'white' 
+                                  } 
+                                }}
                               >
                                 <DeleteIcon />
                               </IconButton>
@@ -1310,9 +1855,6 @@ const MapViewPage = () => {
                       </TableBody>
                     </Table>
                   </TableContainer>
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1, fontStyle: 'italic' }}>
-                    Note: The first point (highlighted) will be both the starting and ending point of the route.
-                  </Typography>
                 </Box>
               )}
             </>
@@ -1336,10 +1878,54 @@ const MapViewPage = () => {
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={handleCloseSnackbar}
-        message={snackbar.message}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        severity={snackbar.severity}
-      />
+      >
+        <Alert 
+          onClose={handleCloseSnackbar} 
+          severity={snackbar.severity || 'info'} 
+          sx={{ 
+            width: '100%', 
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            borderRadius: '8px',
+            '& .MuiAlert-icon': {
+              fontSize: '1.25rem'
+            },
+            '& .MuiAlert-message': {
+              fontSize: '0.95rem',
+              fontWeight: 500
+            }
+          }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+
+      {/* Export menu */}
+      <Menu
+        anchorEl={exportAnchorEl}
+        open={openExportMenu}
+        onClose={handleExportClose}
+        PaperProps={{
+          sx: { 
+            borderRadius: '8px',
+            mt: 1,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+          }
+        }}
+      >
+        <MenuItem onClick={handleExportToExcel} sx={{ py: 1.5, px: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <FileDownloadIcon color="primary" />
+            <Typography>Export to Excel</Typography>
+          </Box>
+        </MenuItem>
+        <MenuItem onClick={handleExportToKML} sx={{ py: 1.5, px: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <FileDownloadIcon color="success" />
+            <Typography>Export to KML</Typography>
+          </Box>
+        </MenuItem>
+      </Menu>
     </Container>
   );
 };
