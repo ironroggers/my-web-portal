@@ -7,6 +7,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import SurveySidebar from './SurveySidebar';
 import * as XLSX from 'xlsx';
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyC2pds2TL5_lGUM-7Y1CFiGq8Wrn0oULr0'; // Replace with your API Key
@@ -72,6 +73,11 @@ const MapViewPage = () => {
   // Export menu state
   const [exportAnchorEl, setExportAnchorEl] = useState(null);
   const openExportMenu = Boolean(exportAnchorEl);
+
+  // New state variables for survey sidebar
+  const [selectedSurvey, setSelectedSurvey] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loadingSurvey, setLoadingSurvey] = useState(false);
 
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
@@ -1033,6 +1039,41 @@ const MapViewPage = () => {
     });
   };
 
+  // Add this function to handle survey marker click
+  const handleSurveyMarkerClick = async (surveyId) => {
+    try {
+      setLoadingSurvey(true);
+      setSidebarOpen(true);
+      
+      // Check if we already have the full survey data
+      const existingSurvey = surveys.find(s => s._id === surveyId);
+      if (existingSurvey && existingSurvey.mediaFiles) {
+        setSelectedSurvey(existingSurvey);
+        setLoadingSurvey(false);
+        return;
+      }
+      
+      // Fetch complete survey details if needed
+      const response = await fetch(`https://survey-service-nxvj.onrender.com/api/surveys/${surveyId}`);
+      if (!response.ok) throw new Error(`Failed to fetch survey details: ${response.statusText}`);
+      
+      const data = await response.json();
+      if (!data.success) throw new Error('Failed to fetch survey details');
+      
+      setSelectedSurvey(data.data);
+    } catch (err) {
+      console.error('Error fetching survey details:', err);
+      setError(`Error fetching survey details: ${err.message}`);
+    } finally {
+      setLoadingSurvey(false);
+    }
+  };
+  
+  // Add this function to handle sidebar close
+  const handleSidebarClose = () => {
+    setSidebarOpen(false);
+  };
+
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 6 }}>
       <Paper elevation={3} sx={{ p: 4, borderRadius: '16px', overflow: 'hidden' }}>
@@ -1330,6 +1371,7 @@ const MapViewPage = () => {
                           key={`survey-${idx}-${sidx}`}
                           position={{ lat: survey.latlong[0], lng: survey.latlong[1] }}
                           title={survey.title}
+                          onClick={() => handleSurveyMarkerClick(survey._id)}
                           icon={{
                             path: window.google && window.google.maps ? window.google.maps.SymbolPath.CIRCLE : undefined,
                             scale: 8,
@@ -1926,6 +1968,14 @@ const MapViewPage = () => {
           </Box>
         </MenuItem>
       </Menu>
+
+      {/* Survey Sidebar */}
+      <SurveySidebar 
+        open={sidebarOpen}
+        survey={selectedSurvey}
+        loading={loadingSurvey}
+        onClose={handleSidebarClose}
+      />
     </Container>
   );
 };
