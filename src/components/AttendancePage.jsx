@@ -439,7 +439,7 @@ const AttendancePage = () => {
   // Fetch all users
   const fetchUsers = async () => {
     try {
-      const response = await fetch('https://auth-api-xz1q.onrender.com/api/auth/users');
+      const response = await fetch(`${import.meta.env.VITE_AUTH_API_URL}/auth/users`);
       
       if (!response.ok) {
         throw new Error(`Failed to fetch users: ${response.statusText}`);

@@ -3,7 +3,7 @@ import axios from 'axios';
 
 // Create an axios instance with default config
 const api = axios.create({
-  baseURL: 'https://auth-api-xz1q.onrender.com/api',
+  baseURL: import.meta.env.VITE_AUTH_API_URL,
   headers: {
     'Content-Type': 'application/json',
   },

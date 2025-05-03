@@ -53,7 +53,7 @@ const UserManagement = () => {
 
   const fetchPotentialManagers = async () => {
     try {
-      const response = await fetch('https://auth-api-xz1q.onrender.com/api/auth/potential-managers');
+      const response = await fetch(`${import.meta.env.VITE_AUTH_API_URL}/auth/potential-managers`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch potential managers');

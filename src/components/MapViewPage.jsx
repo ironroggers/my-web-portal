@@ -10,7 +10,7 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import SurveySidebar from './SurveySidebar';
 import * as XLSX from 'xlsx';
 
-const GOOGLE_MAPS_API_KEY = 'AIzaSyC2pds2TL5_lGUM-7Y1CFiGq8Wrn0oULr0'; // Replace with your API Key
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 const containerStyle = {
   width: '100%',
@@ -114,7 +114,7 @@ const MapViewPage = () => {
       setError(null);
       
       console.log('Attempting to fetch locations from API...');
-      const apiUrl = 'https://location-service-mig8.onrender.com/api/locations';
+      const apiUrl = `${import.meta.env.VITE_LOCATION_API_URL}/locations`;
       
       // Add CORS headers to the request
       const response = await fetch(apiUrl, {
@@ -161,7 +161,7 @@ const MapViewPage = () => {
 
   const fetchSurveys = async () => {
     try {
-      const response = await fetch('https://survey-service-nxvj.onrender.com/api/surveys');
+      const response = await fetch(`${import.meta.env.VITE_SURVEY_API_URL}/surveys`);
       if (!response.ok) throw new Error(`Failed to fetch surveys: ${response.statusText}`);
       const data = await response.json();
       if (!data.success || !Array.isArray(data.data)) throw new Error('Invalid survey data format received');
@@ -463,7 +463,7 @@ const MapViewPage = () => {
       console.log('Sending location data:', JSON.stringify(newLocation));
       
       // API endpoint
-      const apiEndpoint = 'https://location-service-mig8.onrender.com/api/locations';
+      const apiEndpoint = `${import.meta.env.VITE_LOCATION_API_URL}/locations`;
       
       // Format data for API
       const formattedData = {
@@ -661,7 +661,7 @@ const MapViewPage = () => {
       console.log('Sending updated location data:', JSON.stringify(editLocation));
       
       // API endpoint
-      const apiEndpoint = `https://location-service-mig8.onrender.com/api/locations/${editLocation._id}`;
+      const apiEndpoint = `${import.meta.env.VITE_LOCATION_API_URL}/locations/${editLocation._id}`;
       
       // Format data for API
       const formattedData = {
