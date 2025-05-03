@@ -29,6 +29,7 @@ import ImageIcon from '@mui/icons-material/Image';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import './SurveySidebar.css';
 
 // Helper function to format dates
@@ -58,18 +59,18 @@ const getFileTypeIcon = (fileType) => {
 };
 
 const SurveySidebar = ({ open, survey, loading, onClose }) => {
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [imageDialogOpen, setImageDialogOpen] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState(null);
+  const [mediaDialogOpen, setMediaDialogOpen] = useState(false);
 
-  const handleImageClick = (mediaFile) => {
-    if (mediaFile.fileType === 'IMAGE' && mediaFile.url) {
-      setSelectedImage(mediaFile);
-      setImageDialogOpen(true);
+  const handleMediaClick = (mediaFile) => {
+    if ((mediaFile.fileType === 'IMAGE' || mediaFile.fileType === 'VIDEO') && mediaFile.url) {
+      setSelectedMedia(mediaFile);
+      setMediaDialogOpen(true);
     }
   };
 
-  const handleCloseImageDialog = () => {
-    setImageDialogOpen(false);
+  const handleCloseMediaDialog = () => {
+    setMediaDialogOpen(false);
   };
 
   if (!open) return null;
@@ -173,7 +174,7 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
               <Box className="info-row">
                 <PersonIcon className="info-icon" />
                 <Typography variant="body2">
-                  Created by: {survey.created_by.name || survey.created_by.email || ''}
+                  Created by: {survey.created_by.username || survey.created_by.email || ''}
                 </Typography>
               </Box>
             )}
@@ -182,7 +183,7 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
               <Box className="info-row">
                 <PersonIcon className="info-icon" />
                 <Typography variant="body2">
-                  Updated by: {survey.updated_by.name || survey.updated_by.email || ''}
+                  Updated by: {survey.updated_by.username || survey.updated_by.email || ''}
                 </Typography>
               </Box>
             )}
@@ -197,10 +198,10 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
               
               <Grid container spacing={1} className="media-list">
                 {survey.mediaFiles.map((file, index) => (
-                  <Grid item xs={12} sm={file.fileType === 'IMAGE' ? 6 : 12} key={index}>
+                  <Grid item xs={12} sm={(file.fileType === 'IMAGE' || file.fileType === 'VIDEO') ? 6 : 12} key={index}>
                     <Card className="sidebar-media-card">
                       {file.fileType === 'IMAGE' && file.url ? (
-                        <CardActionArea onClick={() => handleImageClick(file)}>
+                        <CardActionArea onClick={() => handleMediaClick(file)}>
                           <CardMedia
                             component="img"
                             height="120"
@@ -214,6 +215,27 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
                                 {file.description || `Image ${index + 1}`}
                               </Typography>
                               <ZoomInIcon fontSize="small" color="primary" />
+                            </Box>
+                          </CardContent>
+                        </CardActionArea>
+                      ) : file.fileType === 'VIDEO' && file.url ? (
+                        <CardActionArea onClick={() => handleMediaClick(file)}>
+                          <Box sx={{ position: 'relative' }}>
+                            <CardMedia
+                              component="div"
+                              height="120"
+                              className="video-thumbnail"
+                            >
+                              <OndemandVideoIcon sx={{ fontSize: 40, color: '#fff' }} />
+                              <PlayArrowIcon className="video-play-overlay" />
+                            </CardMedia>
+                          </Box>
+                          <CardContent sx={{ p: 1, pb: '8px !important' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <Typography variant="body2" className="media-name" noWrap>
+                                {file.description || `Video ${index + 1}`}
+                              </Typography>
+                              <PlayArrowIcon fontSize="small" color="primary" />
                             </Box>
                           </CardContent>
                         </CardActionArea>
@@ -273,49 +295,49 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
       )}
     </Drawer>
 
-    {/* Image Dialog */}
+    {/* Media Dialog */}
     <Dialog
-      open={imageDialogOpen}
-      onClose={handleCloseImageDialog}
+      open={mediaDialogOpen}
+      onClose={handleCloseMediaDialog}
       maxWidth="lg"
       fullWidth
     >
-      <DialogContent sx={{ p: 0, position: 'relative' }}>
+      <DialogContent className="media-dialog-content">
         <IconButton
-          onClick={handleCloseImageDialog}
+          onClick={handleCloseMediaDialog}
           aria-label="close"
-          sx={{
-            position: 'absolute',
-            right: 8,
-            top: 8,
-            bgcolor: 'rgba(0, 0, 0, 0.5)',
-            color: 'white',
-            '&:hover': {
-              bgcolor: 'rgba(0, 0, 0, 0.7)',
-            }
-          }}
+          className="media-dialog-close"
         >
           <CloseIcon />
         </IconButton>
         
-        {selectedImage && (
+        {selectedMedia && (
           <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
             <Box sx={{ width: '100%', textAlign: 'center' }}>
-              <img
-                src={selectedImage.url}
-                alt={selectedImage.description || "Survey image"}
-                style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain' }}
-              />
+              {selectedMedia.fileType === 'IMAGE' ? (
+                <img
+                  src={selectedMedia.url}
+                  alt={selectedMedia.description || "Survey image"}
+                  style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain' }}
+                />
+              ) : selectedMedia.fileType === 'VIDEO' && (
+                <video
+                  src={selectedMedia.url}
+                  controls
+                  autoPlay
+                  style={{ maxWidth: '100%', maxHeight: '80vh' }}
+                />
+              )}
             </Box>
             
-            {selectedImage.description && (
+            {selectedMedia.description && (
               <Box sx={{ p: 2, bgcolor: 'background.paper' }}>
                 <Typography variant="subtitle1">
-                  {selectedImage.description}
+                  {selectedMedia.description}
                 </Typography>
-                {selectedImage.uploaded_at && (
+                {selectedMedia.uploaded_at && (
                   <Typography variant="caption" color="text.secondary">
-                    Uploaded: {formatDate(selectedImage.uploaded_at)}
+                    Uploaded: {formatDate(selectedMedia.uploaded_at)}
                   </Typography>
                 )}
               </Box>

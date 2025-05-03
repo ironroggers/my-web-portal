@@ -99,4 +99,45 @@
 
 .media-date {
   color: #666;
+}
+
+.video-thumbnail {
+  position: relative;
+  background-color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video-play-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 48px;
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+}
+
+.sidebar-media-card:hover .video-play-overlay {
+  opacity: 1;
+}
+
+.media-dialog-content {
+  padding: 0;
+  position: relative;
+}
+
+.media-dialog-close {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  z-index: 10;
+}
+
+.media-dialog-close:hover {
+  background-color: rgba(0, 0, 0, 0.7);
 } 
