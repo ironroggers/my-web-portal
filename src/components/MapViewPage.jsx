@@ -321,6 +321,43 @@ const MapViewPage = () => {
       }
     }
     
+    // Add final segment to connect back to the starting point
+    if (points.length >= 2 && chunkResults.length > 0) {
+      try {
+        // Get the last point from the last chunk and connect it back to the first point
+        const lastPoint = points[points.length - 1];
+        const firstPoint = points[0];
+        
+        // Skip if the last point is already the same as the first point
+        if (lastPoint.lat !== firstPoint.lat || lastPoint.lng !== firstPoint.lng) {
+          const result = await new Promise((resolve, reject) => {
+            directionsService.route(
+              {
+                origin: lastPoint,
+                destination: firstPoint,
+                travelMode: window.google.maps.TravelMode.WALKING,
+                optimizeWaypoints: false,
+              },
+              (result, status) => {
+                if (status === 'OK') {
+                  resolve(result);
+                } else {
+                  console.error(`Final return segment failed with status: ${status}`);
+                  reject(new Error(`Failed to get directions for final return segment: ${status}`));
+                }
+              }
+            );
+          });
+          
+          // Add the closing segment to complete the loop
+          chunkResults.push(result);
+          console.log('Added final segment to close the loop');
+        }
+      } catch (error) {
+        console.error('Error getting directions for final return segment:', error);
+      }
+    }
+    
     // If we couldn't get any chunk results, return an error
     if (chunkResults.length === 0) {
       return {
@@ -452,6 +489,48 @@ const MapViewPage = () => {
           }
           
           if (chunkResults.length > 0) {
+            // Add final segment to connect back to the starting point (for physical survey routes)
+            try {
+              // Get the last point and connect it back to the first point
+              const lastPoint = points[points.length - 1];
+              const firstPoint = points[0];
+              
+              // Skip if the last point is already the same as the first point
+              if (lastPoint.lat !== firstPoint.lat || lastPoint.lng !== firstPoint.lng) {
+                const result = await new Promise((resolve) => {
+                  directionsService.route(
+                    {
+                      origin: lastPoint,
+                      destination: firstPoint,
+                      travelMode: window.google.maps.TravelMode.WALKING,
+                      optimizeWaypoints: false,
+                    },
+                    (result, status) => {
+                      if (status === 'OK') {
+                        // Add up the distance for this final segment
+                        if (result.routes && result.routes[0] && result.routes[0].legs) {
+                          result.routes[0].legs.forEach(leg => {
+                            totalDistance += leg.distance.value;
+                          });
+                        }
+                        resolve(result);
+                      } else {
+                        console.error(`Final survey return segment failed: ${status}`);
+                        resolve(null);
+                      }
+                    }
+                  );
+                });
+                
+                if (result) {
+                  chunkResults.push(result);
+                  console.log('Added final segment to close the survey route loop');
+                }
+              }
+            } catch (error) {
+              console.error('Error getting directions for final survey return segment:', error);
+            }
+            
             results.push({
               locationId: location._id,
               directions: chunkResults[0], // First chunk for main directions
@@ -481,9 +560,18 @@ const MapViewPage = () => {
               },
               (result, status) => {
                 if (status === 'OK') {
+                  // Calculate total distance for non-chunked routes
+                  let totalDistance = 0;
+                  if (result.routes && result.routes[0] && result.routes[0].legs) {
+                    result.routes[0].legs.forEach(leg => {
+                      totalDistance += leg.distance.value;
+                    });
+                  }
+                  
                   resolve({
                     locationId: location._id,
                     directions: result,
+                    totalDistance: totalDistance // Add the totalDistance property
                   });
                 } else {
                   resolve({
@@ -971,12 +1059,17 @@ const MapViewPage = () => {
     let physicalTotalLength = 0;
     
     // Calculate total physical survey length if available
-    if (surveyRoute && surveyRoute.directions && surveyRoute.directions.routes && 
-        surveyRoute.directions.routes[0] && surveyRoute.directions.routes[0].legs) {
-      surveyRoute.directions.routes[0].legs.forEach(leg => {
-        physicalTotalLength += leg.distance.value;
-      });
-      physicalTotalLength = Math.round(physicalTotalLength);
+    if (surveyRoute) {
+      if (surveyRoute.totalDistance) {
+        // Use pre-calculated total distance
+        physicalTotalLength = Math.round(surveyRoute.totalDistance);
+      } else if (surveyRoute.directions && surveyRoute.directions.routes && 
+          surveyRoute.directions.routes[0] && surveyRoute.directions.routes[0].legs) {
+        surveyRoute.directions.routes[0].legs.forEach(leg => {
+          physicalTotalLength += leg.distance.value;
+        });
+        physicalTotalLength = Math.round(physicalTotalLength);
+      }
     }
     
     // Calculate desktop survey total length
@@ -1021,19 +1114,25 @@ const MapViewPage = () => {
           
           // Calculate distance for this segment (in meters)
           let segmentDistance = 0;
-          if (selectedLocation.directions && 
+          if (selectedLocation && selectedLocation.directions && 
               selectedLocation.directions.routes && 
               selectedLocation.directions.routes[0] && 
-              selectedLocation.directions.routes[0].legs && 
-              selectedLocation.directions.routes[0].legs[i]) {
-            segmentDistance = Math.round(selectedLocation.directions.routes[0].legs[i].distance.value);
+              selectedLocation.directions.routes[0].legs) {
+            // Make sure we have a valid index
+            const legIndex = Math.min(i, selectedLocation.directions.routes[0].legs.length - 1);
+            segmentDistance = Math.round(selectedLocation.directions.routes[0].legs[legIndex].distance.value);
           }
           
           // For comparison - try to find equivalent segment in physical survey
           // This is a simplified approach - in real life, segments may not match exactly
           let physicalSegmentDistance = 0;
-          if (i < (surveyRoute?.directions?.routes?.[0]?.legs?.length || 0)) {
-            physicalSegmentDistance = Math.round(surveyRoute.directions.routes[0].legs[i].distance.value);
+          if (surveyRoute && surveyRoute.directions && 
+              surveyRoute.directions.routes && 
+              surveyRoute.directions.routes[0] && 
+              surveyRoute.directions.routes[0].legs) {
+            // Make sure we have a valid index
+            const legIndex = Math.min(i, surveyRoute.directions.routes[0].legs.length - 1);
+            physicalSegmentDistance = Math.round(surveyRoute.directions.routes[0].legs[legIndex].distance.value);
           }
           
           // Calculate segment difference
@@ -1169,17 +1268,24 @@ const MapViewPage = () => {
           
           // Calculate distance for this segment (in meters)
           let segmentDistance = 0;
-          if (surveyRoute.directions.routes && 
+          if (surveyRoute && surveyRoute.directions && 
+              surveyRoute.directions.routes && 
               surveyRoute.directions.routes[0] && 
-              surveyRoute.directions.routes[0].legs && 
-              surveyRoute.directions.routes[0].legs[i]) {
-            segmentDistance = Math.round(surveyRoute.directions.routes[0].legs[i].distance.value);
+              surveyRoute.directions.routes[0].legs) {
+            // Make sure we have a valid index
+            const legIndex = Math.min(i, surveyRoute.directions.routes[0].legs.length - 1);
+            segmentDistance = Math.round(surveyRoute.directions.routes[0].legs[legIndex].distance.value);
           }
           
           // For comparison - try to find equivalent segment in desktop survey
           let desktopSegmentDistance = 0;
-          if (i < (selectedLocation.directions?.routes?.[0]?.legs?.length || 0)) {
-            desktopSegmentDistance = Math.round(selectedLocation.directions.routes[0].legs[i].distance.value);
+          if (selectedLocation && selectedLocation.directions && 
+              selectedLocation.directions.routes && 
+              selectedLocation.directions.routes[0] && 
+              selectedLocation.directions.routes[0].legs) {
+            // Make sure we have a valid index
+            const legIndex = Math.min(i, selectedLocation.directions.routes[0].legs.length - 1);
+            desktopSegmentDistance = Math.round(selectedLocation.directions.routes[0].legs[legIndex].distance.value);
           }
           
           // Calculate segment difference
@@ -1789,44 +1895,53 @@ const MapViewPage = () => {
                             // Find survey route for this location
                             const surveyRoute = surveyRoutes.find(route => route.locationId === selectedLocation.location._id);
                             
-                            if (surveyRoute && surveyRoute.directions) {
-                              // Calculate total physical survey distance
+                            if (surveyRoute) {
+                              // Get physical survey distance from the pre-calculated totalDistance when available
                               let physicalDistance = 0;
-                              if (surveyRoute.directions.routes && 
+                              
+                              if (surveyRoute.totalDistance) {
+                                // Use the pre-calculated totalDistance
+                                physicalDistance = surveyRoute.totalDistance;
+                              } else if (surveyRoute.directions && 
+                                  surveyRoute.directions.routes && 
                                   surveyRoute.directions.routes[0] && 
                                   surveyRoute.directions.routes[0].legs) {
+                                // Fallback to calculating again if needed
                                 surveyRoute.directions.routes[0].legs.forEach(leg => {
                                   physicalDistance += leg.distance.value;
                                 });
                               }
                               
-                              // Calculate difference
-                              const difference = physicalDistance - selectedLocation.routeInfo.distance;
-                              const percentDiff = ((difference / selectedLocation.routeInfo.distance) * 100).toFixed(1);
-                              
-                              return (
-                                <Grid container spacing={2} sx={{ mb: 2, mt: 0.5, pt: 2, borderTop: '1px dashed rgba(0,0,0,0.1)' }}>
-                                  <Grid item xs={6}>
-                                    <Typography variant="subtitle2" color="text.secondary">Physical Survey Distance:</Typography>
-                                    <Typography variant="body1" color="warning.dark" sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
-                                      {formatDistance(physicalDistance)}
-                                    </Typography>
+                              // Only proceed if we have a valid physical distance
+                              if (physicalDistance > 0) {
+                                // Calculate difference
+                                const difference = physicalDistance - selectedLocation.routeInfo.distance;
+                                const percentDiff = ((difference / selectedLocation.routeInfo.distance) * 100).toFixed(1);
+                                
+                                return (
+                                  <Grid container spacing={2} sx={{ mb: 2, mt: 0.5, pt: 2, borderTop: '1px dashed rgba(0,0,0,0.1)' }}>
+                                    <Grid item xs={6}>
+                                      <Typography variant="subtitle2" color="text.secondary">Physical Survey Distance:</Typography>
+                                      <Typography variant="body1" color="warning.dark" sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
+                                        {formatDistance(physicalDistance)}
+                                      </Typography>
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                      <Typography variant="subtitle2" color="text.secondary">Difference:</Typography>
+                                      <Typography 
+                                        variant="body1" 
+                                        color={difference > 0 ? "error.main" : "success.main"} 
+                                        sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}
+                                      >
+                                        {formatDistance(Math.abs(difference))} ({difference > 0 ? '+' : '-'}{Math.abs(percentDiff)}%)
+                                      </Typography>
+                                      <Typography variant="caption" color="text.secondary">
+                                        {difference > 0 ? 'Physical survey is longer' : 'Physical survey is shorter'}
+                                      </Typography>
+                                    </Grid>
                                   </Grid>
-                                  <Grid item xs={6}>
-                                    <Typography variant="subtitle2" color="text.secondary">Difference:</Typography>
-                                    <Typography 
-                                      variant="body1" 
-                                      color={difference > 0 ? "error.main" : "success.main"} 
-                                      sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}
-                                    >
-                                      {formatDistance(Math.abs(difference))} ({difference > 0 ? '+' : '-'}{Math.abs(percentDiff)}%)
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary">
-                                      {difference > 0 ? 'Physical survey is longer' : 'Physical survey is shorter'}
-                                    </Typography>
-                                  </Grid>
-                                </Grid>
-                              );
+                                );
+                              }
                             }
                             return null;
                           })()}
@@ -1887,13 +2002,17 @@ const MapViewPage = () => {
                             let validSurveyRoutes = 0;
                             
                             surveyRoutes.forEach(route => {
-                              if (route.directions && route.directions.routes && 
+                              // Use pre-calculated totalDistance when available
+                              if (route.totalDistance) {
+                                totalPhysicalDistance += route.totalDistance;
+                                validSurveyRoutes++;
+                              } else if (route.directions && route.directions.routes && 
                                   route.directions.routes[0] && route.directions.routes[0].legs) {
-                                let physicalDistance = 0;
+                                let routeDistance = 0;
                                 route.directions.routes[0].legs.forEach(leg => {
-                                  physicalDistance += leg.distance.value;
+                                  routeDistance += leg.distance.value;
                                 });
-                                totalPhysicalDistance += physicalDistance;
+                                totalPhysicalDistance += routeDistance;
                                 validSurveyRoutes++;
                               }
                             });
