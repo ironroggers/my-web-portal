@@ -3,7 +3,7 @@ import axios from 'axios';
 
 // Create an axios instance with default config
 const api = axios.create({
-  baseURL: import.meta.env.VITE_AUTH_API_URL,
+  baseURL: import.meta.env.VITE_AUTH_API_URL || 'https://api.annuprojects.com/api',
   headers: {
     'Content-Type': 'application/json',
   },

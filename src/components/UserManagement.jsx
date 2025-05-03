@@ -53,7 +53,8 @@ const UserManagement = () => {
 
   const fetchPotentialManagers = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_AUTH_API_URL}/auth/potential-managers`);
+      const baseUrl = import.meta.env.VITE_AUTH_API_URL || 'https://api.annuprojects.com/api';
+      const response = await fetch(`${baseUrl}/auth/potential-managers`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch potential managers');

@@ -95,7 +95,7 @@ const LandingPage = () => {
       setStatsError(null);
       
       // Fetch users from auth API
-      const usersResponse = await fetch(`${import.meta.env.VITE_AUTH_API_URL}/auth/users`);
+      const usersResponse = await fetch(`${import.meta.env.VITE_AUTH_API_URL || 'https://api.annuprojects.com/api'}/auth/users`);
       if (!usersResponse.ok) {
         throw new Error('Failed to fetch users data');
       }
@@ -122,7 +122,7 @@ const LandingPage = () => {
       const month = String(today.getMonth() + 1).padStart(2, '0');
       const year = today.getFullYear();
       
-      const attendanceResponse = await fetch(`${import.meta.env.VITE_ATTENDANCE_API_URL}/attendance/all?month=${month}&year=${year}`);
+      const attendanceResponse = await fetch(`${import.meta.env.VITE_ATTENDANCE_API_URL || 'https://attendance.annuprojects.com/api'}/attendance/all?month=${month}&year=${year}`);
       if (!attendanceResponse.ok) {
         throw new Error('Failed to fetch attendance data');
       }
@@ -186,7 +186,7 @@ const LandingPage = () => {
       const month = String(today.getMonth() + 1).padStart(2, '0');
       const year = today.getFullYear();
       
-      const response = await fetch(`${import.meta.env.VITE_ATTENDANCE_API_URL}/attendance/all?month=${month}&year=${year}`);
+      const response = await fetch(`${import.meta.env.VITE_ATTENDANCE_API_URL || 'https://attendance.annuprojects.com/api'}/attendance/all?month=${month}&year=${year}`);
       if (!response.ok) {
         throw new Error('Failed to fetch attendance data');
       }
@@ -197,7 +197,7 @@ const LandingPage = () => {
       }
       
       // Get user information to enrich attendance records
-      const usersResponse = await fetch(`${import.meta.env.VITE_AUTH_API_URL}/auth/users`);
+      const usersResponse = await fetch(`${import.meta.env.VITE_AUTH_API_URL || 'https://api.annuprojects.com/api'}/auth/users`);
       if (!usersResponse.ok) {
         throw new Error('Failed to fetch users data');
       }
