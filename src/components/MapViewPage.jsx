@@ -201,55 +201,169 @@ const MapViewPage = () => {
             location,
           };
         }
-        const directionsService = new window.google.maps.DirectionsService();
-        const origin = points[0];
-        const destination = points[0]; // Loop
-        const waypoints = points.slice(1).map(p => ({ location: p, stopover: true }));
-        return new Promise((resolve) => {
+
+        // Handle case where we have more than 10 waypoints (Google Maps API limit)
+        if (points.length > 11) { // 10 waypoints + origin = 11
+          // Need to break into chunks
+          return await getChunkedRoutes(points, location);
+        } else {
+          // Original code for 10 or fewer waypoints
+          const directionsService = new window.google.maps.DirectionsService();
+          const origin = points[0];
+          const destination = points[0]; // Loop
+          const waypoints = points.slice(1).map(p => ({ location: p, stopover: true }));
+          return new Promise((resolve) => {
+            directionsService.route(
+              {
+                origin,
+                destination,
+                waypoints,
+                travelMode: window.google.maps.TravelMode.WALKING,
+                optimizeWaypoints: true,
+              },
+              (result, status) => {
+                if (status === 'OK') {
+                  let totalDistance = 0;
+                  let totalDuration = 0;
+                  result.routes[0].legs.forEach(leg => {
+                    totalDistance += leg.distance.value;
+                    totalDuration += leg.duration.value;
+                  });
+                  resolve({
+                    points,
+                    directions: result,
+                    routeInfo: {
+                      distance: totalDistance,
+                      time: totalDuration,
+                      legs: result.routes[0].legs.length,
+                    },
+                    mapCenter: points[0],
+                    error: null,
+                    location,
+                  });
+                } else {
+                  resolve({
+                    points,
+                    directions: null,
+                    routeInfo: null,
+                    mapCenter: points[0] || defaultCenter,
+                    error: 'Failed to get optimized route from Google Maps.',
+                    location,
+                  });
+                }
+              }
+            );
+          });
+        }
+      })
+    );
+    setLocationRoutes(results);
+  };
+
+  // Function to handle routes with more than 10 waypoints
+  const getChunkedRoutes = async (points, location) => {
+    const directionsService = new window.google.maps.DirectionsService();
+    
+    // Split points into chunks (max 9 waypoints per chunk to allow for start/end points)
+    // We use 9 instead of 10 to ensure we have room for start and end points
+    const chunkSize = 9;
+    const chunks = [];
+    
+    // First collect all the chunks, using overlapping points so routes connect
+    for (let i = 0; i < points.length; i += chunkSize - 1) {
+      if (i + chunkSize >= points.length) {
+        // Last chunk - include all remaining points
+        chunks.push(points.slice(i));
+      } else {
+        // Regular chunk with chunkSize points
+        chunks.push(points.slice(i, i + chunkSize));
+      }
+    }
+    
+    console.log(`Split ${points.length} points into ${chunks.length} chunks`);
+
+    // Now get directions for each chunk
+    const chunkResults = [];
+    
+    for (let i = 0; i < chunks.length; i++) {
+      const chunkPoints = chunks[i];
+      const origin = chunkPoints[0];
+      const destination = chunkPoints[chunkPoints.length - 1];
+      const waypoints = chunkPoints.slice(1, chunkPoints.length - 1).map(p => ({ 
+        location: p, 
+        stopover: true 
+      }));
+      
+      try {
+        const result = await new Promise((resolve, reject) => {
           directionsService.route(
             {
               origin,
               destination,
               waypoints,
               travelMode: window.google.maps.TravelMode.WALKING,
-              optimizeWaypoints: true,
+              optimizeWaypoints: false, // Don't optimize order as we want to follow the exact order
             },
             (result, status) => {
               if (status === 'OK') {
-                let totalDistance = 0;
-                let totalDuration = 0;
-                result.routes[0].legs.forEach(leg => {
-                  totalDistance += leg.distance.value;
-                  totalDuration += leg.duration.value;
-                });
-                resolve({
-                  points,
-                  directions: result,
-                  routeInfo: {
-                    distance: totalDistance,
-                    time: totalDuration,
-                    legs: result.routes[0].legs.length,
-                  },
-                  mapCenter: points[0],
-                  error: null,
-                  location,
-                });
+                resolve(result);
               } else {
-                resolve({
-                  points,
-                  directions: null,
-                  routeInfo: null,
-                  mapCenter: points[0] || defaultCenter,
-                  error: 'Failed to get optimized route from Google Maps.',
-                  location,
-                });
+                console.error(`Chunk ${i} failed with status: ${status}`);
+                reject(new Error(`Failed to get directions for chunk ${i}: ${status}`));
               }
             }
           );
         });
-      })
-    );
-    setLocationRoutes(results);
+        
+        chunkResults.push(result);
+      } catch (error) {
+        console.error(`Error getting directions for chunk ${i}:`, error);
+      }
+    }
+    
+    // If we couldn't get any chunk results, return an error
+    if (chunkResults.length === 0) {
+      return {
+        points,
+        directions: null,
+        routeInfo: null,
+        mapCenter: points[0] || defaultCenter,
+        error: 'Failed to get directions for all route segments.',
+        location,
+        chunks: null
+      };
+    }
+    
+    // Calculate the total distance and duration across all chunks
+    let totalDistance = 0;
+    let totalDuration = 0;
+    let totalLegs = 0;
+    
+    chunkResults.forEach(result => {
+      if (result && result.routes && result.routes[0] && result.routes[0].legs) {
+        result.routes[0].legs.forEach(leg => {
+          totalDistance += leg.distance.value;
+          totalDuration += leg.duration.value;
+          totalLegs++;
+        });
+      }
+    });
+    
+    // Return the chunked results
+    return {
+      points,
+      directions: chunkResults[0], // We'll use the first chunk for the main directions object
+      routeInfo: {
+        distance: totalDistance,
+        time: totalDuration,
+        legs: totalLegs,
+      },
+      mapCenter: points[0],
+      error: null,
+      location,
+      chunks: chunkResults, // Store all chunks to render separately
+      isChunked: true
+    };
   };
 
   // Calculate routes for survey points for locations with status 5
@@ -281,41 +395,111 @@ const MapViewPage = () => {
 
       if (points.length < 2) continue;
 
-      // Calculate route for these points
-      try {
-        const origin = points[0];
-        const destination = points[0]; // Create a loop
-        const waypoints = points.slice(1).map(p => ({ location: p, stopover: true }));
-        
-        const result = await new Promise((resolve) => {
-          directionsService.route(
-            {
-              origin,
-              destination,
-              waypoints,
-              travelMode: window.google.maps.TravelMode.WALKING,
-              optimizeWaypoints: true,
-            },
-            (result, status) => {
-              if (status === 'OK') {
-                resolve({
-                  locationId: location._id,
-                  directions: result,
-                });
-              } else {
-                resolve({
-                  locationId: location._id,
-                  directions: null,
-                  error: `Failed to get directions: ${status}`
-                });
-              }
+      // If we have too many points, use the chunking approach
+      if (points.length > 11) { // More than 10 waypoints plus origin
+        try {
+          // Apply similar chunking as in getAllLocationRoutes
+          const chunkSize = 9;
+          const chunks = [];
+          
+          for (let i = 0; i < points.length; i += chunkSize - 1) {
+            if (i + chunkSize >= points.length) {
+              chunks.push(points.slice(i));
+            } else {
+              chunks.push(points.slice(i, i + chunkSize));
             }
-          );
-        });
-        
-        results.push(result);
-      } catch (err) {
-        console.error(`Error calculating survey route for location ${location._id}:`, err);
+          }
+          
+          const chunkResults = [];
+          let totalDistance = 0;
+          
+          for (let i = 0; i < chunks.length; i++) {
+            const chunkPoints = chunks[i];
+            const origin = chunkPoints[0];
+            const destination = chunkPoints[chunkPoints.length - 1];
+            const waypoints = chunkPoints.slice(1, chunkPoints.length - 1).map(p => ({ 
+              location: p, 
+              stopover: true 
+            }));
+            
+            const result = await new Promise((resolve) => {
+              directionsService.route(
+                {
+                  origin,
+                  destination,
+                  waypoints,
+                  travelMode: window.google.maps.TravelMode.WALKING,
+                  optimizeWaypoints: false,
+                },
+                (result, status) => {
+                  if (status === 'OK') {
+                    // Add up the distance
+                    if (result.routes && result.routes[0] && result.routes[0].legs) {
+                      result.routes[0].legs.forEach(leg => {
+                        totalDistance += leg.distance.value;
+                      });
+                    }
+                    resolve(result);
+                  } else {
+                    console.error(`Survey chunk ${i} failed: ${status}`);
+                    resolve(null);
+                  }
+                }
+              );
+            });
+            
+            if (result) chunkResults.push(result);
+          }
+          
+          if (chunkResults.length > 0) {
+            results.push({
+              locationId: location._id,
+              directions: chunkResults[0], // First chunk for main directions
+              chunks: chunkResults,
+              isChunked: true,
+              totalDistance: totalDistance
+            });
+          }
+        } catch (err) {
+          console.error(`Error calculating chunked survey route for location ${location._id}:`, err);
+        }
+      } else {
+        // Original logic for 10 or fewer waypoints
+        try {
+          const origin = points[0];
+          const destination = points[0]; // Create a loop
+          const waypoints = points.slice(1).map(p => ({ location: p, stopover: true }));
+          
+          const result = await new Promise((resolve) => {
+            directionsService.route(
+              {
+                origin,
+                destination,
+                waypoints,
+                travelMode: window.google.maps.TravelMode.WALKING,
+                optimizeWaypoints: true,
+              },
+              (result, status) => {
+                if (status === 'OK') {
+                  resolve({
+                    locationId: location._id,
+                    directions: result,
+                  });
+                } else {
+                  resolve({
+                    locationId: location._id,
+                    directions: null,
+                    error: `Failed to get directions: ${status}`
+                  });
+                }
+              }
+            );
+          });
+          
+          results.push(result);
+        } catch (err) {
+          console.error(`Error calculating survey route for location ${location._id}:`, err);
+        }
       }
     }
 
@@ -1844,7 +2028,25 @@ const MapViewPage = () => {
                           />
                         );
                       })}
-                      {route.directions && routeVisibility.desktopSurvey && (
+                      {/* Render chunked routes if they exist */}
+                      {route.isChunked && route.chunks && routeVisibility.desktopSurvey && 
+                        route.chunks.map((chunk, chunkIdx) => (
+                          <DirectionsRenderer
+                            key={`chunk-${idx}-${chunkIdx}`}
+                            directions={chunk}
+                            options={{
+                              suppressMarkers: true,
+                              polylineOptions: {
+                                strokeColor: routeColor,
+                                strokeWeight: isSelected ? 10 : 6,
+                                strokeOpacity: isSelected ? 1 : 0.9,
+                              },
+                            }}
+                          />
+                        ))
+                      }
+                      {/* Render single route if not chunked */}
+                      {!route.isChunked && route.directions && routeVisibility.desktopSurvey && (
                         <DirectionsRenderer
                           directions={route.directions}
                           options={{
@@ -1887,19 +2089,40 @@ const MapViewPage = () => {
                     locationData && selectedLocation.location._id === locationData._id;
                   
                   return (
-                    <DirectionsRenderer
-                      key={`survey-route-${idx}`}
-                      directions={route.directions}
-                      options={{
-                        suppressMarkers: true,
-                        polylineOptions: {
-                          strokeColor: surveyRouteColor,
-                          strokeWeight: isSelected ? 6 : 4,
-                          strokeOpacity: 0.8,
-                          strokeDasharray: "5,5", // Create a dashed line
-                        },
-                      }}
-                    />
+                    <React.Fragment key={`survey-route-frag-${idx}`}>
+                      {/* Render chunked survey routes if they exist */}
+                      {route.isChunked && route.chunks ? (
+                        route.chunks.map((chunk, chunkIdx) => (
+                          <DirectionsRenderer
+                            key={`survey-chunk-${idx}-${chunkIdx}`}
+                            directions={chunk}
+                            options={{
+                              suppressMarkers: true,
+                              polylineOptions: {
+                                strokeColor: surveyRouteColor,
+                                strokeWeight: isSelected ? 6 : 4,
+                                strokeOpacity: 0.8,
+                                strokeDasharray: "5,5", // Create a dashed line
+                              },
+                            }}
+                          />
+                        ))
+                      ) : (
+                        <DirectionsRenderer
+                          key={`survey-route-${idx}`}
+                          directions={route.directions}
+                          options={{
+                            suppressMarkers: true,
+                            polylineOptions: {
+                              strokeColor: surveyRouteColor,
+                              strokeWeight: isSelected ? 6 : 4,
+                              strokeOpacity: 0.8,
+                              strokeDasharray: "5,5", // Create a dashed line
+                            },
+                          }}
+                        />
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </GoogleMap>
