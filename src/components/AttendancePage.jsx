@@ -40,16 +40,57 @@ const AttendancePage = () => {
   };
 
   return (
-    <Paper elevation={3} sx={{ padding: 0, margin: 2 }}>
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+    <Paper 
+      elevation={3} 
+      sx={{ 
+        padding: 0, 
+        margin: 2,
+        borderRadius: "8px",
+        overflow: "hidden"
+      }}
+    >
+      <Box 
+        sx={{ 
+          borderBottom: 1, 
+          borderColor: 'divider',
+          backgroundColor: "#f5f5f5"
+        }}
+      >
+        <Typography 
+          variant="h5" 
+          component="h1" 
+          sx={{ 
+            p: 2, 
+            fontWeight: 500 
+          }}
+        >
+          Attendance Management
+        </Typography>
         <Tabs 
           value={tabValue} 
           onChange={handleTabChange} 
           aria-label="attendance tabs"
           centered
+          sx={{
+            backgroundColor: "#fff",
+            "& .MuiTab-root": {
+              minHeight: "54px",
+              fontSize: "0.95rem"
+            }
+          }}
         >
-          <Tab icon={<MapIcon />} label="Map View" {...a11yProps(0)} />
-          <Tab icon={<CalendarMonthIcon />} label="Calendar View" {...a11yProps(1)} />
+          <Tab 
+            icon={<MapIcon />} 
+            iconPosition="start"
+            label="Map View" 
+            {...a11yProps(0)} 
+          />
+          <Tab 
+            icon={<CalendarMonthIcon />} 
+            iconPosition="start"
+            label="Calendar View" 
+            {...a11yProps(1)} 
+          />
         </Tabs>
       </Box>
       
