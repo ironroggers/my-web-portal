@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { Paper, Typography, Tabs, Tab, Box } from '@mui/material';
 import MapIcon from '@mui/icons-material/Map';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
 import AttendanceMapView from './AttendanceMapView';
 import AttendanceCalendarView from './AttendanceCalendarView';
+import AttendanceDetailedView from './AttendanceDetailedView';
 
 function TabPanel(props) {
   const { children, value, index, ...other } = props;
@@ -91,6 +93,12 @@ const AttendancePage = () => {
             label="Calendar View" 
             {...a11yProps(1)} 
           />
+          <Tab 
+            icon={<FormatListBulletedIcon />} 
+            iconPosition="start"
+            label="Detailed View" 
+            {...a11yProps(2)} 
+          />
         </Tabs>
       </Box>
       
@@ -100,6 +108,10 @@ const AttendancePage = () => {
       
       <TabPanel value={tabValue} index={1}>
         <AttendanceCalendarView />
+      </TabPanel>
+
+      <TabPanel value={tabValue} index={2}>
+        <AttendanceDetailedView />
       </TabPanel>
     </Paper>
   );
