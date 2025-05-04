@@ -40,7 +40,7 @@ const AttendanceMapView = () => {
         today.setHours(0, 0, 0, 0);
         
         // Get all attendance records for today with status 'present'
-        const attendanceResponse = await axios.get(`${ATTENDANCE_API_URL}/api/attendance/all`, {
+        const attendanceResponse = await axios.get(`${ATTENDANCE_API_URL}/attendance/all`, {
           params: {
             startDate: today.toISOString(),
             endDate: today.toISOString(),
@@ -57,7 +57,7 @@ const AttendanceMapView = () => {
         );
         
         // Fetch user data from auth API to get roles
-        const userResponse = await axios.get(`${AUTH_API_URL}/api/auth/users`, {
+        const userResponse = await axios.get(`${AUTH_API_URL}/auth/users`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`
           }
