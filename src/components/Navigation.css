@@ -1,5 +1,31 @@
 .navigation {
-  margin-bottom: 20px;
+  background: linear-gradient(90deg, #1976d2, #1565c0) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
+  position: relative !important;
+  z-index: 10;
+  width: 100%;
+}
+
+.navigation-content {
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+@media (max-width: 900px) {
+  .navigation-content {
+    padding: 0 16px;
+  }
+}
+
+@media (max-width: 600px) {
+  .navigation-content {
+    padding: 0 12px;
+  }
 }
 
 /* Styles for active navigation links */

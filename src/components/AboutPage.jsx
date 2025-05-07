@@ -57,11 +57,11 @@ const AboutPage = () => {
     <div className="about-container">
       <Paper elevation={3} className="about-paper">
         <Typography variant="h4" component="h1" gutterBottom>
-          About Survey Management Portal
+          About Project Management Portal
         </Typography>
         
         <Typography variant="body1" paragraph>
-          The Survey Management Portal is a comprehensive solution designed to streamline the process of managing field surveys, surveyors, and their tasks. Our platform provides tools for user management, attendance tracking, survey approval workflows, and geographic visualization of survey data.
+          The Project Management Portal is a comprehensive solution designed to streamline the process of managing field surveys, surveyors, and their tasks. Our platform provides tools for user management, attendance tracking, survey approval workflows, and geographic visualization of survey data.
         </Typography>
         
         <Box className="mission-section">
@@ -151,7 +151,7 @@ const AboutPage = () => {
         
         <Box className="version-section">
           <Typography variant="body2" color="textSecondary" align="center">
-            Survey Management Portal v1.0.0 | © 2024 Survey Tech Solutions
+            Project Management Portal v1.0.0 | © 2024 Survey Tech Solutions
           </Typography>
         </Box>
       </Paper>

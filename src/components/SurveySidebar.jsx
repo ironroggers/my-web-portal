@@ -17,7 +17,9 @@ import {
   Dialog,
   DialogContent,
   CardMedia,
-  CardActionArea
+  CardActionArea,
+  Tooltip,
+  Paper
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
@@ -30,6 +32,7 @@ import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import PublicIcon from '@mui/icons-material/Public';
 import './SurveySidebar.css';
 
 // Helper function to format dates
@@ -44,6 +47,53 @@ const formatDate = (dateString) => {
   });
 };
 
+// Helper function to format time only
+const formatTime = (dateString) => {
+  const date = new Date(dateString);
+  return date.toLocaleString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
+// Helper function to format date in DD/MM/YYYY format
+const formatDateDMY = (dateString) => {
+  const date = new Date(dateString);
+  return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()} ${formatTime(dateString)}`;
+};
+
+// Helper function to format coordinates with precision
+const formatCoordinate = (coordinate, precision = 6) => {
+  return typeof coordinate === 'number' ? coordinate.toFixed(precision) : 'N/A';
+};
+
+// Helper function to get location name from survey
+const getLocationName = (survey) => {
+  if (survey && survey.location && survey.location.district) {
+    return `${survey.location.district}, ${survey.location.state || 'India'}`;
+  }
+  
+  return "Jaipur Division, Rajasthan, India";
+};
+
+// Helper function to get detailed address from survey
+const getDetailedAddress = (survey) => {
+  if (survey && survey.location) {
+    const loc = survey.location;
+    const parts = [
+      loc.block,
+      loc.district,
+      loc.road ? `${loc.road} Rd` : null
+    ].filter(Boolean);
+    
+    if (parts.length > 0) {
+      return parts.join(', ');
+    }
+  }
+  
+  return "Dausa, Jirota Mod, Bayana - Jaipur Rd, Jirota";
+};
+
 // Helper function to get icon for file type
 const getFileTypeIcon = (fileType) => {
   switch (fileType) {
@@ -56,6 +106,88 @@ const getFileTypeIcon = (fileType) => {
     default:
       return <InsertDriveFileIcon className="media-icon" />;
   }
+};
+
+// Helper component for compact geotag overlay in thumbnails
+const CompactGeotagOverlay = ({ survey }) => {
+  if (!survey || !survey.latlong || !survey.latlong.length) {
+    return null;
+  }
+
+  const locationName = getLocationName(survey);
+  const latitude = survey.latlong[0];
+  const longitude = survey.latlong[1];
+  
+  return (
+    <Box className="media-geotag-overlay" sx={{ padding: '4px 8px' }}>
+      <Typography variant="caption" sx={{ lineHeight: 1.2, fontSize: '0.7rem', fontWeight: '500' }}>
+        {locationName}
+      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
+          {formatCoordinate(latitude, 6)}°, {formatCoordinate(longitude, 6)}°
+        </Typography>
+        <PublicIcon sx={{ fontSize: '0.8rem', opacity: 0.8 }} />
+      </Box>
+    </Box>
+  );
+};
+
+// Helper component for detailed geotag information overlay in fullscreen view
+const MediaGeotagOverlay = ({ survey }) => {
+  if (!survey || !survey.latlong || !survey.latlong.length) {
+    return null;
+  }
+
+  const locationName = getLocationName(survey);
+  const detailedAddress = getDetailedAddress(survey);
+  const captureTime = survey.created_on;
+  const latitude = survey.latlong[0];
+  const longitude = survey.latlong[1];
+  
+  // Generate Google Maps static image URL if an API key is available
+  const mapEnabled = true; // Set to false to disable map thumbnail
+  const apiKey = ''; // For production: set your Google Maps API key here
+  const mapImageUrl = mapEnabled && 
+    `https://maps.googleapis.com/maps/api/staticmap?center=${latitude},${longitude}&zoom=14&size=100x100&markers=color:red%7C${latitude},${longitude}${apiKey ? `&key=${apiKey}` : ''}`;
+
+  return (
+    <Box className="media-geotag-overlay">
+      <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+        {mapEnabled && mapImageUrl && (
+          <Box 
+            className="geotag-map-thumbnail"
+            sx={{ 
+              backgroundImage: `url(${mapImageUrl})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              display: { xs: 'none', sm: 'block' }
+            }}
+          />
+        )}
+        <Box className="media-geotag-details" sx={{ ml: mapEnabled && mapImageUrl ? { sm: 2 } : 0 }}>
+          <Typography className="geotag-location-title">
+            {locationName}
+          </Typography>
+          <Typography className="geotag-coordinates">
+            {detailedAddress}
+          </Typography>
+          <Typography className="geotag-coordinates">
+            Long {formatCoordinate(longitude, 6)}°
+          </Typography>
+          <Typography className="geotag-coordinates">
+            Lat {formatCoordinate(latitude, 6)}°
+          </Typography>
+          <Typography className="geotag-timestamp">
+            {formatDateDMY(captureTime)}
+          </Typography>
+        </Box>
+      </Box>
+      <Box className="geotag-gps-badge">
+        <PublicIcon fontSize="small" /> GPS Map Camera
+      </Box>
+    </Box>
+  );
 };
 
 const SurveySidebar = ({ open, survey, loading, onClose }) => {
@@ -74,6 +206,9 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
   };
 
   if (!open) return null;
+
+  // Check if survey has location coordinates
+  const hasCoordinates = survey && survey.latlong && survey.latlong.length >= 2;
 
   return (
     <>
@@ -127,7 +262,7 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
               <Typography variant="body2">
                 {survey.location ? 
                   `${survey.location.district || ''}, ${survey.location.block || ''}` : 
-                  `Lat: ${survey.latlong[0]}, Long: ${survey.latlong[1]}`}
+                  hasCoordinates ? `Lat: ${survey.latlong[0]}, Long: ${survey.latlong[1]}` : 'No location data'}
               </Typography>
             </Box>
           </Box>
@@ -197,24 +332,49 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
               </Typography>
               
               <Grid container spacing={1} className="media-list">
-                {survey.mediaFiles.map((file, index) => (
+                {survey.mediaFiles.map((file, index) => {
+                  return (
                   <Grid item xs={12} sm={(file.fileType === 'IMAGE' || file.fileType === 'VIDEO') ? 6 : 12} key={index}>
                     <Card className="sidebar-media-card">
                       {file.fileType === 'IMAGE' && file.url ? (
                         <CardActionArea onClick={() => handleMediaClick(file)}>
-                          <CardMedia
-                            component="img"
-                            height="120"
-                            image={file.url}
-                            alt={file.description || `Image ${index + 1}`}
-                            sx={{ objectFit: 'cover' }}
-                          />
+                          <Box sx={{ position: 'relative' }}>
+                            <CardMedia
+                              component="img"
+                              height="120"
+                              image={file.url}
+                              alt={file.description || `Image ${index + 1}`}
+                              sx={{ objectFit: 'cover' }}
+                            />
+                            {/* Geotag indicator */}
+                            {hasCoordinates && (
+                              <Box className="geotag-indicator">
+                                <LocationOnIcon fontSize="small" />
+                              </Box>
+                            )}
+                            {hasCoordinates && (
+                              <CompactGeotagOverlay survey={survey} />
+                            )}
+                          </Box>
                           <CardContent sx={{ p: 1, pb: '8px !important' }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                               <Typography variant="body2" className="media-name" noWrap>
                                 {file.description || `Image ${index + 1}`}
                               </Typography>
-                              <ZoomInIcon fontSize="small" color="primary" />
+                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                <ZoomInIcon fontSize="small" color="primary" />
+                              </Box>
+                            </Box>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', mt: 0.5 }}>
+                              <Typography variant="caption" color="text.secondary">
+                                Uploaded: {formatDate(file.uploaded_at)}
+                              </Typography>
+                              {hasCoordinates && (
+                                <Typography variant="caption" className="media-coordinates">
+                                  <LocationOnIcon fontSize="inherit" />
+                                  {formatCoordinate(survey.latlong[0], 6)}°, {formatCoordinate(survey.latlong[1], 6)}°
+                                </Typography>
+                              )}
                             </Box>
                           </CardContent>
                         </CardActionArea>
@@ -229,6 +389,15 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
                               <OndemandVideoIcon sx={{ fontSize: 40, color: '#fff' }} />
                               <PlayArrowIcon className="video-play-overlay" />
                             </CardMedia>
+                            {/* Geotag indicator for videos */}
+                            {hasCoordinates && (
+                              <Box className="geotag-indicator">
+                                <LocationOnIcon fontSize="small" />
+                              </Box>
+                            )}
+                            {hasCoordinates && (
+                              <CompactGeotagOverlay survey={survey} />
+                            )}
                           </Box>
                           <CardContent sx={{ p: 1, pb: '8px !important' }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -236,6 +405,17 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
                                 {file.description || `Video ${index + 1}`}
                               </Typography>
                               <PlayArrowIcon fontSize="small" color="primary" />
+                            </Box>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', mt: 0.5 }}>
+                              <Typography variant="caption" color="text.secondary">
+                                Uploaded: {formatDate(file.uploaded_at)}
+                              </Typography>
+                              {hasCoordinates && (
+                                <Typography variant="caption" className="media-coordinates">
+                                  <LocationOnIcon fontSize="inherit" />
+                                  {formatCoordinate(survey.latlong[0], 6)}°, {formatCoordinate(survey.latlong[1], 6)}°
+                                </Typography>
+                              )}
                             </Box>
                           </CardContent>
                         </CardActionArea>
@@ -256,7 +436,8 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
                       )}
                     </Card>
                   </Grid>
-                ))}
+                  );
+                })}
               </Grid>
             </Box>
           )}
@@ -311,37 +492,80 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
           <CloseIcon />
         </IconButton>
         
-        {selectedMedia && (
+        {selectedMedia && survey && (
           <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-            <Box sx={{ width: '100%', textAlign: 'center' }}>
+            <Box sx={{ width: '100%', textAlign: 'center', position: 'relative' }} className="media-fullscreen-container">
               {selectedMedia.fileType === 'IMAGE' ? (
-                <img
-                  src={selectedMedia.url}
-                  alt={selectedMedia.description || "Survey image"}
-                  style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain' }}
-                />
+                <>
+                  <img
+                    src={selectedMedia.url}
+                    alt={selectedMedia.description || "Survey image"}
+                    style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain' }}
+                  />
+                  {hasCoordinates && (
+                    <MediaGeotagOverlay survey={survey} />
+                  )}
+                </>
               ) : selectedMedia.fileType === 'VIDEO' && (
-                <video
-                  src={selectedMedia.url}
-                  controls
-                  autoPlay
-                  style={{ maxWidth: '100%', maxHeight: '80vh' }}
-                />
+                <>
+                  <video
+                    src={selectedMedia.url}
+                    controls
+                    autoPlay
+                    style={{ maxWidth: '100%', maxHeight: '80vh' }}
+                  />
+                  {hasCoordinates && (
+                    <MediaGeotagOverlay survey={survey} />
+                  )}
+                </>
               )}
             </Box>
             
-            {selectedMedia.description && (
-              <Box sx={{ p: 2, bgcolor: 'background.paper' }}>
+            <Box sx={{ p: 2, bgcolor: 'background.paper' }}>
+              {selectedMedia.description && (
                 <Typography variant="subtitle1">
                   {selectedMedia.description}
                 </Typography>
+              )}
+              
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', mt: 1 }}>
                 {selectedMedia.uploaded_at && (
-                  <Typography variant="caption" color="text.secondary">
-                    Uploaded: {formatDate(selectedMedia.uploaded_at)}
-                  </Typography>
+                  <Box sx={{ mr: 3, mb: 1 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold' }}>
+                      Uploaded
+                    </Typography>
+                    <Typography variant="body2">
+                      {formatDate(selectedMedia.uploaded_at)}
+                    </Typography>
+                  </Box>
+                )}
+                
+                {/* Capture time */}
+                {survey.created_on && (
+                  <Box sx={{ mr: 3, mb: 1 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold' }}>
+                      Survey Created
+                    </Typography>
+                    <Typography variant="body2">
+                      {formatDate(survey.created_on)}
+                    </Typography>
+                  </Box>
+                )}
+                
+                {/* Location info */}
+                {hasCoordinates && (
+                  <Box sx={{ mr: 3, mb: 1 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                      <LocationOnIcon fontSize="small" sx={{ mr: 0.5 }} /> 
+                      Location
+                    </Typography>
+                    <Typography variant="body2">
+                      Lat: {formatCoordinate(survey.latlong[0], 6)}°, Long: {formatCoordinate(survey.latlong[1], 6)}°
+                    </Typography>
+                  </Box>
                 )}
               </Box>
-            )}
+            </Box>
           </Box>
         )}
       </DialogContent>

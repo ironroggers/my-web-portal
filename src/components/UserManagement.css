@@ -5,6 +5,8 @@
   background-color: #ffffff;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding-top: 2rem;
+  padding-bottom: 3rem;
 }
 
 .user-management-container h1 {
@@ -163,5 +165,48 @@ button:disabled {
   .user-management-container {
     margin: 0.5rem;
     padding: 1rem;
+  }
+}
+
+/* Custom styling for the forms and cards */
+.MuiCard-root {
+  transition: all 0.3s ease;
+  height: 100%;
+}
+
+.MuiCard-root:hover {
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* Add nice background pattern */
+body {
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8eb 100%);
+  background-attachment: fixed;
+}
+
+/* Custom chip styling for roles */
+.MuiChip-root.MuiChip-colorError {
+  font-weight: 500;
+}
+
+.MuiChip-root.MuiChip-colorWarning {
+  font-weight: 500;
+}
+
+.MuiChip-root.MuiChip-colorSuccess {
+  font-weight: 500;
+}
+
+/* Responsive adjustments */
+@media (max-width: 960px) {
+  .user-management-container {
+    padding-top: 1rem;
+    padding-bottom: 2rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .MuiTableCell-root {
+    padding: 8px;
   }
 } 

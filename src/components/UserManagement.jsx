@@ -1,5 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import './UserManagement.css';
+import {
+  Container,
+  Typography,
+  TextField,
+  Button,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Grid,
+  Paper,
+  Alert,
+  Box,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  Chip,
+  Divider,
+  CircularProgress,
+  Card,
+  CardContent,
+  CardHeader
+} from '@mui/material';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
 
 const UserManagement = () => {
   const [formData, setFormData] = useState({
@@ -15,6 +44,8 @@ const UserManagement = () => {
   const [potentialManagers, setPotentialManagers] = useState([]);
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   useEffect(() => {
     fetchPotentialManagers();
@@ -135,129 +166,225 @@ const UserManagement = () => {
   };
 
   const isAdmin = formData.role === 'ADMIN';
+  
+  // Handle table pagination
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
 
   return (
-    <div className="user-management-container">
-      <h1>User Access Management</h1>
+    <Container maxWidth="lg" className="user-management-container">
+      <Typography variant="h4" component="h1" gutterBottom sx={{ textAlign: 'center', mb: 4, mt: 2, fontWeight: 'bold', color: 'primary.main' }}>
+        <PeopleAltIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+        User Access Management
+      </Typography>
       
-      {error && <div className="error-message">{error}</div>}
-      {success && <div className="success-message">{success}</div>}
+      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+      {success && <Alert severity="success" sx={{ mb: 3 }}>{success}</Alert>}
       
-      <h2>Create New User</h2>
-      <form onSubmit={handleSubmit} className="user-form">
-        <div className="form-group">
-          <label htmlFor="username">Username</label>
-          <input
-            type="text"
-            id="username"
-            name="username"
-            value={formData.username}
-            onChange={handleChange}
-            required
-            placeholder="Enter username"
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="email">Email</label>
-          <input
-            type="email"
-            id="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            required
-            placeholder="Enter email"
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="password">Password</label>
-          <input
-            type="password"
-            id="password"
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            required
-            placeholder="Enter password"
-            minLength="6"
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="role">Role</label>
-          <select
-            id="role"
-            name="role"
-            value={formData.role}
-            onChange={handleChange}
-            required
-          >
-            <option value="SURVEYOR">Surveyor</option>
-            <option value="SUPERVISOR">Supervisor</option>
-            <option value="ADMIN">Admin</option>
-          </select>
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="reportingTo">
-            Reporting To {isAdmin && <span className="optional-text">(Not required for Admin)</span>}
-          </label>
-          <select
-            id="reportingTo"
-            name="reportingTo"
-            value={formData.reportingTo}
-            onChange={handleChange}
-            required={!isAdmin}
-            disabled={isAdmin}
-          >
-            <option value="">Select Manager</option>
-            {potentialManagers && potentialManagers.map((manager) => (
-              <option key={manager._id} value={manager._id}>
-                {manager.username}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <button type="submit" disabled={loading}>
-          {loading ? 'Creating User...' : 'Create User'}
-        </button>
-      </form>
-      
-      <div className="users-list-section">
-        <h2>Existing Users</h2>
-        {loadingUsers ? (
-          <p>Loading users...</p>
-        ) : users.length > 0 ? (
-          <div className="users-table-wrapper">
-            <table className="users-table">
-              <thead>
-                <tr>
-                  <th>Username</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Reporting To</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((user) => (
-                  <tr key={user._id}>
-                    <td>{user.username}</td>
-                    <td>{user.email}</td>
-                    <td>{user.role}</td>
-                    <td>{user.reportingTo ? user.reportingTo.username : '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p>No users found.</p>
-        )}
-      </div>
-    </div>
+      <Grid container spacing={4}>
+        {/* User creation form */}
+        <Grid item xs={12} md={5}>
+          <Card elevation={3}>
+            <CardHeader 
+              title="Create New User" 
+              titleTypographyProps={{ variant: 'h6' }}
+              avatar={<PersonAddIcon color="primary" />}
+              sx={{ borderBottom: '1px solid #eee', bgcolor: 'primary.light', color: 'white' }}
+            />
+            <CardContent>
+              <form onSubmit={handleSubmit}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Username"
+                      id="username"
+                      name="username"
+                      value={formData.username}
+                      onChange={handleChange}
+                      required
+                      variant="outlined"
+                      size="small"
+                    />
+                  </Grid>
+                  
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Email"
+                      id="email"
+                      name="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      required
+                      variant="outlined"
+                      size="small"
+                    />
+                  </Grid>
+                  
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Password"
+                      id="password"
+                      name="password"
+                      type="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      required
+                      variant="outlined"
+                      size="small"
+                      inputProps={{ minLength: 6 }}
+                    />
+                  </Grid>
+                  
+                  <Grid item xs={12}>
+                    <FormControl fullWidth variant="outlined" size="small">
+                      <InputLabel id="role-label">Role</InputLabel>
+                      <Select
+                        labelId="role-label"
+                        id="role"
+                        name="role"
+                        value={formData.role}
+                        onChange={handleChange}
+                        required
+                        label="Role"
+                      >
+                        <MenuItem value="SURVEYOR">Surveyor</MenuItem>
+                        <MenuItem value="SUPERVISOR">Supervisor</MenuItem>
+                        <MenuItem value="ADMIN">Admin</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  
+                  <Grid item xs={12}>
+                    <FormControl 
+                      fullWidth 
+                      variant="outlined" 
+                      size="small" 
+                      disabled={isAdmin}
+                    >
+                      <InputLabel id="reporting-to-label">Reporting To</InputLabel>
+                      <Select
+                        labelId="reporting-to-label"
+                        id="reportingTo"
+                        name="reportingTo"
+                        value={formData.reportingTo}
+                        onChange={handleChange}
+                        required={!isAdmin}
+                        label="Reporting To"
+                      >
+                        <MenuItem value="">
+                          <em>Select Manager</em>
+                        </MenuItem>
+                        {potentialManagers && potentialManagers.map((manager) => (
+                          <MenuItem key={manager._id} value={manager._id}>
+                            {manager.username}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      {isAdmin && (
+                        <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
+                          Not required for Admin role
+                        </Typography>
+                      )}
+                    </FormControl>
+                  </Grid>
+                  
+                  <Grid item xs={12}>
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      color="primary"
+                      fullWidth
+                      disabled={loading}
+                      sx={{ mt: 1 }}
+                      startIcon={loading ? <CircularProgress size={20} /> : <PersonAddIcon />}
+                    >
+                      {loading ? 'Creating User...' : 'Create User'}
+                    </Button>
+                  </Grid>
+                </Grid>
+              </form>
+            </CardContent>
+          </Card>
+        </Grid>
+        
+        {/* Users table */}
+        <Grid item xs={12} md={7}>
+          <Card elevation={3}>
+            <CardHeader 
+              title="Existing Users" 
+              titleTypographyProps={{ variant: 'h6' }}
+              avatar={<PeopleAltIcon color="primary" />}
+              sx={{ borderBottom: '1px solid #eee', bgcolor: 'primary.light', color: 'white' }}
+            />
+            <CardContent>
+              {loadingUsers ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                  <CircularProgress />
+                </Box>
+              ) : users.length > 0 ? (
+                <>
+                  <TableContainer component={Paper} variant="outlined">
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell><Typography variant="subtitle2" fontWeight="bold">Username</Typography></TableCell>
+                          <TableCell><Typography variant="subtitle2" fontWeight="bold">Email</Typography></TableCell>
+                          <TableCell><Typography variant="subtitle2" fontWeight="bold">Role</Typography></TableCell>
+                          <TableCell><Typography variant="subtitle2" fontWeight="bold">Reporting To</Typography></TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {users
+                          .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                          .map((user) => (
+                            <TableRow key={user._id} hover>
+                              <TableCell>{user.username}</TableCell>
+                              <TableCell>{user.email}</TableCell>
+                              <TableCell>
+                                <Chip 
+                                  label={user.role} 
+                                  size="small" 
+                                  color={
+                                    user.role === 'ADMIN' ? 'error' : 
+                                    user.role === 'SUPERVISOR' ? 'warning' : 'success'
+                                  }
+                                  variant="outlined"
+                                />
+                              </TableCell>
+                              <TableCell>{user.reportingTo ? user.reportingTo.username : '-'}</TableCell>
+                            </TableRow>
+                          ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                  <TablePagination
+                    rowsPerPageOptions={[5, 10, 25]}
+                    component="div"
+                    count={users.length}
+                    rowsPerPage={rowsPerPage}
+                    page={page}
+                    onPageChange={handleChangePage}
+                    onRowsPerPageChange={handleChangeRowsPerPage}
+                  />
+                </>
+              ) : (
+                <Typography variant="body1" sx={{ p: 2 }}>No users found.</Typography>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    </Container>
   );
 };
 

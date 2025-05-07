@@ -67,7 +67,7 @@ const Navigation = () => {
 
   return (
     <AppBar position="static" color="primary" className="navigation">
-      <Toolbar>
+      <Toolbar className="navigation-content">
         <Typography 
           variant="h6" 
           component={NavLink} 
@@ -82,7 +82,7 @@ const Navigation = () => {
             }
           }}
         >
-          Survey Management Portal
+          Project Management Portal
         </Typography>
         
         {/* Navigation links shown to all users */}
@@ -139,40 +139,25 @@ const Navigation = () => {
           >
             Help
           </Button>
-          <Button
-            component={NavLink}
-            to="/about"
-            color="inherit"
-            startIcon={<InfoIcon />}
-            end
-          >
-            About
-          </Button>
           
-          {/* Authentication buttons */}
-          {!isAuthenticated ? (
-            <Button
-              component={NavLink}
-              to="/login"
-              color="inherit"
-              startIcon={<LoginIcon />}
-              end
-            >
-              Login
-            </Button>
-          ) : (
-            <>
+          {/* Show either login button or profile menu */}
+          {isAuthenticated ? (
+            <Box>
               <IconButton
-                size="small"
-                edge="end"
-                color="inherit"
-                aria-label="account of current user"
-                aria-controls="menu-appbar"
-                aria-haspopup="true"
                 onClick={handleMenu}
+                color="inherit"
+                size="small"
                 sx={{ ml: 1 }}
               >
-                <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
+                <Avatar 
+                  sx={{ 
+                    width: 32, 
+                    height: 32, 
+                    bgcolor: 'secondary.main',
+                    fontSize: '0.875rem',
+                    fontWeight: 'bold'
+                  }}
+                >
                   {getInitial()}
                 </Avatar>
               </IconButton>
@@ -191,28 +176,53 @@ const Navigation = () => {
                 open={Boolean(anchorEl)}
                 onClose={handleClose}
               >
-                <Box sx={{ px: 2, py: 1 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                    {user?.username}
+                <Box 
+                  sx={{ 
+                    px: 2, 
+                    py: 1, 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    alignItems: 'center'
+                  }}
+                >
+                  <Avatar 
+                    sx={{ 
+                      width: 40, 
+                      height: 40, 
+                      bgcolor: 'secondary.main',
+                      mb: 1
+                    }}
+                  >
+                    {getInitial()}
+                  </Avatar>
+                  <Typography variant="subtitle1" fontWeight="bold">
+                    {user && user.username}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {user?.email}
-                  </Typography>
-                  <Typography variant="caption" color="primary">
+                  <Typography variant="caption" color="textSecondary">
                     {getRoleLabel()}
                   </Typography>
                 </Box>
                 <Divider />
                 <MenuItem onClick={handleProfile}>
                   <PersonIcon fontSize="small" sx={{ mr: 1 }} />
-                  Profile
+                  My Profile
                 </MenuItem>
                 <MenuItem onClick={handleLogout}>
                   <LoginIcon fontSize="small" sx={{ mr: 1 }} />
                   Logout
                 </MenuItem>
               </Menu>
-            </>
+            </Box>
+          ) : (
+            <Button
+              component={NavLink}
+              to="/login"
+              color="inherit"
+              startIcon={<LoginIcon />}
+              end
+            >
+              Login
+            </Button>
           )}
         </Box>
       </Toolbar>

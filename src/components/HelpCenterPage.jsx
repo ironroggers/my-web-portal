@@ -48,7 +48,7 @@ const HelpCenterPage = () => {
         </Typography>
         
         <Typography variant="body1" paragraph>
-          Welcome to the Survey Management Portal Help Center. Find answers to common questions below or contact support if you need further assistance.
+          Welcome to the Project Management Portal Help Center. Find answers to common questions below or contact support if you need further assistance.
         </Typography>
         
         <Typography variant="h5" component="h2" gutterBottom>
