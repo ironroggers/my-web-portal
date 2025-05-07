@@ -63,7 +63,7 @@ const UserManagement = () => {
     try {
       setLoadingUsers(true);
       const response = await fetch('https://auth-api-xz1q.onrender.com/api/auth/users');
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch users');
       }
@@ -84,9 +84,9 @@ const UserManagement = () => {
 
   const fetchPotentialManagers = async () => {
     try {
-      const baseUrl = import.meta.env.VITE_AUTH_API_URL || 'https://api.annuprojects.com/api';
+      const baseUrl = 'https://api.annuprojects.com/api';
       const response = await fetch(`${baseUrl}/auth/potential-managers`);
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch potential managers');
       }
@@ -147,7 +147,7 @@ const UserManagement = () => {
         role: 'SURVEYOR',
         reportingTo: ''
       });
-      
+
       // Refresh users and managers list after successful registration
       fetchAllUsers();
       fetchPotentialManagers();
@@ -166,7 +166,7 @@ const UserManagement = () => {
   };
 
   const isAdmin = formData.role === 'ADMIN';
-  
+
   // Handle table pagination
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
@@ -183,16 +183,16 @@ const UserManagement = () => {
         <PeopleAltIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
         User Access Management
       </Typography>
-      
+
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 3 }}>{success}</Alert>}
-      
+
       <Grid container spacing={4}>
         {/* User creation form */}
         <Grid item xs={12} md={5}>
           <Card elevation={3}>
-            <CardHeader 
-              title="Create New User" 
+            <CardHeader
+              title="Create New User"
               titleTypographyProps={{ variant: 'h6' }}
               avatar={<PersonAddIcon color="primary" />}
               sx={{ borderBottom: '1px solid #eee', bgcolor: 'primary.light', color: 'white' }}
@@ -213,7 +213,7 @@ const UserManagement = () => {
                       size="small"
                     />
                   </Grid>
-                  
+
                   <Grid item xs={12}>
                     <TextField
                       fullWidth
@@ -228,7 +228,7 @@ const UserManagement = () => {
                       size="small"
                     />
                   </Grid>
-                  
+
                   <Grid item xs={12}>
                     <TextField
                       fullWidth
@@ -244,7 +244,7 @@ const UserManagement = () => {
                       inputProps={{ minLength: 6 }}
                     />
                   </Grid>
-                  
+
                   <Grid item xs={12}>
                     <FormControl fullWidth variant="outlined" size="small">
                       <InputLabel id="role-label">Role</InputLabel>
@@ -263,12 +263,12 @@ const UserManagement = () => {
                       </Select>
                     </FormControl>
                   </Grid>
-                  
+
                   <Grid item xs={12}>
-                    <FormControl 
-                      fullWidth 
-                      variant="outlined" 
-                      size="small" 
+                    <FormControl
+                      fullWidth
+                      variant="outlined"
+                      size="small"
                       disabled={isAdmin}
                     >
                       <InputLabel id="reporting-to-label">Reporting To</InputLabel>
@@ -297,7 +297,7 @@ const UserManagement = () => {
                       )}
                     </FormControl>
                   </Grid>
-                  
+
                   <Grid item xs={12}>
                     <Button
                       type="submit"
@@ -316,12 +316,12 @@ const UserManagement = () => {
             </CardContent>
           </Card>
         </Grid>
-        
+
         {/* Users table */}
         <Grid item xs={12} md={7}>
           <Card elevation={3}>
-            <CardHeader 
-              title="Existing Users" 
+            <CardHeader
+              title="Existing Users"
               titleTypographyProps={{ variant: 'h6' }}
               avatar={<PeopleAltIcon color="primary" />}
               sx={{ borderBottom: '1px solid #eee', bgcolor: 'primary.light', color: 'white' }}
@@ -351,11 +351,11 @@ const UserManagement = () => {
                               <TableCell>{user.username}</TableCell>
                               <TableCell>{user.email}</TableCell>
                               <TableCell>
-                                <Chip 
-                                  label={user.role} 
-                                  size="small" 
+                                <Chip
+                                  label={user.role}
+                                  size="small"
                                   color={
-                                    user.role === 'ADMIN' ? 'error' : 
+                                    user.role === 'ADMIN' ? 'error' :
                                     user.role === 'SUPERVISOR' ? 'warning' : 'success'
                                   }
                                   variant="outlined"
@@ -388,4 +388,4 @@ const UserManagement = () => {
   );
 };
 
-export default UserManagement; 
+export default UserManagement;

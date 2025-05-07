@@ -10,7 +10,7 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import SurveySidebar from './SurveySidebar';
 import * as XLSX from 'xlsx';
 
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyC2pds2TL5_lGUM-7Y1CFiGq8Wrn0oULr0';
+const GOOGLE_MAPS_API_KEY = 'AIzaSyC2pds2TL5_lGUM-7Y1CFiGq8Wrn0oULr0';
 
 const containerStyle = {
   width: '100%',
@@ -36,13 +36,13 @@ const MapViewPage = () => {
   const [error, setError] = useState(null);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [mapZoom, setMapZoom] = useState(11);
-  
+
   // New state for route visibility
   const [routeVisibility, setRouteVisibility] = useState({
     desktopSurvey: true, // Blue OFC routes
     physicalSurvey: true  // Yellow survey routes
   });
-  
+
   // New state variables for location creation
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
   const [newLocation, setNewLocation] = useState({
@@ -58,7 +58,7 @@ const MapViewPage = () => {
     type: 'GP'
   });
   const [creatingLocation, setCreatingLocation] = useState(false);
-  
+
   // New state variables for location edit
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [editLocation, setEditLocation] = useState(null);
@@ -69,7 +69,7 @@ const MapViewPage = () => {
     type: 'GP'
   });
   const [updatingLocation, setUpdatingLocation] = useState(false);
-  
+
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -112,11 +112,11 @@ const MapViewPage = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       console.log('Attempting to fetch locations from API...');
-      const baseUrl = import.meta.env.VITE_LOCATION_API_URL || 'https://location.annuprojects.com/api';
+      const baseUrl = 'https://location.annuprojects.com/api';
       const apiUrl = `${baseUrl}/locations`;
-      
+
       // Add CORS headers to the request
       const response = await fetch(apiUrl, {
         method: 'GET',
@@ -127,28 +127,28 @@ const MapViewPage = () => {
         // Include credentials if your API requires authentication
         // credentials: 'include'
       });
-      
+
       console.log('Fetch location status:', response.status);
-      
+
       if (!response.ok) {
         // Log the error response for debugging
         const errorText = await response.text();
         console.error('Error response:', errorText);
         throw new Error(`Failed to fetch locations: ${response.status} ${response.statusText}`);
       }
-      
+
       const data = await response.json();
       console.log('Fetch locations successful, data count:', data.data?.length);
-      
+
       if (!data.success || !Array.isArray(data.data)) {
         console.error('Invalid data format received:', data);
         throw new Error('Invalid data format received');
       }
-      
+
       setLocations(data.data);
     } catch (err) {
       console.error('Fetch locations error:', err);
-      
+
       // Specific handling for CORS errors
       if (err.message.includes('Failed to fetch') || err.name === 'TypeError') {
         setError('CORS error: Unable to access the API. This might be due to cross-origin restrictions. Please ensure the API has CORS enabled.');
@@ -162,7 +162,7 @@ const MapViewPage = () => {
 
   const fetchSurveys = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_SURVEY_API_URL || 'https://survey.annuprojects.com/api'}/surveys`);
+      const response = await fetch(`https://survey.annuprojects.com/api/surveys`);
       if (!response.ok) throw new Error(`Failed to fetch surveys: ${response.statusText}`);
       const data = await response.json();
       if (!data.success || !Array.isArray(data.data)) throw new Error('Invalid survey data format received');
@@ -264,12 +264,12 @@ const MapViewPage = () => {
   // Function to handle routes with more than 10 waypoints
   const getChunkedRoutes = async (points, location) => {
     const directionsService = new window.google.maps.DirectionsService();
-    
+
     // Split points into chunks (max 9 waypoints per chunk to allow for start/end points)
     // We use 9 instead of 10 to ensure we have room for start and end points
     const chunkSize = 9;
     const chunks = [];
-    
+
     // First collect all the chunks, using overlapping points so routes connect
     for (let i = 0; i < points.length; i += chunkSize - 1) {
       if (i + chunkSize >= points.length) {
@@ -280,21 +280,21 @@ const MapViewPage = () => {
         chunks.push(points.slice(i, i + chunkSize));
       }
     }
-    
+
     console.log(`Split ${points.length} points into ${chunks.length} chunks`);
 
     // Now get directions for each chunk
     const chunkResults = [];
-    
+
     for (let i = 0; i < chunks.length; i++) {
       const chunkPoints = chunks[i];
       const origin = chunkPoints[0];
       const destination = chunkPoints[chunkPoints.length - 1];
-      const waypoints = chunkPoints.slice(1, chunkPoints.length - 1).map(p => ({ 
-        location: p, 
-        stopover: true 
+      const waypoints = chunkPoints.slice(1, chunkPoints.length - 1).map(p => ({
+        location: p,
+        stopover: true
       }));
-      
+
       try {
         const result = await new Promise((resolve, reject) => {
           directionsService.route(
@@ -315,20 +315,20 @@ const MapViewPage = () => {
             }
           );
         });
-        
+
         chunkResults.push(result);
       } catch (error) {
         console.error(`Error getting directions for chunk ${i}:`, error);
       }
     }
-    
+
     // Add final segment to connect back to the starting point
     if (points.length >= 2 && chunkResults.length > 0) {
       try {
         // Get the last point from the last chunk and connect it back to the first point
         const lastPoint = points[points.length - 1];
         const firstPoint = points[0];
-        
+
         // Skip if the last point is already the same as the first point
         if (lastPoint.lat !== firstPoint.lat || lastPoint.lng !== firstPoint.lng) {
           const result = await new Promise((resolve, reject) => {
@@ -349,7 +349,7 @@ const MapViewPage = () => {
               }
             );
           });
-          
+
           // Add the closing segment to complete the loop
           chunkResults.push(result);
           console.log('Added final segment to close the loop');
@@ -358,7 +358,7 @@ const MapViewPage = () => {
         console.error('Error getting directions for final return segment:', error);
       }
     }
-    
+
     // If we couldn't get any chunk results, return an error
     if (chunkResults.length === 0) {
       return {
@@ -371,12 +371,12 @@ const MapViewPage = () => {
         chunks: null
       };
     }
-    
+
     // Calculate the total distance and duration across all chunks
     let totalDistance = 0;
     let totalDuration = 0;
     let totalLegs = 0;
-    
+
     chunkResults.forEach(result => {
       if (result && result.routes && result.routes[0] && result.routes[0].legs) {
         result.routes[0].legs.forEach(leg => {
@@ -386,7 +386,7 @@ const MapViewPage = () => {
         });
       }
     });
-    
+
     // Return the chunked results
     return {
       points,
@@ -407,7 +407,7 @@ const MapViewPage = () => {
   // Calculate routes for survey points for locations with status 5
   const getSurveyRoutes = async () => {
     if (!window.google || !window.google.maps) return;
-    
+
     const directionsService = new window.google.maps.DirectionsService();
     const results = [];
 
@@ -416,7 +416,7 @@ const MapViewPage = () => {
       if (location.status !== 5) continue;
 
       // Get surveys for this location
-      const locationSurveys = surveys.filter(survey => 
+      const locationSurveys = surveys.filter(survey =>
         survey.location && (
           (typeof survey.location === 'string' && survey.location === location._id) ||
           (typeof survey.location === 'object' && survey.location._id === location._id)
@@ -439,7 +439,7 @@ const MapViewPage = () => {
           // Apply similar chunking as in getAllLocationRoutes
           const chunkSize = 9;
           const chunks = [];
-          
+
           for (let i = 0; i < points.length; i += chunkSize - 1) {
             if (i + chunkSize >= points.length) {
               chunks.push(points.slice(i));
@@ -447,19 +447,19 @@ const MapViewPage = () => {
               chunks.push(points.slice(i, i + chunkSize));
             }
           }
-          
+
           const chunkResults = [];
           let totalDistance = 0;
-          
+
           for (let i = 0; i < chunks.length; i++) {
             const chunkPoints = chunks[i];
             const origin = chunkPoints[0];
             const destination = chunkPoints[chunkPoints.length - 1];
-            const waypoints = chunkPoints.slice(1, chunkPoints.length - 1).map(p => ({ 
-              location: p, 
-              stopover: true 
+            const waypoints = chunkPoints.slice(1, chunkPoints.length - 1).map(p => ({
+              location: p,
+              stopover: true
             }));
-            
+
             const result = await new Promise((resolve) => {
               directionsService.route(
                 {
@@ -485,17 +485,17 @@ const MapViewPage = () => {
                 }
               );
             });
-            
+
             if (result) chunkResults.push(result);
           }
-          
+
           if (chunkResults.length > 0) {
             // Add final segment to connect back to the starting point (for physical survey routes)
             try {
               // Get the last point and connect it back to the first point
               const lastPoint = points[points.length - 1];
               const firstPoint = points[0];
-              
+
               // Skip if the last point is already the same as the first point
               if (lastPoint.lat !== firstPoint.lat || lastPoint.lng !== firstPoint.lng) {
                 const result = await new Promise((resolve) => {
@@ -522,7 +522,7 @@ const MapViewPage = () => {
                     }
                   );
                 });
-                
+
                 if (result) {
                   chunkResults.push(result);
                   console.log('Added final segment to close the survey route loop');
@@ -531,7 +531,7 @@ const MapViewPage = () => {
             } catch (error) {
               console.error('Error getting directions for final survey return segment:', error);
             }
-            
+
             results.push({
               locationId: location._id,
               directions: chunkResults[0], // First chunk for main directions
@@ -549,7 +549,7 @@ const MapViewPage = () => {
           const origin = points[0];
           const destination = points[0]; // Create a loop
           const waypoints = points.slice(1).map(p => ({ location: p, stopover: true }));
-          
+
           const result = await new Promise((resolve) => {
             directionsService.route(
               {
@@ -568,7 +568,7 @@ const MapViewPage = () => {
                       totalDistance += leg.distance.value;
                     });
                   }
-                  
+
                   resolve({
                     locationId: location._id,
                     directions: result,
@@ -584,7 +584,7 @@ const MapViewPage = () => {
               }
             );
           });
-          
+
           results.push(result);
         } catch (err) {
           console.error(`Error calculating survey route for location ${location._id}:`, err);
@@ -597,7 +597,7 @@ const MapViewPage = () => {
 
   // Filter surveys for a specific location
   const getSurveysForLocation = (locationId) => {
-    return surveys.filter(survey => 
+    return surveys.filter(survey =>
       survey.location && (
         (typeof survey.location === 'string' && survey.location === locationId) ||
         (typeof survey.location === 'object' && survey.location._id === locationId)
@@ -671,7 +671,7 @@ const MapViewPage = () => {
   // Update new route point data
   const handleRoutePointChange = (e) => {
     const { name, value } = e.target;
-    
+
     if (name === 'latitude' || name === 'longitude') {
       setNewRoutePoint(prev => ({
         ...prev,
@@ -688,7 +688,7 @@ const MapViewPage = () => {
   // Add new route point to the route array
   const handleAddRoutePoint = () => {
     // Check if trying to add BHQ when one already exists
-    if (newRoutePoint.type === 'BHQ' && 
+    if (newRoutePoint.type === 'BHQ' &&
         newLocation.route.some(point => point.type === 'BHQ')) {
       setSnackbar({
         open: true,
@@ -697,12 +697,12 @@ const MapViewPage = () => {
       });
       return;
     }
-    
+
     setNewLocation(prev => ({
       ...prev,
       route: [...prev.route, { ...newRoutePoint }]
     }));
-    
+
     // Reset form for next point
     setNewRoutePoint({
       place: '',
@@ -724,20 +724,20 @@ const MapViewPage = () => {
   const handleCreateLocation = async () => {
     try {
       setCreatingLocation(true);
-      
+
       // Show pending state in UI
       setSnackbar({
         open: true,
         message: 'Creating location...',
         severity: 'info'
       });
-      
+
       // Log the data being sent for debugging
       console.log('Sending location data:', JSON.stringify(newLocation));
-      
+
       // API endpoint
-      const apiEndpoint = `${import.meta.env.VITE_LOCATION_API_URL || 'https://location.annuprojects.com/api'}/locations`;
-      
+      const apiEndpoint = `https://location.annuprojects.com/api/locations`;
+
       // Format data for API
       const formattedData = {
         ...newLocation,
@@ -750,7 +750,7 @@ const MapViewPage = () => {
           longitude: Number(point.longitude)
         }))
       };
-      
+
       try {
         const response = await fetch(apiEndpoint, {
           method: 'POST',
@@ -762,34 +762,34 @@ const MapViewPage = () => {
           // Uncomment if needed for authentication
           // credentials: 'include'
         });
-        
+
         if (!response) {
           throw new Error('No response received from server');
         }
-        
+
         // Check response status
         console.log('Create location response status:', response.status);
-        
+
         // Handle unsuccessful responses
         if (!response.ok) {
           const errorText = await response.text();
           console.error('Error response from create location:', errorText);
           throw new Error(`Failed to create location. Status: ${response.status}`);
         }
-        
+
         const data = await response.json();
         console.log('Create location successful:', data);
-        
+
         // Show success message
         setSnackbar({
           open: true,
           message: 'Location created successfully!',
           severity: 'success'
         });
-        
+
         // Close dialog
         handleCloseCreateDialog();
-        
+
         // Refresh locations
         fetchLocations();
       } catch (err) {
@@ -826,13 +826,13 @@ const MapViewPage = () => {
       });
       return;
     }
-    
+
     // Clone the selected location for editing
     setEditLocation({
       ...selectedLocation.location,
       route: selectedLocation.location.route ? [...selectedLocation.location.route] : []
     });
-    
+
     setOpenEditDialog(true);
   };
 
@@ -859,7 +859,7 @@ const MapViewPage = () => {
   // Update edit route point data
   const handleEditRoutePointChange = (e) => {
     const { name, value } = e.target;
-    
+
     if (name === 'latitude' || name === 'longitude') {
       setEditRoutePoint(prev => ({
         ...prev,
@@ -876,7 +876,7 @@ const MapViewPage = () => {
   // Add new route point to the edit route array
   const handleAddEditRoutePoint = () => {
     // Check if trying to add BHQ when one already exists
-    if (editRoutePoint.type === 'BHQ' && 
+    if (editRoutePoint.type === 'BHQ' &&
         editLocation.route.some(point => point.type === 'BHQ')) {
       setSnackbar({
         open: true,
@@ -885,12 +885,12 @@ const MapViewPage = () => {
       });
       return;
     }
-    
+
     setEditLocation(prev => ({
       ...prev,
       route: [...prev.route, { ...editRoutePoint }]
     }));
-    
+
     // Reset form for next point
     setEditRoutePoint({
       place: '',
@@ -911,7 +911,7 @@ const MapViewPage = () => {
       });
       return;
     }
-    
+
     setEditLocation(prev => ({
       ...prev,
       route: prev.route.filter((_, i) => i !== index)
@@ -922,20 +922,20 @@ const MapViewPage = () => {
   const handleUpdateLocation = async () => {
     try {
       setUpdatingLocation(true);
-      
+
       // Show pending state in UI
       setSnackbar({
         open: true,
         message: 'Updating location...',
         severity: 'info'
       });
-      
+
       // Log the data being sent for debugging
       console.log('Sending updated location data:', JSON.stringify(editLocation));
-      
+
       // API endpoint
-      const apiEndpoint = `${import.meta.env.VITE_LOCATION_API_URL || 'https://location.annuprojects.com/api'}/locations/${editLocation._id}`;
-      
+      const apiEndpoint = `https://location.annuprojects.com/api/locations/${editLocation._id}`;
+
       // Format data for API
       const formattedData = {
         status: editLocation.status,
@@ -946,7 +946,7 @@ const MapViewPage = () => {
           longitude: Number(point.longitude)
         }))
       };
-      
+
       try {
         const response = await fetch(apiEndpoint, {
           method: 'PUT',
@@ -956,34 +956,34 @@ const MapViewPage = () => {
           },
           body: JSON.stringify(formattedData)
         });
-        
+
         if (!response) {
           throw new Error('No response received from server');
         }
-        
+
         // Check response status
         console.log('Update location response status:', response.status);
-        
+
         // Handle unsuccessful responses
         if (!response.ok) {
           const errorText = await response.text();
           console.error('Error response from update location:', errorText);
           throw new Error(`Failed to update location. Status: ${response.status}`);
         }
-        
+
         const data = await response.json();
         console.log('Update location successful:', data);
-        
+
         // Show success message
         setSnackbar({
           open: true,
           message: 'Location updated successfully!',
           severity: 'success'
         });
-        
+
         // Close dialog
         handleCloseEditDialog();
-        
+
         // Refresh locations
         fetchLocations();
       } catch (err) {
@@ -1019,9 +1019,9 @@ const MapViewPage = () => {
   const handleDrop = (e, targetIndex) => {
     e.preventDefault();
     const sourceIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
-    
+
     if (sourceIndex === targetIndex) return;
-    
+
     setEditLocation(prev => {
       const newRoute = [...prev.route];
       const [movedItem] = newRoute.splice(sourceIndex, 1);
@@ -1043,28 +1043,28 @@ const MapViewPage = () => {
   // Export to Excel
   const handleExportToExcel = (type = 'desktop') => {
     if (!selectedLocation || !selectedLocation.location) return;
-    
+
     handleExportClose();
-    
+
     // Set the export type
     setExportType(type);
-    
+
     // Create data in the format shown in the image
     const routePoints = selectedLocation.location.route || [];
-    
+
     // Format data to match the table in the image
     const excelData = [];
-    
+
     // Find survey route for comparison (if it exists)
     const surveyRoute = surveyRoutes.find(route => route.locationId === selectedLocation.location._id);
     let physicalTotalLength = 0;
-    
+
     // Calculate total physical survey length if available
     if (surveyRoute) {
       if (surveyRoute.totalDistance) {
         // Use pre-calculated total distance
         physicalTotalLength = Math.round(surveyRoute.totalDistance);
-      } else if (surveyRoute.directions && surveyRoute.directions.routes && 
+      } else if (surveyRoute.directions && surveyRoute.directions.routes &&
           surveyRoute.directions.routes[0] && surveyRoute.directions.routes[0].legs) {
         surveyRoute.directions.routes[0].legs.forEach(leg => {
           physicalTotalLength += leg.distance.value;
@@ -1072,18 +1072,18 @@ const MapViewPage = () => {
         physicalTotalLength = Math.round(physicalTotalLength);
       }
     }
-    
+
     // Calculate desktop survey total length
     let desktopTotalLength = 0;
     if (selectedLocation.routeInfo && selectedLocation.routeInfo.distance) {
       desktopTotalLength = Math.round(selectedLocation.routeInfo.distance);
     }
-    
+
     // Calculate difference between physical and desktop survey
     const lengthDifference = physicalTotalLength - desktopTotalLength;
-    const percentDifference = desktopTotalLength > 0 ? 
+    const percentDifference = desktopTotalLength > 0 ?
       ((lengthDifference / desktopTotalLength) * 100).toFixed(2) : 0;
-    
+
     // Add header row with additional columns for comparison
     if (type === 'desktop') {
       // For desktop survey export, include comparison with physical survey if available
@@ -1105,42 +1105,42 @@ const MapViewPage = () => {
         'Total Desktop Length (Mtr)',
         'Total Physical Length (Mtr)'
       ]);
-      
+
       // Desktop survey export (OFC routes - blue)
       // Add rows for each segment of the route
       if (routePoints.length > 1) {
         for (let i = 0; i < routePoints.length - 1; i++) {
           const fromPoint = routePoints[i];
           const toPoint = routePoints[i + 1];
-          
+
           // Calculate distance for this segment (in meters)
           let segmentDistance = 0;
-          if (selectedLocation && selectedLocation.directions && 
-              selectedLocation.directions.routes && 
-              selectedLocation.directions.routes[0] && 
+          if (selectedLocation && selectedLocation.directions &&
+              selectedLocation.directions.routes &&
+              selectedLocation.directions.routes[0] &&
               selectedLocation.directions.routes[0].legs) {
             // Make sure we have a valid index
             const legIndex = Math.min(i, selectedLocation.directions.routes[0].legs.length - 1);
             segmentDistance = Math.round(selectedLocation.directions.routes[0].legs[legIndex].distance.value);
           }
-          
+
           // For comparison - try to find equivalent segment in physical survey
           // This is a simplified approach - in real life, segments may not match exactly
           let physicalSegmentDistance = 0;
-          if (surveyRoute && surveyRoute.directions && 
-              surveyRoute.directions.routes && 
-              surveyRoute.directions.routes[0] && 
+          if (surveyRoute && surveyRoute.directions &&
+              surveyRoute.directions.routes &&
+              surveyRoute.directions.routes[0] &&
               surveyRoute.directions.routes[0].legs) {
             // Make sure we have a valid index
             const legIndex = Math.min(i, surveyRoute.directions.routes[0].legs.length - 1);
             physicalSegmentDistance = Math.round(surveyRoute.directions.routes[0].legs[legIndex].distance.value);
           }
-          
+
           // Calculate segment difference
           const segmentDifference = physicalSegmentDistance - segmentDistance;
-          const segmentPercentDiff = segmentDistance > 0 ? 
+          const segmentPercentDiff = segmentDistance > 0 ?
             ((segmentDifference / segmentDistance) * 100).toFixed(2) : 0;
-          
+
           excelData.push([
             i + 1, // Sl. No.
             selectedLocation.location.district,
@@ -1160,32 +1160,32 @@ const MapViewPage = () => {
             physicalTotalLength || 'N/A' // Total Physical Length (Mtr) - same for all rows
           ]);
         }
-        
+
         // Add last row to connect back to start (for complete loop)
         const lastPoint = routePoints[routePoints.length - 1];
         const firstPoint = routePoints[0];
-        
+
         // Calculate distance for the final segment
         let finalSegmentDistance = 0;
-        if (selectedLocation.directions && 
-            selectedLocation.directions.routes && 
-            selectedLocation.directions.routes[0] && 
-            selectedLocation.directions.routes[0].legs && 
+        if (selectedLocation.directions &&
+            selectedLocation.directions.routes &&
+            selectedLocation.directions.routes[0] &&
+            selectedLocation.directions.routes[0].legs &&
             selectedLocation.directions.routes[0].legs[routePoints.length - 1]) {
           finalSegmentDistance = Math.round(selectedLocation.directions.routes[0].legs[routePoints.length - 1].distance.value);
         }
-        
+
         // Final segment for physical survey
         let finalPhysicalSegmentDistance = 0;
         if (surveyRoute?.directions?.routes?.[0]?.legs?.[routePoints.length - 1]) {
           finalPhysicalSegmentDistance = Math.round(surveyRoute.directions.routes[0].legs[routePoints.length - 1].distance.value);
         }
-        
+
         // Calculate final segment difference
         const finalSegmentDifference = finalPhysicalSegmentDistance - finalSegmentDistance;
-        const finalSegmentPercentDiff = finalSegmentDistance > 0 ? 
+        const finalSegmentPercentDiff = finalSegmentDistance > 0 ?
           ((finalSegmentDifference / finalSegmentDistance) * 100).toFixed(2) : 0;
-        
+
         excelData.push([
           routePoints.length, // Sl. No.
           selectedLocation.location.district,
@@ -1204,7 +1204,7 @@ const MapViewPage = () => {
           desktopTotalLength, // Total Desktop Length (Mtr) - same for all rows
           physicalTotalLength || 'N/A' // Total Physical Length (Mtr) - same for all rows
         ]);
-        
+
         // Add summary row with totals and overall difference
         excelData.push([
           '', // Sl. No.
@@ -1245,10 +1245,10 @@ const MapViewPage = () => {
         'Total Physical Length (Mtr)',
         'Total Desktop Length (Mtr)'
       ]);
-      
+
       // Original physical survey export code remains largely unchanged
       const locationSurveys = getSurveysForLocation(selectedLocation.location._id);
-      
+
       if (locationSurveys.length < 2) {
         setSnackbar({
           open: true,
@@ -1257,43 +1257,43 @@ const MapViewPage = () => {
         });
         return;
       }
-      
+
       // Filter surveys with valid latlong
       const validSurveys = locationSurveys.filter(s => Array.isArray(s.latlong) && s.latlong.length === 2);
-      
+
       // Add rows for each segment of the route
       if (validSurveys.length > 1) {
         for (let i = 0; i < validSurveys.length - 1; i++) {
           const fromSurvey = validSurveys[i];
           const toSurvey = validSurveys[i + 1];
-          
+
           // Calculate distance for this segment (in meters)
           let segmentDistance = 0;
-          if (surveyRoute && surveyRoute.directions && 
-              surveyRoute.directions.routes && 
-              surveyRoute.directions.routes[0] && 
+          if (surveyRoute && surveyRoute.directions &&
+              surveyRoute.directions.routes &&
+              surveyRoute.directions.routes[0] &&
               surveyRoute.directions.routes[0].legs) {
             // Make sure we have a valid index
             const legIndex = Math.min(i, surveyRoute.directions.routes[0].legs.length - 1);
             segmentDistance = Math.round(surveyRoute.directions.routes[0].legs[legIndex].distance.value);
           }
-          
+
           // For comparison - try to find equivalent segment in desktop survey
           let desktopSegmentDistance = 0;
-          if (selectedLocation && selectedLocation.directions && 
-              selectedLocation.directions.routes && 
-              selectedLocation.directions.routes[0] && 
+          if (selectedLocation && selectedLocation.directions &&
+              selectedLocation.directions.routes &&
+              selectedLocation.directions.routes[0] &&
               selectedLocation.directions.routes[0].legs) {
             // Make sure we have a valid index
             const legIndex = Math.min(i, selectedLocation.directions.routes[0].legs.length - 1);
             desktopSegmentDistance = Math.round(selectedLocation.directions.routes[0].legs[legIndex].distance.value);
           }
-          
+
           // Calculate segment difference
           const segmentDifference = segmentDistance - desktopSegmentDistance;
-          const segmentPercentDiff = desktopSegmentDistance > 0 ? 
+          const segmentPercentDiff = desktopSegmentDistance > 0 ?
             ((segmentDifference / desktopSegmentDistance) * 100).toFixed(2) : 0;
-          
+
           excelData.push([
             i + 1, // Sl. No.
             selectedLocation.location.district,
@@ -1313,31 +1313,31 @@ const MapViewPage = () => {
             desktopTotalLength || 'N/A' // Total Desktop Length (Mtr)
           ]);
         }
-        
+
         // Add last row to connect back to start (for complete loop)
         const lastSurvey = validSurveys[validSurveys.length - 1];
         const firstSurvey = validSurveys[0];
-        
+
         // Calculate distance for the final segment
         let finalSegmentDistance = 0;
-        if (surveyRoute.directions.routes && 
-            surveyRoute.directions.routes[0] && 
-            surveyRoute.directions.routes[0].legs && 
+        if (surveyRoute.directions.routes &&
+            surveyRoute.directions.routes[0] &&
+            surveyRoute.directions.routes[0].legs &&
             surveyRoute.directions.routes[0].legs[validSurveys.length - 1]) {
           finalSegmentDistance = Math.round(surveyRoute.directions.routes[0].legs[validSurveys.length - 1].distance.value);
         }
-        
+
         // Final segment for desktop survey
         let finalDesktopSegmentDistance = 0;
         if (selectedLocation.directions?.routes?.[0]?.legs?.[validSurveys.length - 1]) {
           finalDesktopSegmentDistance = Math.round(selectedLocation.directions.routes[0].legs[validSurveys.length - 1].distance.value);
         }
-        
+
         // Calculate final segment difference
         const finalSegmentDifference = finalSegmentDistance - finalDesktopSegmentDistance;
-        const finalSegmentPercentDiff = finalDesktopSegmentDistance > 0 ? 
+        const finalSegmentPercentDiff = finalDesktopSegmentDistance > 0 ?
           ((finalSegmentDifference / finalDesktopSegmentDistance) * 100).toFixed(2) : 0;
-        
+
         excelData.push([
           validSurveys.length, // Sl. No.
           selectedLocation.location.district,
@@ -1356,7 +1356,7 @@ const MapViewPage = () => {
           physicalTotalLength, // Total Physical Length (Mtr) - same for all rows
           desktopTotalLength || 'N/A' // Total Desktop Length (Mtr)
         ]);
-        
+
         // Add summary row with totals and overall difference
         excelData.push([
           '', // Sl. No.
@@ -1378,20 +1378,20 @@ const MapViewPage = () => {
         ]);
       }
     }
-    
+
     // Create workbook and worksheet
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(excelData);
-    
+
     // Add worksheet to workbook
     XLSX.utils.book_append_sheet(wb, ws, type === 'desktop' ? 'OFC Route Comparison' : 'Survey Route Comparison');
-    
+
     // Generate filename from location info
     const fileName = `${selectedLocation.location.block}_${selectedLocation.location.district}_${type === 'desktop' ? 'OFC' : 'Survey'}_Route_Comparison.xlsx`;
-    
+
     // Write and download the file
     XLSX.writeFile(wb, fileName);
-    
+
     // Show success message
     setSnackbar({
       open: true,
@@ -1399,7 +1399,7 @@ const MapViewPage = () => {
       severity: 'success'
     });
   };
-  
+
   // Export to KML
   const handleExportToKML = (type = 'desktop') => {
     if (!selectedLocation || !selectedLocation.location) {
@@ -1410,20 +1410,20 @@ const MapViewPage = () => {
       });
       return;
     }
-    
+
     handleExportClose();
-    
+
     // Set the export type
     setExportType(type);
-    
+
     // Create KML data
     let routePath = [];
     let waypoints = [];
-    
+
     if (type === 'desktop') {
       // Desktop survey export (OFC routes - blue)
       const routePoints = selectedLocation.location.route || [];
-      
+
       if (!selectedLocation.directions) {
         setSnackbar({
           open: true,
@@ -1432,19 +1432,19 @@ const MapViewPage = () => {
         });
         return;
       }
-      
+
       // Extract route path points from directions
       try {
         // Extract the detailed path from Google's directions response
         const routes = selectedLocation.directions.routes;
-        
+
         if (routes && routes.length > 0) {
           // Get the overview path (encoded polyline)
           routes[0].legs.forEach(leg => {
             if (leg.steps) {
               leg.steps.forEach(step => {
                 if (step.path) {
-                  // Add each path point 
+                  // Add each path point
                   step.path.forEach(point => {
                     routePath.push({
                       lat: point.lat(),
@@ -1456,13 +1456,13 @@ const MapViewPage = () => {
             }
           });
         }
-        
+
         // If we couldn't get the detailed path, use the overview polyline
         if (routePath.length === 0 && routes[0].overview_path) {
           routes[0].overview_path.forEach(point => {
             routePath.push({
               lat: point.lat(),
-              lng: point.lng() 
+              lng: point.lng()
             });
           });
         }
@@ -1483,7 +1483,7 @@ const MapViewPage = () => {
           });
         }
       }
-      
+
       // Use route points as waypoints
       waypoints = routePoints.map(point => ({
         name: point.place,
@@ -1491,12 +1491,12 @@ const MapViewPage = () => {
         lat: point.latitude,
         lng: point.longitude
       }));
-      
+
     } else {
       // Physical survey export (survey routes - yellow)
       // Find survey route for this location
       const surveyRoute = surveyRoutes.find(route => route.locationId === selectedLocation.location._id);
-      
+
       if (!surveyRoute || !surveyRoute.directions) {
         setSnackbar({
           open: true,
@@ -1505,10 +1505,10 @@ const MapViewPage = () => {
         });
         return;
       }
-      
+
       // Get surveys for this location
       const locationSurveys = getSurveysForLocation(selectedLocation.location._id);
-      
+
       if (locationSurveys.length < 2) {
         setSnackbar({
           open: true,
@@ -1517,19 +1517,19 @@ const MapViewPage = () => {
         });
         return;
       }
-      
+
       // Extract route path points from directions
       try {
         // Extract the detailed path from Google's directions response
         const routes = surveyRoute.directions.routes;
-        
+
         if (routes && routes.length > 0) {
           // Get the overview path (encoded polyline)
           routes[0].legs.forEach(leg => {
             if (leg.steps) {
               leg.steps.forEach(step => {
                 if (step.path) {
-                  // Add each path point 
+                  // Add each path point
                   step.path.forEach(point => {
                     routePath.push({
                       lat: point.lat(),
@@ -1541,20 +1541,20 @@ const MapViewPage = () => {
             }
           });
         }
-        
+
         // If we couldn't get the detailed path, use the overview polyline
         if (routePath.length === 0 && routes[0].overview_path) {
           routes[0].overview_path.forEach(point => {
             routePath.push({
               lat: point.lat(),
-              lng: point.lng() 
+              lng: point.lng()
             });
           });
         }
       } catch (error) {
         console.error("Error extracting survey route path:", error);
       }
-      
+
       // Use survey points as waypoints
       waypoints = locationSurveys
         .filter(survey => Array.isArray(survey.latlong) && survey.latlong.length === 2)
@@ -1565,7 +1565,7 @@ const MapViewPage = () => {
           lng: survey.latlong[1]
         }));
     }
-    
+
     // If we still don't have a path, show an error
     if (routePath.length === 0) {
       setSnackbar({
@@ -1575,7 +1575,7 @@ const MapViewPage = () => {
       });
       return;
     }
-    
+
     // KML header
     let kml = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
@@ -1597,7 +1597,7 @@ const MapViewPage = () => {
         </Icon>
       </IconStyle>
     </Style>`;
-    
+
     // Add optimized route as LineString
     kml += `
     <Placemark>
@@ -1608,18 +1608,18 @@ const MapViewPage = () => {
         <extrude>1</extrude>
         <tessellate>1</tessellate>
         <coordinates>`;
-      
+
     // Add all coordinates from the route path
     routePath.forEach(point => {
       kml += `
         ${point.lng},${point.lat},0`;
     });
-      
+
     kml += `
         </coordinates>
       </LineString>
     </Placemark>`;
-    
+
     // Add waypoints
     waypoints.forEach((point, index) => {
       kml += `
@@ -1632,15 +1632,15 @@ const MapViewPage = () => {
       </Point>
     </Placemark>`;
     });
-    
+
     // Close KML
     kml += `
   </Document>
 </kml>`;
-    
+
     // Create Blob
     const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
-    
+
     // Create download link
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1650,7 +1650,7 @@ const MapViewPage = () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    
+
     // Show success message
     setSnackbar({
       open: true,
@@ -1665,7 +1665,7 @@ const MapViewPage = () => {
       setLoadingSurvey(true);
       setSidebarOpen(true);
       setMapZoom(17); // Set higher zoom level for survey points
-      
+
       // Check if we already have the full survey data
       const existingSurvey = surveys.find(s => s._id === surveyId);
       if (existingSurvey && existingSurvey.mediaFiles) {
@@ -1673,14 +1673,14 @@ const MapViewPage = () => {
         setLoadingSurvey(false);
         return;
       }
-      
+
       // Fetch complete survey details if needed
       const response = await fetch(`https://survey-service-nxvj.onrender.com/api/surveys/${surveyId}`);
       if (!response.ok) throw new Error(`Failed to fetch survey details: ${response.statusText}`);
-      
+
       const data = await response.json();
       if (!data.success) throw new Error('Failed to fetch survey details');
-      
+
       setSelectedSurvey(data.data);
     } catch (err) {
       console.error('Error fetching survey details:', err);
@@ -1689,12 +1689,12 @@ const MapViewPage = () => {
       setLoadingSurvey(false);
     }
   };
-  
+
   // Add this function to handle sidebar close
   const handleSidebarClose = () => {
     setSidebarOpen(false);
     setSelectedSurvey(null);
-    
+
     // Reset map zoom based on whether a location is selected
     if (selectedLocation) {
       setMapZoom(15);
@@ -1718,12 +1718,12 @@ const MapViewPage = () => {
           <Typography variant="h4" fontWeight="700" sx={{ color: '#1e293b' }}>
             OFC Route Map View
           </Typography>
-          <Button 
-            variant="contained" 
-            color="primary" 
+          <Button
+            variant="contained"
+            color="primary"
             startIcon={<AddIcon />}
             onClick={handleOpenCreateDialog}
-            sx={{ 
+            sx={{
               borderRadius: '8px',
               px: 3,
               py: 1,
@@ -1737,7 +1737,7 @@ const MapViewPage = () => {
         <Typography variant="subtitle1" sx={{ color: 'text.secondary', mb: 3, lineHeight: 1.6 }}>
           All locations' routes are shown in blue. Survey points are shown in yellow. For locations with status 5, survey points are connected with yellow routes.
         </Typography>
-        
+
         {/* Search and controls section */}
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 4 }}>
           <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
@@ -1745,10 +1745,10 @@ const MapViewPage = () => {
               options={locationOptions}
               value={selectedLocation && selectedLocation.location ? `${selectedLocation.location.block} (${selectedLocation.location.district})` : null}
               onChange={handleLocationSelect}
-              renderInput={(params) => <TextField 
-                {...params} 
-                label="Search Location" 
-                variant="outlined" 
+              renderInput={(params) => <TextField
+                {...params}
+                label="Search Location"
+                variant="outlined"
                 fullWidth
                 InputProps={{
                   ...params.InputProps,
@@ -1757,7 +1757,7 @@ const MapViewPage = () => {
               />}
               clearOnEscape
               isOptionEqualToValue={(option, value) => option === value}
-              sx={{ 
+              sx={{
                 '& .MuiOutlinedInput-root': {
                   '& fieldset': { borderColor: 'rgba(0, 0, 0, 0.12)' },
                   '&:hover fieldset': { borderColor: 'primary.main' },
@@ -1778,9 +1778,9 @@ const MapViewPage = () => {
           </Box>
           {selectedLocation && (
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button 
-                variant="outlined" 
-                color="primary" 
+              <Button
+                variant="outlined"
+                color="primary"
                 startIcon={<EditIcon />}
                 onClick={handleOpenEditDialog}
                 sx={{ borderRadius: '8px', fontWeight: 500, flex: 1 }}
@@ -1799,7 +1799,7 @@ const MapViewPage = () => {
             </Box>
           )}
         </Box>
-        
+
         {error && <Alert severity="error" sx={{ mb: 3, borderRadius: '8px' }}>{error}</Alert>}
         {loading || !isLoaded ? (
           <Box sx={{ textAlign: 'center', py: 6 }}>
@@ -1809,10 +1809,10 @@ const MapViewPage = () => {
         ) : (
           <>
             {/* Legend */}
-            <Box sx={{ 
-              display: 'flex', 
-              gap: 3, 
-              mb: 3, 
+            <Box sx={{
+              display: 'flex',
+              gap: 3,
+              mb: 3,
               flexWrap: 'wrap',
               p: 2,
               bgcolor: 'rgba(0,0,0,0.02)',
@@ -1844,8 +1844,8 @@ const MapViewPage = () => {
             <Grid container spacing={3} sx={{ mb: 3 }}>
               {selectedLocation ? (
                 <Grid item xs={12} md={6} lg={4}>
-                  <Card sx={{ 
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.05)', 
+                  <Card sx={{
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
                     borderRadius: '12px',
                     overflow: 'hidden',
                     border: `1px solid ${routeColor}20`
@@ -1856,18 +1856,18 @@ const MapViewPage = () => {
                           {selectedLocation.location?.block} ({selectedLocation.location?.district})
                         </Typography>
                       </Box>
-                      <Box sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        mb: 2, 
-                        p: 1.5, 
-                        bgcolor: 'rgba(0,0,0,0.03)', 
-                        borderRadius: '8px' 
+                      <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        mb: 2,
+                        p: 1.5,
+                        bgcolor: 'rgba(0,0,0,0.03)',
+                        borderRadius: '8px'
                       }}>
                         <Typography variant="subtitle2" sx={{ mr: 1 }}>
                           Status: {selectedLocation.location?.status}
                         </Typography>
-                        {selectedLocation.location?.status === 5 && 
+                        {selectedLocation.location?.status === 5 &&
                           <Chip label="Survey Route Enabled" color="warning" size="small" sx={{ fontWeight: 500 }} />
                         }
                       </Box>
@@ -1890,35 +1890,35 @@ const MapViewPage = () => {
                               </Typography>
                             </Grid>
                           </Grid>
-                          
+
                           {/* Add Physical Survey Distance and Difference */}
                           {selectedLocation.location && selectedLocation.location.status === 5 && (() => {
                             // Find survey route for this location
                             const surveyRoute = surveyRoutes.find(route => route.locationId === selectedLocation.location._id);
-                            
+
                             if (surveyRoute) {
                               // Get physical survey distance from the pre-calculated totalDistance when available
                               let physicalDistance = 0;
-                              
+
                               if (surveyRoute.totalDistance) {
                                 // Use the pre-calculated totalDistance
                                 physicalDistance = surveyRoute.totalDistance;
-                              } else if (surveyRoute.directions && 
-                                  surveyRoute.directions.routes && 
-                                  surveyRoute.directions.routes[0] && 
+                              } else if (surveyRoute.directions &&
+                                  surveyRoute.directions.routes &&
+                                  surveyRoute.directions.routes[0] &&
                                   surveyRoute.directions.routes[0].legs) {
                                 // Fallback to calculating again if needed
                                 surveyRoute.directions.routes[0].legs.forEach(leg => {
                                   physicalDistance += leg.distance.value;
                                 });
                               }
-                              
+
                               // Only proceed if we have a valid physical distance
                               if (physicalDistance > 0) {
                                 // Calculate difference
                                 const difference = physicalDistance - selectedLocation.routeInfo.distance;
                                 const percentDiff = ((difference / selectedLocation.routeInfo.distance) * 100).toFixed(1);
-                                
+
                                 return (
                                   <Grid container spacing={2} sx={{ mb: 2, mt: 0.5, pt: 2, borderTop: '1px dashed rgba(0,0,0,0.1)' }}>
                                     <Grid item xs={6}>
@@ -1929,9 +1929,9 @@ const MapViewPage = () => {
                                     </Grid>
                                     <Grid item xs={6}>
                                       <Typography variant="subtitle2" color="text.secondary">Difference:</Typography>
-                                      <Typography 
-                                        variant="body1" 
-                                        color={difference > 0 ? "error.main" : "success.main"} 
+                                      <Typography
+                                        variant="body1"
+                                        color={difference > 0 ? "error.main" : "success.main"}
                                         sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}
                                       >
                                         {formatDistance(Math.abs(difference))} ({difference > 0 ? '+' : '-'}{Math.abs(percentDiff)}%)
@@ -1946,7 +1946,7 @@ const MapViewPage = () => {
                             }
                             return null;
                           })()}
-                          
+
                           <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
                             Survey Points: {getSurveysForLocation(selectedLocation.location?._id).length}
                           </Typography>
@@ -1972,10 +1972,10 @@ const MapViewPage = () => {
                   }, { distance: 0, time: 0 });
                   return (
                     <Grid item xs={12} md={6} lg={4}>
-                      <Card sx={{ 
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.05)', 
+                      <Card sx={{
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
                         borderRadius: '12px',
-                        overflow: 'hidden' 
+                        overflow: 'hidden'
                       }}>
                         <CardContent sx={{ p: 3 }}>
                           <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.main', mb: 2 }}>
@@ -1995,19 +1995,19 @@ const MapViewPage = () => {
                               </Typography>
                             </Grid>
                           </Grid>
-                          
+
                           {/* Calculate total physical survey distance */}
                           {(() => {
                             // Calculate total physical distance across all survey routes
                             let totalPhysicalDistance = 0;
                             let validSurveyRoutes = 0;
-                            
+
                             surveyRoutes.forEach(route => {
                               // Use pre-calculated totalDistance when available
                               if (route.totalDistance) {
                                 totalPhysicalDistance += route.totalDistance;
                                 validSurveyRoutes++;
-                              } else if (route.directions && route.directions.routes && 
+                              } else if (route.directions && route.directions.routes &&
                                   route.directions.routes[0] && route.directions.routes[0].legs) {
                                 let routeDistance = 0;
                                 route.directions.routes[0].legs.forEach(leg => {
@@ -2017,10 +2017,10 @@ const MapViewPage = () => {
                                 validSurveyRoutes++;
                               }
                             });
-                            
+
                             if (validSurveyRoutes > 0) {
                               // Calculate overall difference
-                              const physicalSurveyTotal = surveyRoutes.length > 0 ? 
+                              const physicalSurveyTotal = surveyRoutes.length > 0 ?
                                 (
                                   <Grid container spacing={2} sx={{ mb: 2, mt: 1, pt: 2, borderTop: '1px dashed rgba(0,0,0,0.1)' }}>
                                     <Grid item xs={6}>
@@ -2036,12 +2036,12 @@ const MapViewPage = () => {
                                         if (total.distance > 0) {
                                           const difference = totalPhysicalDistance - total.distance;
                                           const percentDiff = ((difference / total.distance) * 100).toFixed(1);
-                                          
+
                                           return (
                                             <>
-                                              <Typography 
-                                                variant="body1" 
-                                                color={difference > 0 ? "error.main" : "success.main"} 
+                                              <Typography
+                                                variant="body1"
+                                                color={difference > 0 ? "error.main" : "success.main"}
                                                 sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}
                                               >
                                                 {difference > 0 ? '+' : '-'}{Math.abs(percentDiff)}%
@@ -2057,13 +2057,13 @@ const MapViewPage = () => {
                                     </Grid>
                                   </Grid>
                                 ) : null;
-                              
+
                               return physicalSurveyTotal;
                             }
-                            
+
                             return null;
                           })()}
-                          
+
                           <Box sx={{ mt: 2, p: 1.5, bgcolor: 'rgba(0,0,0,0.03)', borderRadius: '8px' }}>
                             <Typography variant="subtitle2" color="text.secondary">
                               Total Survey Points: <strong>{surveys.length}</strong>
@@ -2083,11 +2083,11 @@ const MapViewPage = () => {
             {/* Single map for all locations */}
             <Box>
               {/* Route Visibility Controls */}
-              <Box sx={{ 
-                display: 'flex', 
-                mb: 2, 
-                p: 2, 
-                bgcolor: 'rgba(0,0,0,0.03)', 
+              <Box sx={{
+                display: 'flex',
+                mb: 2,
+                p: 2,
+                bgcolor: 'rgba(0,0,0,0.03)',
                 borderRadius: '8px 8px 0 0',
                 alignItems: 'center',
                 gap: 2,
@@ -2131,7 +2131,7 @@ const MapViewPage = () => {
                         // Determine if this point corresponds to a BHQ type
                         const routePoint = route.location?.route[pidx];
                         const isBHQ = routePoint && routePoint.type === 'BHQ';
-                        
+
                         return (
                           <Marker
                             key={`marker-${idx}-${pidx}`}
@@ -2149,7 +2149,7 @@ const MapViewPage = () => {
                         );
                       })}
                       {/* Render chunked routes if they exist */}
-                      {route.isChunked && route.chunks && routeVisibility.desktopSurvey && 
+                      {route.isChunked && route.chunks && routeVisibility.desktopSurvey &&
                         route.chunks.map((chunk, chunkIdx) => (
                           <DirectionsRenderer
                             key={`chunk-${idx}-${chunkIdx}`}
@@ -2179,7 +2179,7 @@ const MapViewPage = () => {
                           }}
                         />
                       )}
-                      
+
                       {/* Render survey points for this location */}
                       {route.location && getSurveysForLocation(route.location._id).map((survey, sidx) => (
                         <Marker
@@ -2205,9 +2205,9 @@ const MapViewPage = () => {
                 {routeVisibility.physicalSurvey && surveyRoutes.map((route, idx) => {
                   if (!route.directions) return null;
                   const locationData = locations.find(loc => loc._id === route.locationId);
-                  const isSelected = selectedLocation && selectedLocation.location && 
+                  const isSelected = selectedLocation && selectedLocation.location &&
                     locationData && selectedLocation.location._id === locationData._id;
-                  
+
                   return (
                     <React.Fragment key={`survey-route-frag-${idx}`}>
                       {/* Render chunked survey routes if they exist */}
@@ -2252,8 +2252,8 @@ const MapViewPage = () => {
       </Paper>
 
       {/* Create Location Dialog */}
-      <Dialog 
-        open={openCreateDialog} 
+      <Dialog
+        open={openCreateDialog}
         onClose={handleCloseCreateDialog}
         fullWidth
         maxWidth="lg"
@@ -2264,8 +2264,8 @@ const MapViewPage = () => {
           }
         }}
       >
-        <DialogTitle sx={{ 
-          bgcolor: 'primary.main', 
+        <DialogTitle sx={{
+          bgcolor: 'primary.main',
           color: 'white',
           fontSize: '1.3rem',
           fontWeight: 600,
@@ -2318,10 +2318,10 @@ const MapViewPage = () => {
               </Grid>
             </Grid>
 
-            <Box 
-              sx={{ 
-                mt: 4, 
-                mb: 3, 
+            <Box
+              sx={{
+                mt: 4,
+                mb: 3,
                 borderLeft: '4px solid',
                 borderColor: 'secondary.main',
                 pl: 2,
@@ -2405,13 +2405,13 @@ const MapViewPage = () => {
                   </TextField>
                 </Grid>
                 <Grid item xs={12} display="flex" justifyContent="flex-end">
-                  <Button 
-                    variant="contained" 
-                    color="secondary" 
+                  <Button
+                    variant="contained"
+                    color="secondary"
                     onClick={handleAddRoutePoint}
                     disabled={!newRoutePoint.place || !newRoutePoint.type}
-                    sx={{ 
-                      borderRadius: '8px', 
+                    sx={{
+                      borderRadius: '8px',
                       px: 3,
                       fontWeight: 500,
                       '&:hover': {
@@ -2427,10 +2427,10 @@ const MapViewPage = () => {
 
             {/* Display route points table */}
             {newLocation.route.length > 0 && (
-              <TableContainer component={Paper} sx={{ 
-                mt: 3, 
+              <TableContainer component={Paper} sx={{
+                mt: 3,
                 borderRadius: '12px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.05)' 
+                boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
               }}>
                 <Table size="small">
                   <TableHead sx={{ bgcolor: 'primary.light' }}>
@@ -2444,17 +2444,17 @@ const MapViewPage = () => {
                   </TableHead>
                   <TableBody>
                     {newLocation.route.map((point, index) => (
-                      <TableRow key={index} sx={{ 
-                        '&:nth-of-type(odd)': { bgcolor: 'rgba(0,0,0,0.02)' } 
+                      <TableRow key={index} sx={{
+                        '&:nth-of-type(odd)': { bgcolor: 'rgba(0,0,0,0.02)' }
                       }}>
                         <TableCell>{point.place}</TableCell>
                         <TableCell>{point.latitude.toFixed(6)}</TableCell>
                         <TableCell>{point.longitude.toFixed(6)}</TableCell>
                         <TableCell>{point.type}</TableCell>
                         <TableCell>
-                          <IconButton 
-                            size="small" 
-                            color="error" 
+                          <IconButton
+                            size="small"
+                            color="error"
                             onClick={() => handleRemoveRoutePoint(index)}
                             sx={{ '&:hover': { bgcolor: 'error.light', color: 'white' } }}
                           >
@@ -2470,20 +2470,20 @@ const MapViewPage = () => {
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button 
+          <Button
             onClick={handleCloseCreateDialog}
             variant="outlined"
             sx={{ borderRadius: '8px', px: 3 }}
           >
             Cancel
           </Button>
-          <Button 
-            onClick={handleCreateLocation} 
-            variant="contained" 
+          <Button
+            onClick={handleCreateLocation}
+            variant="contained"
             color="primary"
             disabled={creatingLocation || !newLocation.district || !newLocation.block || newLocation.route.length === 0}
-            sx={{ 
-              borderRadius: '8px', 
+            sx={{
+              borderRadius: '8px',
               px: 4,
               fontWeight: 600,
               ml: 2
@@ -2495,8 +2495,8 @@ const MapViewPage = () => {
       </Dialog>
 
       {/* Edit Location Dialog */}
-      <Dialog 
-        open={openEditDialog} 
+      <Dialog
+        open={openEditDialog}
         onClose={handleCloseEditDialog}
         fullWidth
         maxWidth="lg"
@@ -2507,8 +2507,8 @@ const MapViewPage = () => {
           }
         }}
       >
-        <DialogTitle sx={{ 
-          bgcolor: 'primary.main', 
+        <DialogTitle sx={{
+          bgcolor: 'primary.main',
           color: 'white',
           fontSize: '1.3rem',
           fontWeight: 600,
@@ -2629,9 +2629,9 @@ const MapViewPage = () => {
                   </TextField>
                 </Grid>
                 <Grid item xs={12} display="flex" justifyContent="flex-end">
-                  <Button 
-                    variant="contained" 
-                    color="secondary" 
+                  <Button
+                    variant="contained"
+                    color="secondary"
                     onClick={handleAddEditRoutePoint}
                     disabled={!editRoutePoint.place || !editRoutePoint.type}
                   >
@@ -2643,12 +2643,12 @@ const MapViewPage = () => {
               {/* Display route points table with drag-and-drop */}
               {editLocation.route && editLocation.route.length > 0 && (
                 <Box sx={{ mt: 3 }}>
-                  <Box sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    mb: 2, 
-                    p: 2, 
-                    bgcolor: 'info.light', 
+                  <Box sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    mb: 2,
+                    p: 2,
+                    bgcolor: 'info.light',
                     borderRadius: '8px',
                     color: 'info.contrastText'
                   }}>
@@ -2657,8 +2657,8 @@ const MapViewPage = () => {
                       Drag to reorder points. The first point is both the starting and ending point.
                     </Typography>
                   </Box>
-                  
-                  <TableContainer component={Paper} sx={{ 
+
+                  <TableContainer component={Paper} sx={{
                     borderRadius: '12px',
                     boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
                   }}>
@@ -2675,17 +2675,17 @@ const MapViewPage = () => {
                       </TableHead>
                       <TableBody>
                         {editLocation.route.map((point, index) => (
-                          <TableRow 
+                          <TableRow
                             key={index}
                             draggable
                             onDragStart={(e) => handleDragStart(e, index)}
                             onDragOver={handleDragOver}
                             onDrop={(e) => handleDrop(e, index)}
-                            sx={{ 
+                            sx={{
                               cursor: 'move',
                               '&:hover': { bgcolor: 'rgba(0,0,0,0.04)' },
-                              ...(index === 0 ? { 
-                                bgcolor: 'primary.light', 
+                              ...(index === 0 ? {
+                                bgcolor: 'primary.light',
                                 '& .MuiTableCell-root': {
                                   color: 'white',
                                   fontWeight: 500
@@ -2705,24 +2705,24 @@ const MapViewPage = () => {
                             <TableCell>{Number(point.latitude).toFixed(6)}</TableCell>
                             <TableCell>{Number(point.longitude).toFixed(6)}</TableCell>
                             <TableCell>
-                              <Chip 
-                                label={point.type} 
-                                size="small" 
+                              <Chip
+                                label={point.type}
+                                size="small"
                                 color={index === 0 ? "default" : "primary"}
                                 variant={index === 0 ? "default" : "outlined"}
                                 sx={{ fontWeight: 500 }}
                               />
                             </TableCell>
                             <TableCell>
-                              <IconButton 
-                                size="small" 
-                                color={index === 0 ? "default" : "error"} 
+                              <IconButton
+                                size="small"
+                                color={index === 0 ? "default" : "error"}
                                 onClick={() => handleRemoveEditRoutePoint(index)}
-                                sx={{ 
-                                  '&:hover': { 
-                                    bgcolor: index === 0 ? 'rgba(255,255,255,0.2)' : 'error.light', 
-                                    color: index === 0 ? 'inherit' : 'white' 
-                                  } 
+                                sx={{
+                                  '&:hover': {
+                                    bgcolor: index === 0 ? 'rgba(255,255,255,0.2)' : 'error.light',
+                                    color: index === 0 ? 'inherit' : 'white'
+                                  }
                                 }}
                               >
                                 <DeleteIcon />
@@ -2740,9 +2740,9 @@ const MapViewPage = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseEditDialog}>Cancel</Button>
-          <Button 
-            onClick={handleUpdateLocation} 
-            variant="contained" 
+          <Button
+            onClick={handleUpdateLocation}
+            variant="contained"
             color="primary"
             disabled={updatingLocation || !editLocation || editLocation.route.length === 0}
           >
@@ -2758,11 +2758,11 @@ const MapViewPage = () => {
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <Alert 
-          onClose={handleCloseSnackbar} 
-          severity={snackbar.severity || 'info'} 
-          sx={{ 
-            width: '100%', 
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity || 'info'}
+          sx={{
+            width: '100%',
             boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
             borderRadius: '8px',
             '& .MuiAlert-icon': {
@@ -2784,7 +2784,7 @@ const MapViewPage = () => {
         open={openExportMenu}
         onClose={handleExportClose}
         PaperProps={{
-          sx: { 
+          sx: {
             borderRadius: '8px',
             mt: 1,
             boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
@@ -2808,7 +2808,7 @@ const MapViewPage = () => {
             <Typography>Export to KML</Typography>
           </Box>
         </MenuItem>
-        
+
         <Box sx={{ px: 2, py: 1, borderBottom: '1px solid rgba(0,0,0,0.1)', mt: 1 }}>
           <Typography variant="subtitle2" fontWeight={600} color="text.secondary">
             Survey Routes (Physical Survey)
@@ -2829,7 +2829,7 @@ const MapViewPage = () => {
       </Menu>
 
       {/* Survey Sidebar */}
-      <SurveySidebar 
+      <SurveySidebar
         open={sidebarOpen}
         survey={selectedSurvey}
         loading={loadingSurvey}

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Box, 
-  Typography, 
-  Tabs, 
+import {
+  Box,
+  Typography,
+  Tabs,
   Tab,
   Paper,
   Table,
@@ -35,8 +35,8 @@ import axios from 'axios';
 import moment from 'moment';
 
 // Define API URLs - using environment variables if available
-const ATTENDANCE_API_URL = import.meta.env.VITE_ATTENDANCE_API_URL || 'https://attendance.annuprojects.com/api';
-const AUTH_API_URL = import.meta.env.VITE_AUTH_API_URL || 'https://api.annuprojects.com/api';
+const ATTENDANCE_API_URL = 'https://attendance.annuprojects.com/api';
+const AUTH_API_URL = 'https://api.annuprojects.com/api';
 
 const AttendanceDetailedView = () => {
   const theme = useTheme();
@@ -60,11 +60,11 @@ const AttendanceDetailedView = () => {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
       });
-      
+
       // Calculate the date range (current week)
       const startDate = moment(weekStart).format('YYYY-MM-DD');
       const endDate = moment(weekStart).add(6, 'days').format('YYYY-MM-DD');
-      
+
       // Fetch all attendance records for the week
       const attendanceResponse = await axios.get(`${ATTENDANCE_API_URL}/attendance/all`, {
         params: {
@@ -75,10 +75,10 @@ const AttendanceDetailedView = () => {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
       });
-      
+
       // Process the data
       const userData = userResponse.data.data || [];
-      
+
       // Group attendance by user ID
       const attendanceByUser = {};
       (attendanceResponse.data.data || []).forEach(record => {
@@ -87,7 +87,7 @@ const AttendanceDetailedView = () => {
         }
         attendanceByUser[record.userId].push(record);
       });
-      
+
       setUsers(userData);
       setAttendanceData(attendanceByUser);
       setLoading(false);
@@ -146,7 +146,7 @@ const AttendanceDetailedView = () => {
   const getUserAttendanceForDate = (userId, date) => {
     const formattedDate = moment(date).format('YYYY-MM-DD');
     const userAttendance = attendanceData[userId] || [];
-    return userAttendance.find(record => 
+    return userAttendance.find(record =>
       moment(record.date).format('YYYY-MM-DD') === formattedDate
     ) || { status: 'absent' };
   };
@@ -180,12 +180,12 @@ const AttendanceDetailedView = () => {
     const user = users.find(u => u._id === userId) || {};
     const weekDates = getWeekDates();
     const userAttendance = attendanceData[userId] || [];
-    
+
     // Calculate attendance stats
     const presentDays = userAttendance.filter(a => a.status === 'present').length;
     const lateDays = userAttendance.filter(a => a.status === 'late').length;
     const absentDays = 7 - presentDays - lateDays;
-    
+
     return (
       <TableRow>
         <TableCell colSpan={9}>
@@ -193,52 +193,52 @@ const AttendanceDetailedView = () => {
             <Typography variant="h6" gutterBottom>
               Weekly Attendance: {user.username || 'Unknown User'}
             </Typography>
-            
+
             <Grid container spacing={2} sx={{ mb: 3 }}>
               <Grid item xs={12} sm={4}>
                 <Card variant="outlined">
                   <CardContent>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <Typography variant="subtitle2" color="textSecondary">Present</Typography>
-                      <Chip 
-                        icon={<CheckCircleIcon />} 
-                        label={presentDays} 
-                        color="success" 
-                        size="small" 
+                      <Chip
+                        icon={<CheckCircleIcon />}
+                        label={presentDays}
+                        color="success"
+                        size="small"
                         variant="outlined"
                       />
                     </Box>
                   </CardContent>
                 </Card>
               </Grid>
-              
+
               <Grid item xs={12} sm={4}>
                 <Card variant="outlined">
                   <CardContent>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <Typography variant="subtitle2" color="textSecondary">Late</Typography>
-                      <Chip 
-                        icon={<ScheduleIcon />} 
-                        label={lateDays} 
-                        color="warning" 
-                        size="small" 
+                      <Chip
+                        icon={<ScheduleIcon />}
+                        label={lateDays}
+                        color="warning"
+                        size="small"
                         variant="outlined"
                       />
                     </Box>
                   </CardContent>
                 </Card>
               </Grid>
-              
+
               <Grid item xs={12} sm={4}>
                 <Card variant="outlined">
                   <CardContent>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <Typography variant="subtitle2" color="textSecondary">Absent</Typography>
-                      <Chip 
-                        icon={<CancelIcon />} 
-                        label={absentDays} 
-                        color="error" 
-                        size="small" 
+                      <Chip
+                        icon={<CancelIcon />}
+                        label={absentDays}
+                        color="error"
+                        size="small"
                         variant="outlined"
                       />
                     </Box>
@@ -246,7 +246,7 @@ const AttendanceDetailedView = () => {
                 </Card>
               </Grid>
             </Grid>
-            
+
             <TableContainer component={Paper} variant="outlined">
               <Table size="small">
                 <TableHead>
@@ -263,16 +263,16 @@ const AttendanceDetailedView = () => {
                 <TableBody>
                   {weekDates.map((date, index) => {
                     const attendance = getUserAttendanceForDate(userId, date);
-                    const checkInTime = attendance.sessions && attendance.sessions.length > 0 
-                      ? moment(attendance.sessions[0].checkInTime).format('hh:mm A') 
+                    const checkInTime = attendance.sessions && attendance.sessions.length > 0
+                      ? moment(attendance.sessions[0].checkInTime).format('hh:mm A')
                       : '-';
                     const checkOutTime = attendance.sessions && attendance.sessions.length > 0 && attendance.sessions[0].checkOutTime
-                      ? moment(attendance.sessions[0].checkOutTime).format('hh:mm A') 
+                      ? moment(attendance.sessions[0].checkOutTime).format('hh:mm A')
                       : '-';
                     const hoursWorked = attendance.sessions && attendance.sessions.length > 0 && attendance.sessions[0].checkOutTime
                       ? moment.duration(moment(attendance.sessions[0].checkOutTime).diff(moment(attendance.sessions[0].checkInTime))).asHours().toFixed(2)
                       : '-';
-                    
+
                     return (
                       <TableRow key={index} sx={{ '&:nth-of-type(odd)': { bgcolor: 'action.hover' } }}>
                         <TableCell>{moment(date).format('dddd')}</TableCell>
@@ -292,14 +292,14 @@ const AttendanceDetailedView = () => {
                         <TableCell>{checkOutTime}</TableCell>
                         <TableCell>{hoursWorked}</TableCell>
                         <TableCell>
-                          {attendance.location && attendance.location.address 
+                          {attendance.location && attendance.location.address
                             ? (
                               <Tooltip title={attendance.location.address}>
                                 <Typography noWrap sx={{ maxWidth: 200 }}>
                                   {attendance.location.address}
                                 </Typography>
                               </Tooltip>
-                            ) 
+                            )
                             : '-'}
                         </TableCell>
                       </TableRow>
@@ -318,18 +318,18 @@ const AttendanceDetailedView = () => {
   const UserRow = ({ user }) => {
     const open = selectedUser === user._id;
     const userAttendance = attendanceData[user._id] || [];
-    
+
     // Calculate attendance stats
     const presentDays = userAttendance.filter(a => a.status === 'present').length;
     const lateDays = userAttendance.filter(a => a.status === 'late').length;
     const absentDays = 7 - presentDays - lateDays;
-    
+
     return (
       <>
-        <TableRow 
-          hover 
+        <TableRow
+          hover
           onClick={() => handleUserSelect(user._id)}
-          sx={{ 
+          sx={{
             cursor: 'pointer',
             '&:hover': {
               bgcolor: theme.palette.action.hover
@@ -347,8 +347,8 @@ const AttendanceDetailedView = () => {
           </TableCell>
           <TableCell>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Avatar 
-                sx={{ 
+              <Avatar
+                sx={{
                   bgcolor: user.role === 'SUPERVISOR' ? theme.palette.primary.main : theme.palette.secondary.main,
                   width: 32,
                   height: 32
@@ -362,39 +362,39 @@ const AttendanceDetailedView = () => {
             </Box>
           </TableCell>
           <TableCell>
-            <Chip 
-              label={user.role || 'Unknown'} 
+            <Chip
+              label={user.role || 'Unknown'}
               size="small"
               color={user.role === 'SUPERVISOR' ? 'primary' : 'secondary'}
               variant="outlined"
             />
           </TableCell>
           <TableCell align="center">
-            <Chip 
-              label={presentDays} 
-              color="success" 
-              size="small" 
+            <Chip
+              label={presentDays}
+              color="success"
+              size="small"
               variant="outlined"
             />
           </TableCell>
           <TableCell align="center">
-            <Chip 
-              label={lateDays} 
-              color="warning" 
-              size="small" 
+            <Chip
+              label={lateDays}
+              color="warning"
+              size="small"
               variant="outlined"
             />
           </TableCell>
           <TableCell align="center">
-            <Chip 
-              label={absentDays} 
-              color="error" 
-              size="small" 
+            <Chip
+              label={absentDays}
+              color="error"
+              size="small"
               variant="outlined"
             />
           </TableCell>
           <TableCell align="center">
-            {(presentDays + lateDays) > 0 
+            {(presentDays + lateDays) > 0
               ? Math.round((presentDays + lateDays) / 7 * 100) + '%'
               : '0%'}
           </TableCell>
@@ -429,7 +429,7 @@ const AttendanceDetailedView = () => {
         <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
           Weekly attendance records for supervisors and surveyors
         </Typography>
-        
+
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Box>
             <Tabs value={userType} onChange={handleTabChange}>
@@ -438,24 +438,24 @@ const AttendanceDetailedView = () => {
               <Tab value="surveyors" label="Surveyors" />
             </Tabs>
           </Box>
-          
+
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Tooltip title="Previous Week">
               <IconButton size="small" onClick={goToPreviousWeek}>
                 <KeyboardArrowDownIcon />
               </IconButton>
             </Tooltip>
-            
+
             <Typography variant="subtitle2" sx={{ fontWeight: 500 }}>
               {moment(weekStart).format('MMM DD')} - {moment(weekStart).add(6, 'days').format('MMM DD, YYYY')}
             </Typography>
-            
+
             <Tooltip title="Next Week">
               <IconButton size="small" onClick={goToNextWeek}>
                 <KeyboardArrowUpIcon />
               </IconButton>
             </Tooltip>
-            
+
             <Tooltip title="Current Week">
               <IconButton size="small" onClick={goToCurrentWeek} color="primary">
                 <ScheduleIcon fontSize="small" />
@@ -464,7 +464,7 @@ const AttendanceDetailedView = () => {
           </Box>
         </Box>
       </Box>
-      
+
       {filteredUsers.length === 0 ? (
         <Alert severity="info">No users found</Alert>
       ) : (
@@ -493,4 +493,4 @@ const AttendanceDetailedView = () => {
   );
 };
 
-export default AttendanceDetailedView; 
+export default AttendanceDetailedView;

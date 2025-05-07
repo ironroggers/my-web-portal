@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Box, 
-  Container, 
-  Typography, 
-  Grid, 
-  Paper, 
-  Card, 
-  CardContent, 
-  CardMedia, 
-  CardActionArea, 
-  Button, 
-  Divider, 
+import {
+  Box,
+  Container,
+  Typography,
+  Grid,
+  Paper,
+  Card,
+  CardContent,
+  CardMedia,
+  CardActionArea,
+  Button,
+  Divider,
   CircularProgress,
   List,
   ListItem,
@@ -155,7 +155,7 @@ const LandingPage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
-  
+
   // State for attendance stats
   const [attendanceStats, setAttendanceStats] = useState({
     present: 0,
@@ -191,22 +191,22 @@ const LandingPage = () => {
       setAttendanceStats(prev => ({ ...prev, loading: true }));
       setUserStats(prev => ({ ...prev, loading: true }));
       setStatsError(null);
-      
+
       // Fetch users from auth API
-      const usersResponse = await fetch(`${import.meta.env.VITE_AUTH_API_URL || 'https://api.annuprojects.com/api'}/auth/users`);
+      const usersResponse = await fetch(`https://api.annuprojects.com/api/auth/users`);
       if (!usersResponse.ok) {
         throw new Error('Failed to fetch users data');
       }
       const usersData = await usersResponse.json();
-      
+
       if (!usersData.success || !Array.isArray(usersData.data)) {
         throw new Error('Invalid data format received from Auth API');
       }
-      
+
       const users = usersData.data;
       const supervisors = users.filter(user => user.role === 'SUPERVISOR').length;
       const surveyors = users.filter(user => user.role === 'SURVEYOR').length;
-      
+
       // Set user stats
       setUserStats({
         supervisors,
@@ -214,34 +214,34 @@ const LandingPage = () => {
         total: users.length,
         loading: false
       });
-      
+
       // Fetch today's attendance from attendance API
       const today = new Date();
       const month = String(today.getMonth() + 1).padStart(2, '0');
       const year = today.getFullYear();
-      
-      const attendanceResponse = await fetch(`${import.meta.env.VITE_ATTENDANCE_API_URL || 'https://attendance.annuprojects.com/api'}/attendance/all?month=${month}&year=${year}`);
+
+      const attendanceResponse = await fetch(`https://attendance.annuprojects.com/api/attendance/all?month=${month}&year=${year}`);
       if (!attendanceResponse.ok) {
         throw new Error('Failed to fetch attendance data');
       }
-      
+
       const attendanceData = await attendanceResponse.json();
       if (!attendanceData.success || !Array.isArray(attendanceData.data)) {
         throw new Error('Invalid data format received from Attendance API');
       }
-      
+
       // Filter for today's records
       const todayStr = today.toISOString().split('T')[0];
       const todayRecords = attendanceData.data.filter(record => {
         const recordDate = new Date(record.date);
         return recordDate.toISOString().split('T')[0] === todayStr;
       });
-      
+
       // Count by status
       const present = todayRecords.filter(record => record.status === 'present').length;
       const late = todayRecords.filter(record => record.status === 'late').length;
       const absent = todayRecords.filter(record => record.status === 'absent').length;
-      
+
       // Set attendance stats
       setAttendanceStats({
         present,
@@ -250,11 +250,11 @@ const LandingPage = () => {
         total: users.length, // Assuming every user should have an attendance record
         loading: false
       });
-      
+
     } catch (error) {
       console.error('Error fetching stats:', error);
       setStatsError('Failed to load dashboard data. Please try again later.');
-      
+
       // In case of error, show empty stats
       setAttendanceStats({
         present: 0,
@@ -263,7 +263,7 @@ const LandingPage = () => {
         total: 0,
         loading: false
       });
-      
+
       setUserStats({
         supervisors: 0,
         surveyors: 0,
@@ -278,51 +278,51 @@ const LandingPage = () => {
     try {
       setActivitiesLoading(true);
       setError(null);
-      
+
       // Fetch attendance data for recent activities
       const today = new Date();
       const month = String(today.getMonth() + 1).padStart(2, '0');
       const year = today.getFullYear();
-      
-      const response = await fetch(`${import.meta.env.VITE_ATTENDANCE_API_URL || 'https://attendance.annuprojects.com/api'}/attendance/all?month=${month}&year=${year}`);
+
+      const response = await fetch(`https://attendance.annuprojects.com/api/attendance/all?month=${month}&year=${year}`);
       if (!response.ok) {
         throw new Error('Failed to fetch attendance data');
       }
-      
+
       const data = await response.json();
       if (!data.success || !Array.isArray(data.data)) {
         throw new Error('Invalid data format received from Attendance API');
       }
-      
+
       // Get user information to enrich attendance records
-      const usersResponse = await fetch(`${import.meta.env.VITE_AUTH_API_URL || 'https://api.annuprojects.com/api'}/auth/users`);
+      const usersResponse = await fetch(`https://api.annuprojects.com/api/auth/users`);
       if (!usersResponse.ok) {
         throw new Error('Failed to fetch users data');
       }
-      
+
       const usersData = await usersResponse.json();
       if (!usersData.success || !Array.isArray(usersData.data)) {
         throw new Error('Invalid data format received from Auth API');
       }
-      
+
       const users = usersData.data;
-      
+
       // Sort by date, most recent first
       const sortedRecords = [...data.data].sort((a, b) => {
         return new Date(b.date) - new Date(a.date);
       });
-      
+
       // Take the 5 most recent records
       const recentRecords = sortedRecords.slice(0, 5);
-      
+
       // Format records as activities
       const activities = recentRecords.map((record, index) => {
         const user = users.find(u => u._id === record.userId) || { username: 'Unknown User' };
-        
+
         // Format time
         let formattedTime;
         let activityType;
-        
+
         if (record.status === 'absent') {
           formattedTime = 'All day';
           activityType = 'absence';
@@ -337,7 +337,7 @@ const LandingPage = () => {
           formattedTime = 'N/A';
           activityType = 'attendance';
         }
-        
+
         return {
           id: record._id || index,
           type: activityType,
@@ -347,7 +347,7 @@ const LandingPage = () => {
           date: new Date(record.date).toLocaleDateString()
         };
       });
-      
+
       setRecentActivities(activities);
       setActivitiesLoading(false);
     } catch (error) {
@@ -393,10 +393,10 @@ const LandingPage = () => {
       </Box>
 
       {/* Dashboard Controls */}
-      <Box 
-        sx={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
           alignItems: 'center',
           mb: 4,
           mt: 2,
@@ -405,33 +405,33 @@ const LandingPage = () => {
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <DashboardIcon 
-            sx={{ 
-              fontSize: 30, 
-              mr: 1.5, 
+          <DashboardIcon
+            sx={{
+              fontSize: 30,
+              mr: 1.5,
               color: 'primary.main',
               filter: `drop-shadow(0 0 8px ${alpha(theme.palette.primary.main, 0.5)})`
-            }} 
+            }}
           />
           <Box>
             <Typography variant="h5" component="h2" fontWeight="600" sx={{ color: 'text.primary' }}>
               Dashboard Overview
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {new Date().toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
+              {new Date().toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
               })}
             </Typography>
           </Box>
         </Box>
-        
+
         <Box sx={{ display: 'flex', gap: 1.5 }}>
           <Tooltip title="View Notifications">
-            <IconButton 
-              sx={{ 
+            <IconButton
+              sx={{
                 bgcolor: alpha(theme.palette.warning.main, 0.1),
                 color: 'warning.main',
                 '&:hover': {
@@ -443,9 +443,9 @@ const LandingPage = () => {
             </IconButton>
           </Tooltip>
           <Tooltip title="Refresh Dashboard">
-            <IconButton 
+            <IconButton
               onClick={() => { fetchStats(); fetchRecentActivities(); }}
-              sx={{ 
+              sx={{
                 bgcolor: alpha(theme.palette.primary.main, 0.1),
                 color: 'primary.main',
                 '&:hover': {
@@ -458,18 +458,18 @@ const LandingPage = () => {
           </Tooltip>
         </Box>
       </Box>
-      
+
       {/* Error message */}
       {statsError && (
-        <Box 
-          sx={{ 
-            mt: 1, 
-            mb: 4, 
-            p: 2, 
-            bgcolor: alpha(theme.palette.error.main, 0.08), 
+        <Box
+          sx={{
+            mt: 1,
+            mb: 4,
+            p: 2,
+            bgcolor: alpha(theme.palette.error.main, 0.08),
             borderRadius: 2,
             border: `1px solid ${alpha(theme.palette.error.main, 0.2)}`,
-            display: 'flex', 
+            display: 'flex',
             alignItems: 'center',
             boxShadow: `0 4px 14px ${alpha(theme.palette.error.main, 0.1)}`
           }}
@@ -491,12 +491,12 @@ const LandingPage = () => {
                     <Typography variant="h5" fontWeight="600">
                       Attendance Overview
                     </Typography>
-                    <Chip 
-                      icon={<TrendingUpIcon fontSize="small" />} 
-                      label={`${calculateAttendancePercentage()}% Present Today`} 
-                      color="success" 
+                    <Chip
+                      icon={<TrendingUpIcon fontSize="small" />}
+                      label={`${calculateAttendancePercentage()}% Present Today`}
+                      color="success"
                       variant="outlined"
-                      sx={{ 
+                      sx={{
                         fontWeight: 600,
                         p: 0.5,
                         borderWidth: 2,
@@ -504,9 +504,9 @@ const LandingPage = () => {
                       }}
                     />
                   </Stack>
-                  
-                  <Box sx={{ 
-                    display: 'flex', 
+
+                  <Box sx={{
+                    display: 'flex',
                     flexDirection: { xs: 'column', md: 'row' },
                     alignItems: 'center',
                     gap: 4
@@ -519,7 +519,7 @@ const LandingPage = () => {
                           value={calculateAttendancePercentage()}
                           size={180}
                           thickness={4}
-                          sx={{ 
+                          sx={{
                             color: theme.palette.success.main,
                             boxShadow: `0 0 20px ${alpha(theme.palette.success.main, 0.2)}`,
                             borderRadius: '50%'
@@ -547,14 +547,14 @@ const LandingPage = () => {
                         </Box>
                       </Box>
                     </Box>
-                    
+
                     {/* Attendance Stats */}
                     <Box sx={{ flex: 2 }}>
                       <Grid container spacing={2} sx={{ mb: 2 }}>
                         <Grid item xs={4}>
-                          <Box sx={{ 
-                            textAlign: 'center', 
-                            p: 1.5, 
+                          <Box sx={{
+                            textAlign: 'center',
+                            p: 1.5,
                             borderRadius: 2,
                             bgcolor: alpha(theme.palette.success.main, 0.08),
                             border: `1px solid ${alpha(theme.palette.success.main, 0.2)}`
@@ -575,9 +575,9 @@ const LandingPage = () => {
                           </Box>
                         </Grid>
                         <Grid item xs={4}>
-                          <Box sx={{ 
-                            textAlign: 'center', 
-                            p: 1.5, 
+                          <Box sx={{
+                            textAlign: 'center',
+                            p: 1.5,
                             borderRadius: 2,
                             bgcolor: alpha(theme.palette.warning.main, 0.08),
                             border: `1px solid ${alpha(theme.palette.warning.main, 0.2)}`
@@ -598,9 +598,9 @@ const LandingPage = () => {
                           </Box>
                         </Grid>
                         <Grid item xs={4}>
-                          <Box sx={{ 
-                            textAlign: 'center', 
-                            p: 1.5, 
+                          <Box sx={{
+                            textAlign: 'center',
+                            p: 1.5,
                             borderRadius: 2,
                             bgcolor: alpha(theme.palette.error.main, 0.08),
                             border: `1px solid ${alpha(theme.palette.error.main, 0.2)}`
@@ -621,7 +621,7 @@ const LandingPage = () => {
                           </Box>
                         </Grid>
                       </Grid>
-                      
+
                       <Box
                         sx={{
                           p: 2,
@@ -635,13 +635,13 @@ const LandingPage = () => {
                         <Typography variant="body1" gutterBottom color="text.secondary">
                           {attendanceStats.total} Team Members Total
                         </Typography>
-                        <Button 
-                          variant="contained" 
-                          color="primary" 
-                          component={Link} 
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          component={Link}
                           to="/attendance"
                           endIcon={<ArrowForwardIcon />}
-                          sx={{ 
+                          sx={{
                             borderRadius: 2,
                             textTransform: 'none',
                             fontWeight: 600,
@@ -664,12 +664,12 @@ const LandingPage = () => {
                     <Typography variant="h5" fontWeight="600">
                       Recent Activities
                     </Typography>
-                    <Button 
-                      component={Link} 
-                      to="/attendance" 
-                      color="primary" 
+                    <Button
+                      component={Link}
+                      to="/attendance"
+                      color="primary"
                       endIcon={<ArrowForwardIcon />}
-                      sx={{ 
+                      sx={{
                         borderRadius: 2,
                         fontWeight: 600,
                         textTransform: 'none'
@@ -678,10 +678,10 @@ const LandingPage = () => {
                       View All
                     </Button>
                   </Stack>
-                  
+
                   {error && (
-                    <Box sx={{ 
-                      p: 2, 
+                    <Box sx={{
+                      p: 2,
                       borderRadius: 2,
                       bgcolor: alpha(theme.palette.error.main, 0.05),
                       border: `1px solid ${alpha(theme.palette.error.main, 0.2)}`,
@@ -694,16 +694,16 @@ const LandingPage = () => {
                       <Typography color="error.main" fontWeight="500">{error}</Typography>
                     </Box>
                   )}
-                  
+
                   {activitiesLoading ? (
                     <Box display="flex" justifyContent="center" alignItems="center" py={4}>
                       <CircularProgress />
                     </Box>
                   ) : recentActivities.length === 0 ? (
-                    <Box 
-                      textAlign="center" 
-                      py={4} 
-                      sx={{ 
+                    <Box
+                      textAlign="center"
+                      py={4}
+                      sx={{
                         bgcolor: alpha(theme.palette.primary.main, 0.03),
                         borderRadius: 2,
                         border: `1px dashed ${alpha(theme.palette.primary.main, 0.2)}`
@@ -716,29 +716,29 @@ const LandingPage = () => {
                     <List sx={{ width: '100%', p: 0 }}>
                       {recentActivities.map((activity, index) => (
                         <React.Fragment key={activity.id || index}>
-                          <ListItem 
-                            alignItems="flex-start" 
-                            sx={{ 
+                          <ListItem
+                            alignItems="flex-start"
+                            sx={{
                               py: 2,
                               px: 2,
                               borderRadius: 2,
                               mb: 1,
                               transition: 'all 0.2s',
                               bgcolor: index % 2 === 0 ? alpha(theme.palette.primary.main, 0.03) : 'transparent',
-                              '&:hover': { 
+                              '&:hover': {
                                 bgcolor: alpha(theme.palette.primary.main, 0.05),
                                 transform: 'translateX(5px)'
                               }
                             }}
                           >
                             <ListItemIcon>
-                              <Avatar 
-                                sx={{ 
-                                  width: 45, 
+                              <Avatar
+                                sx={{
+                                  width: 45,
                                   height: 45,
                                   fontWeight: 'bold',
-                                  bgcolor: 
-                                    activity.status === 'present' ? 'success.main' : 
+                                  bgcolor:
+                                    activity.status === 'present' ? 'success.main' :
                                     activity.status === 'late' ? 'warning.main' : 'error.main'
                                 }}
                               >
@@ -753,8 +753,8 @@ const LandingPage = () => {
                                   </Typography>
                                   <Box display="flex" alignItems="center" gap={1}>
                                     {getStatusChip(activity.status)}
-                                    <Typography variant="caption" fontWeight="500" 
-                                      sx={{ 
+                                    <Typography variant="caption" fontWeight="500"
+                                      sx={{
                                         color: 'text.secondary',
                                         bgcolor: alpha(theme.palette.common.black, 0.03),
                                         borderRadius: 1,
@@ -787,7 +787,7 @@ const LandingPage = () => {
             </Grid>
           </Grid>
         </Grid>
-        
+
         {/* Features and Team Overview */}
         <Grid item xs={12} lg={4}>
           <Grid container spacing={4}>
@@ -797,16 +797,16 @@ const LandingPage = () => {
                   <Typography variant="h5" fontWeight="600" gutterBottom>
                     Team Overview
                   </Typography>
-                  
+
                   {userStats.loading ? (
                     <Box display="flex" justifyContent="center" py={3}>
                       <CircularProgress />
                     </Box>
                   ) : (
                     <>
-                      <Box sx={{ 
-                        p: 2, 
-                        mb: 3, 
+                      <Box sx={{
+                        p: 2,
+                        mb: 3,
                         borderRadius: 2,
                         bgcolor: alpha(theme.palette.secondary.main, 0.05),
                         border: `1px solid ${alpha(theme.palette.secondary.main, 0.2)}`
@@ -826,11 +826,11 @@ const LandingPage = () => {
                           </Typography>
                         </Stack>
                         <Box sx={{ width: '100%', mt: 1 }}>
-                          <LinearProgress 
-                            variant="determinate" 
+                          <LinearProgress
+                            variant="determinate"
                             value={userStats.total > 0 ? (userStats.supervisors / userStats.total) * 100 : 0}
-                            sx={{ 
-                              height: 8, 
+                            sx={{
+                              height: 8,
                               borderRadius: 4,
                               bgcolor: alpha(theme.palette.secondary.main, 0.15),
                               '& .MuiLinearProgress-bar': {
@@ -839,17 +839,17 @@ const LandingPage = () => {
                             }}
                           />
                           <Typography variant="caption" display="block" sx={{ textAlign: 'right', mt: 0.5 }}>
-                            {userStats.total > 0 ? 
-                              `${Math.round((userStats.supervisors / userStats.total) * 100)}% of team` : 
+                            {userStats.total > 0 ?
+                              `${Math.round((userStats.supervisors / userStats.total) * 100)}% of team` :
                               '0% of team'
                             }
                           </Typography>
                         </Box>
                       </Box>
-                      
-                      <Box sx={{ 
-                        p: 2, 
-                        mb: 3, 
+
+                      <Box sx={{
+                        p: 2,
+                        mb: 3,
                         borderRadius: 2,
                         bgcolor: alpha(theme.palette.info.main, 0.05),
                         border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`
@@ -869,11 +869,11 @@ const LandingPage = () => {
                           </Typography>
                         </Stack>
                         <Box sx={{ width: '100%', mt: 1 }}>
-                          <LinearProgress 
-                            variant="determinate" 
+                          <LinearProgress
+                            variant="determinate"
                             value={userStats.total > 0 ? (userStats.surveyors / userStats.total) * 100 : 0}
-                            sx={{ 
-                              height: 8, 
+                            sx={{
+                              height: 8,
                               borderRadius: 4,
                               bgcolor: alpha(theme.palette.info.main, 0.15),
                               '& .MuiLinearProgress-bar': {
@@ -882,22 +882,22 @@ const LandingPage = () => {
                             }}
                           />
                           <Typography variant="caption" display="block" sx={{ textAlign: 'right', mt: 0.5 }}>
-                            {userStats.total > 0 ? 
-                              `${Math.round((userStats.surveyors / userStats.total) * 100)}% of team` : 
+                            {userStats.total > 0 ?
+                              `${Math.round((userStats.surveyors / userStats.total) * 100)}% of team` :
                               '0% of team'
                             }
                           </Typography>
                         </Box>
                       </Box>
-                      
-                      <Button 
-                        fullWidth 
-                        variant="outlined" 
-                        component={Link} 
+
+                      <Button
+                        fullWidth
+                        variant="outlined"
+                        component={Link}
                         to="/users"
                         color="primary"
                         endIcon={<ArrowForwardIcon />}
-                        sx={{ 
+                        sx={{
                           borderRadius: 2,
                           py: 1.5,
                           fontWeight: 600,
@@ -911,19 +911,19 @@ const LandingPage = () => {
                 </CardContent>
               </GlassCard>
             </Grid>
-            
+
             <Grid item xs={12}>
               <GlassCard elevation={0}>
                 <CardContent sx={{ p: 3 }}>
                   <Typography variant="h5" fontWeight="600" gutterBottom mb={2}>
                     Quick Actions
                   </Typography>
-                  
+
                   <Grid container spacing={2}>
                     <Grid item xs={12}>
-                      <QuickButton 
-                        fullWidth 
-                        variant="text" 
+                      <QuickButton
+                        fullWidth
+                        variant="text"
                         startIcon={<CalendarMonthIcon />}
                         component={Link}
                         to="/attendance"
@@ -936,9 +936,9 @@ const LandingPage = () => {
                       </QuickButton>
                     </Grid>
                     <Grid item xs={12}>
-                      <QuickButton 
-                        fullWidth 
-                        variant="text" 
+                      <QuickButton
+                        fullWidth
+                        variant="text"
                         startIcon={<PeopleAltIcon />}
                         component={Link}
                         to="/users"
@@ -951,9 +951,9 @@ const LandingPage = () => {
                       </QuickButton>
                     </Grid>
                     <Grid item xs={12}>
-                      <QuickButton 
-                        fullWidth 
-                        variant="text" 
+                      <QuickButton
+                        fullWidth
+                        variant="text"
                         startIcon={<AssessmentIcon />}
                         component={Link}
                         to="/reports"
@@ -966,9 +966,9 @@ const LandingPage = () => {
                       </QuickButton>
                     </Grid>
                     <Grid item xs={12}>
-                      <QuickButton 
-                        fullWidth 
-                        variant="text" 
+                      <QuickButton
+                        fullWidth
+                        variant="text"
                         startIcon={<PersonIcon />}
                         component={Link}
                         to="/profile"
@@ -1007,4 +1007,4 @@ function LinearProgressWithLabel(props) {
   );
 }
 
-export default LandingPage; 
+export default LandingPage;

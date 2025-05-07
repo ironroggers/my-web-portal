@@ -3,7 +3,7 @@ import axios from 'axios';
 
 // Create an axios instance with default config
 const api = axios.create({
-  baseURL: import.meta.env.VITE_AUTH_API_URL || 'https://api.annuprojects.com/api',
+  baseURL: 'https://api.annuprojects.com/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -34,12 +34,12 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     const storedToken = localStorage.getItem('token');
-    
+
     if (storedUser && storedToken) {
       setUser(JSON.parse(storedUser));
       setToken(storedToken);
     }
-    
+
     setLoading(false);
   }, []);
 
@@ -49,15 +49,15 @@ export function AuthProvider({ children }) {
     try {
       const response = await api.post('/auth/login', { email, password });
       const { user: userData, token: authToken } = response.data.data;
-      
+
       // Save to state
       setUser(userData);
       setToken(authToken);
-      
+
       // Save to localStorage
       localStorage.setItem('user', JSON.stringify(userData));
       localStorage.setItem('token', authToken);
-      
+
       return userData;
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Login failed';
@@ -72,15 +72,15 @@ export function AuthProvider({ children }) {
     try {
       const response = await api.post('/auth/register', userData);
       const { user: newUser, token: authToken } = response.data.data;
-      
+
       // Save to state
       setUser(newUser);
       setToken(authToken);
-      
+
       // Save to localStorage
       localStorage.setItem('user', JSON.stringify(newUser));
       localStorage.setItem('token', authToken);
-      
+
       return newUser;
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Registration failed';
@@ -121,7 +121,7 @@ export function AuthProvider({ children }) {
 
     try {
       const response = await api.put('/auth/profile', updatedData);
-      
+
       // Update the user in state and localStorage
       const updatedUser = { ...user, ...response.data.data };
       setUser(updatedUser);
@@ -166,4 +166,4 @@ export function AuthProvider({ children }) {
       {!loading && children}
     </AuthContext.Provider>
   );
-} 
+}

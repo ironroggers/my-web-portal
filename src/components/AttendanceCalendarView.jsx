@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Box, 
-  Typography, 
-  CircularProgress, 
-  Alert, 
+import {
+  Box,
+  Typography,
+  CircularProgress,
+  Alert,
   Paper,
   useTheme,
   alpha,
@@ -30,20 +30,20 @@ const AttendanceCalendarView = () => {
   const [attendanceData, setAttendanceData] = useState([]);
   const [users, setUsers] = useState([]);
   const [currentDate, setCurrentDate] = useState(new Date());
-  
+
   // Define API URLs - using environment variables if available
-  const ATTENDANCE_API_URL = import.meta.env.VITE_ATTENDANCE_API_URL || 'https://attendance.annuprojects.com/api';
-  const AUTH_API_URL = import.meta.env.VITE_AUTH_API_URL || 'https://api.annuprojects.com/api';
+  const ATTENDANCE_API_URL = 'https://attendance.annuprojects.com/api';
+  const AUTH_API_URL = 'https://api.annuprojects.com/api';
 
   // Create a memoized fetchData function
   const fetchData = useCallback(async (date) => {
     try {
       setLoading(true);
-      
+
       // Get month and year from the provided date
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const year = date.getFullYear();
-      
+
       // Fetch attendance data for the selected month
       const attendanceResponse = await axios.get(`${ATTENDANCE_API_URL}/attendance/all`, {
         params: { month, year },
@@ -51,14 +51,14 @@ const AttendanceCalendarView = () => {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
       });
-      
+
       // Fetch user data to get roles
       const userResponse = await axios.get(`${AUTH_API_URL}/auth/users`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
       });
-      
+
       setAttendanceData(attendanceResponse.data.data || []);
       setUsers(userResponse.data.data || []);
       setLoading(false);
@@ -73,22 +73,22 @@ const AttendanceCalendarView = () => {
   useEffect(() => {
     fetchData(currentDate);
   }, [currentDate, fetchData]);
-  
+
   // Handle calendar navigation (prev/next month)
   const handleNavigate = (newDate) => {
     setCurrentDate(newDate);
   };
-  
+
   // Process data to get attendance counts by date
   const getCalendarEvents = () => {
     // Create a map to store attendance counts by date
     const attendanceByDate = {};
-    
+
     // Process attendance records
     attendanceData.forEach(record => {
       if (record.status === 'present' || record.status === 'late') {
         const date = moment(record.date).format('YYYY-MM-DD');
-        
+
         if (!attendanceByDate[date]) {
           attendanceByDate[date] = {
             supervisors: 0,
@@ -96,7 +96,7 @@ const AttendanceCalendarView = () => {
             total: 0
           };
         }
-        
+
         // Find user to determine role
         const user = users.find(u => u._id === record.userId);
         if (user) {
@@ -109,7 +109,7 @@ const AttendanceCalendarView = () => {
         }
       }
     });
-    
+
     // Convert to events for the calendar
     return Object.keys(attendanceByDate).map(date => ({
       id: date,
@@ -128,13 +128,13 @@ const AttendanceCalendarView = () => {
     // Calculate color intensity based on attendance counts
     const maxSupervisors = 10; // Adjust based on your expected maximum
     const maxSurveyors = 20; // Adjust based on your expected maximum
-    
+
     // Separate intensity for each role type for better visualization
     const supervisorIntensity = Math.min(event.supervisors / maxSupervisors, 1) * 0.7 + 0.3;
     const surveyorIntensity = Math.min(event.surveyors / maxSurveyors, 1) * 0.7 + 0.3;
-    
+
     return (
-      <Tooltip 
+      <Tooltip
         title={
           <Box sx={{ p: 0.5 }}>
             <Typography variant="caption" sx={{ fontWeight: 600 }}>
@@ -149,13 +149,13 @@ const AttendanceCalendarView = () => {
               </Typography>
             </Box>
           </Box>
-        } 
+        }
         arrow
         placement="top"
       >
         <Box
           sx={{
-            fontSize: '0.85rem', 
+            fontSize: '0.85rem',
             padding: '8px',
             background: theme.palette.background.paper,
             border: `1px solid ${theme.palette.divider}`,
@@ -177,13 +177,13 @@ const AttendanceCalendarView = () => {
         >
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Box 
-                sx={{ 
-                  width: 8, 
-                  height: 8, 
-                  borderRadius: '50%', 
-                  backgroundColor: theme.palette.primary.main 
-                }} 
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  backgroundColor: theme.palette.primary.main
+                }}
               />
               <Typography variant="caption" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
                 Supervisors
@@ -205,16 +205,16 @@ const AttendanceCalendarView = () => {
               {event.supervisors}
             </Box>
           </Box>
-          
+
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Box 
-                sx={{ 
-                  width: 8, 
-                  height: 8, 
-                  borderRadius: '50%', 
-                  backgroundColor: theme.palette.secondary.main 
-                }} 
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  backgroundColor: theme.palette.secondary.main
+                }}
               />
               <Typography variant="caption" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
                 Surveyors
@@ -246,15 +246,15 @@ const AttendanceCalendarView = () => {
     const goToBack = () => {
       toolbar.onNavigate('PREV');
     };
-    
+
     const goToNext = () => {
       toolbar.onNavigate('NEXT');
     };
-    
+
     const goToCurrent = () => {
       toolbar.onNavigate('TODAY');
     };
-    
+
     const label = () => {
       const date = moment(toolbar.date);
       return (
@@ -266,13 +266,13 @@ const AttendanceCalendarView = () => {
         </Box>
       );
     };
-    
+
     return (
-      <Box 
-        sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          mb: 2, 
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          mb: 2,
           justifyContent: 'space-between',
           px: 1.5,
           py: 1.5,
@@ -310,7 +310,7 @@ const AttendanceCalendarView = () => {
               <NavigateBeforeIcon fontSize="small" />
             </Box>
           </Tooltip>
-          
+
           <Tooltip title="Today" arrow>
             <Box
               onClick={goToCurrent}
@@ -337,7 +337,7 @@ const AttendanceCalendarView = () => {
               <Typography variant="button" sx={{ fontWeight: 600 }}>Today</Typography>
             </Box>
           </Tooltip>
-          
+
           <Tooltip title="Next Month" arrow>
             <Box
               onClick={goToNext}
@@ -367,11 +367,11 @@ const AttendanceCalendarView = () => {
   };
 
   return (
-    <Paper 
+    <Paper
       elevation={1}
-      sx={{ 
-        p: 3, 
-        borderRadius: 2, 
+      sx={{
+        p: 3,
+        borderRadius: 2,
         backgroundColor: theme.palette.background.paper,
         border: `1px solid ${theme.palette.divider}`,
         boxShadow: theme.shadows[1],
@@ -380,10 +380,10 @@ const AttendanceCalendarView = () => {
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
         <PeopleAltIcon color="primary" sx={{ fontSize: 28 }} />
-        <Typography 
-          variant="h5" 
-          component="h1" 
-          sx={{ 
+        <Typography
+          variant="h5"
+          component="h1"
+          sx={{
             fontWeight: 700,
             color: theme.palette.text.primary,
             display: 'flex',
@@ -393,11 +393,11 @@ const AttendanceCalendarView = () => {
           Attendance Calendar
         </Typography>
       </Box>
-      
-      <Typography 
-        variant="body2" 
-        color="textSecondary" 
-        sx={{ 
+
+      <Typography
+        variant="body2"
+        color="textSecondary"
+        sx={{
           mb: 3,
           maxWidth: '90%',
           lineHeight: 1.5
@@ -405,12 +405,12 @@ const AttendanceCalendarView = () => {
       >
         This calendar displays daily attendance records showing the number of supervisors and surveyors present each day.
       </Typography>
-      
+
       {loading ? (
-        <Box 
-          sx={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
             alignItems: 'center',
             flexDirection: 'column',
             p: 8,
@@ -421,30 +421,30 @@ const AttendanceCalendarView = () => {
           <Typography variant="body2" color="textSecondary">Loading attendance data...</Typography>
         </Box>
       ) : error ? (
-        <Alert 
-          severity="error" 
-          sx={{ 
-            mt: 2, 
-            borderRadius: 2, 
+        <Alert
+          severity="error"
+          sx={{
+            mt: 2,
+            borderRadius: 2,
             boxShadow: theme.shadows[1]
           }}
         >
           {error}
         </Alert>
       ) : (
-        <Box 
-          sx={{ 
-            height: '680px', 
-            bgcolor: 'background.paper', 
-            borderRadius: 2, 
+        <Box
+          sx={{
+            height: '680px',
+            bgcolor: 'background.paper',
+            borderRadius: 2,
             overflow: 'hidden',
             border: `1px solid ${theme.palette.divider}`,
             boxShadow: theme.shadows[1],
             '& .rbc-header': {
               fontWeight: 600,
               padding: '12px 0',
-              background: theme.palette.mode === 'dark' 
-                ? alpha(theme.palette.primary.dark, 0.3) 
+              background: theme.palette.mode === 'dark'
+                ? alpha(theme.palette.primary.dark, 0.3)
                 : alpha(theme.palette.primary.light, 0.15),
               color: theme.palette.text.primary,
               borderBottom: `1px solid ${theme.palette.divider}`,
@@ -465,7 +465,7 @@ const AttendanceCalendarView = () => {
               boxShadow: `inset 0 0 0 1px ${alpha(theme.palette.primary.main, 0.3)}`
             },
             '& .rbc-off-range-bg': {
-              backgroundColor: theme.palette.mode === 'dark' 
+              backgroundColor: theme.palette.mode === 'dark'
                 ? alpha(theme.palette.action.disabled, 0.1)
                 : alpha(theme.palette.action.disabled, 0.04)
             },
@@ -521,4 +521,4 @@ const AttendanceCalendarView = () => {
   );
 };
 
-export default AttendanceCalendarView; 
+export default AttendanceCalendarView;
