@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { 
-  Container, 
-  Box, 
-  Typography, 
-  TextField, 
-  Button, 
-  Paper, 
+import {
+  Container,
+  Box,
+  Typography,
+  TextField,
+  Button,
+  Paper,
   Grid,
   Alert,
   IconButton,
@@ -24,7 +24,7 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
+
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -32,7 +32,7 @@ const LoginPage = () => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    
+
     try {
       await login(email, password);
       navigate('/dashboard');
@@ -49,13 +49,13 @@ const LoginPage = () => {
 
   return (
     <Container component="main" maxWidth="xs">
-      <Paper 
-        elevation={3} 
-        sx={{ 
-          mt: 8, 
-          p: 4, 
-          display: 'flex', 
-          flexDirection: 'column', 
+      <Paper
+        elevation={3}
+        sx={{
+          mt: 8,
+          p: 4,
+          display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           borderRadius: 2
         }}
@@ -66,13 +66,13 @@ const LoginPage = () => {
         <Typography component="h1" variant="h5" sx={{ mb: 3 }}>
           Sign in
         </Typography>
-        
+
         {error && (
           <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
             {error}
           </Alert>
         )}
-        
+
         <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
           <TextField
             margin="normal"
@@ -86,7 +86,7 @@ const LoginPage = () => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-          
+
           <TextField
             margin="normal"
             required
@@ -112,7 +112,7 @@ const LoginPage = () => {
               ),
             }}
           />
-          
+
           <Button
             type="submit"
             fullWidth
@@ -122,20 +122,20 @@ const LoginPage = () => {
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </Button>
-          
-          <Grid container justifyContent="center">
-            <Grid item>
-              <Link to="/register" style={{ textDecoration: 'none' }}>
-                <Typography variant="body2" color="primary">
-                  {"Don't have an account? Sign up"}
-                </Typography>
-              </Link>
-            </Grid>
-          </Grid>
+
+          {/*<Grid container justifyContent="center">*/}
+          {/*  <Grid item>*/}
+          {/*    <Link to="/register" style={{ textDecoration: 'none' }}>*/}
+          {/*      <Typography variant="body2" color="primary">*/}
+          {/*        {"Don't have an account? Sign up"}*/}
+          {/*      </Typography>*/}
+          {/*    </Link>*/}
+          {/*  </Grid>*/}
+          {/*</Grid>*/}
         </Box>
       </Paper>
     </Container>
   );
 };
 
-export default LoginPage; 
+export default LoginPage;
