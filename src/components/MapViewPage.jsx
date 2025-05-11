@@ -2410,7 +2410,7 @@ const MapViewPage = () => {
                     variant="contained"
                     color="secondary"
                     onClick={handleAddRoutePoint}
-                    disabled={!newRoutePoint.place || !newRoutePoint.type}
+                    disabled={!newRoutePoint.place || !newRoutePoint.type || !newRoutePoint.latitude || !newRoutePoint.longitude}
                     sx={{
                       borderRadius: '8px',
                       px: 3,
@@ -2634,7 +2634,7 @@ const MapViewPage = () => {
                     variant="contained"
                     color="secondary"
                     onClick={handleAddEditRoutePoint}
-                    disabled={!editRoutePoint.place || !editRoutePoint.type}
+                    disabled={!editRoutePoint.place || !editRoutePoint.type || !editRoutePoint.latitude || !editRoutePoint.longitude}
                   >
                     Add Point
                   </Button>
