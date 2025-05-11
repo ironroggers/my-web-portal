@@ -46,6 +46,14 @@ import DateRangeIcon from '@mui/icons-material/DateRange';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import SpeedIcon from '@mui/icons-material/Speed';
+import PlaceIcon from '@mui/icons-material/Place';
+import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
+import PublishedWithChangesIcon from '@mui/icons-material/PublishedWithChanges';
+import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
+import EditLocationIcon from '@mui/icons-material/EditLocation';
+import ThumbUpAltIcon from '@mui/icons-material/ThumbUpAlt';
+import ReplayIcon from '@mui/icons-material/Replay';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
 import './LandingPage.css';
 import {ATTENDANCE_URL, AUTH_URL} from "../API/api-keys.jsx";
 
@@ -152,6 +160,27 @@ const QuickButton = styled(Button)(({ theme, bgcolor = 'primary' }) => ({
   },
 }));
 
+// New component for location status cards
+const LocationStatusCard = styled(Box)(({ theme, statusColor = 'primary.main' }) => ({
+  padding: theme.spacing(2),
+  borderRadius: theme.shape.borderRadius * 2,
+  background: alpha(statusColor, 0.08),
+  border: `1px solid ${alpha(statusColor, 0.2)}`,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  textAlign: 'center',
+  height: '100%',
+  minHeight: 120,
+  transition: 'all 0.3s ease',
+  '&:hover': {
+    transform: 'translateY(-4px)',
+    boxShadow: `0 6px 20px ${alpha(statusColor, 0.15)}`,
+    background: alpha(statusColor, 0.12),
+  }
+}));
+
 const LandingPage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -174,6 +203,18 @@ const LandingPage = () => {
     loading: true
   });
 
+  // State for location statistics
+  const [locationStats, setLocationStats] = useState({
+    released: 0,
+    assigned: 0,
+    active: 0,
+    submitted: 0,
+    accepted: 0,
+    reverted: 0,
+    total: 0,
+    loading: true
+  });
+
   // State for recent activities
   const [recentActivities, setRecentActivities] = useState([]);
   const [activitiesLoading, setActivitiesLoading] = useState(true);
@@ -191,6 +232,7 @@ const LandingPage = () => {
     try {
       setAttendanceStats(prev => ({ ...prev, loading: true }));
       setUserStats(prev => ({ ...prev, loading: true }));
+      setLocationStats(prev => ({ ...prev, loading: true }));
       setStatsError(null);
 
       // Fetch users from auth API
@@ -252,6 +294,19 @@ const LandingPage = () => {
         loading: false
       });
 
+      // Mock data for location statuses (in a real app, this would be fetched from the API)
+      const totalLocations = 120; // Example total
+      setLocationStats({
+        released: Math.floor(totalLocations * 0.15),    // 15% of locations
+        assigned: Math.floor(totalLocations * 0.20),    // 20% of locations
+        active: Math.floor(totalLocations * 0.25),      // 25% of locations
+        submitted: Math.floor(totalLocations * 0.15),   // 15% of locations
+        accepted: Math.floor(totalLocations * 0.15),    // 15% of locations
+        reverted: Math.floor(totalLocations * 0.10),    // 10% of locations
+        total: totalLocations,
+        loading: false
+      });
+
     } catch (error) {
       console.error('Error fetching stats:', error);
       setStatsError('Failed to load dashboard data. Please try again later.');
@@ -268,6 +323,17 @@ const LandingPage = () => {
       setUserStats({
         supervisors: 0,
         surveyors: 0,
+        total: 0,
+        loading: false
+      });
+
+      setLocationStats({
+        released: 0,
+        assigned: 0,
+        active: 0,
+        submitted: 0,
+        accepted: 0,
+        reverted: 0,
         total: 0,
         loading: false
       });
@@ -482,339 +548,235 @@ const LandingPage = () => {
 
       {/* Main Dashboard Content */}
       <Grid container spacing={4} sx={{ mb: 5 }}>
-        {/* Activity and Attendance Overview */}
-        <Grid item xs={12} lg={8}>
-          <Grid container spacing={4}>
-            <Grid item xs={12}>
-              <GlassCard elevation={0}>
-                <CardContent sx={{ p: 3 }}>
-                  <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2}>
-                    <Typography variant="h5" fontWeight="600">
-                      Attendance Overview
-                    </Typography>
-                    <Chip
-                      icon={<TrendingUpIcon fontSize="small" />}
-                      label={`${calculateAttendancePercentage()}% Present Today`}
-                      color="success"
-                      variant="outlined"
-                      sx={{
-                        fontWeight: 600,
-                        p: 0.5,
-                        borderWidth: 2,
-                        '& .MuiChip-icon': { color: 'success.main' }
-                      }}
-                    />
-                  </Stack>
+        {/* Location Statuses Section - NEW */}
+        <Grid item xs={12} sx={{ width: '100%' }}>
+          <GlassCard elevation={0}>
+            <CardContent sx={{ p: 3 }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" mb={3}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <IconWrapper bgcolor="primary.main">
+                    <LocationOnIcon />
+                  </IconWrapper>
+                  <Typography variant="h5" fontWeight="600">
+                    Location Status Overview
+                  </Typography>
+                </Box>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  size="small"
+                  startIcon={<VisibilityIcon />}
+                  sx={{
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    fontWeight: 600
+                  }}
+                >
+                  View Details
+                </Button>
+              </Stack>
 
-                  <Box sx={{
-                    display: 'flex',
-                    flexDirection: { xs: 'column', md: 'row' },
-                    alignItems: 'center',
-                    gap: 4
-                  }}>
-                    {/* Attendance Circle */}
-                    <Box sx={{ position: 'relative', textAlign: 'center', flex: 1 }}>
-                      <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-                        <CircularProgress
-                          variant="determinate"
-                          value={calculateAttendancePercentage()}
-                          size={180}
-                          thickness={4}
-                          sx={{
-                            color: theme.palette.success.main,
-                            boxShadow: `0 0 20px ${alpha(theme.palette.success.main, 0.2)}`,
-                            borderRadius: '50%'
-                          }}
-                        />
-                        <Box
-                          sx={{
-                            top: 0,
-                            left: 0,
-                            bottom: 0,
-                            right: 0,
-                            position: 'absolute',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexDirection: 'column'
-                          }}
-                        >
-                          <Typography variant="h3" fontWeight="700" sx={{ color: 'success.main' }}>
-                            {calculateAttendancePercentage()}%
-                          </Typography>
-                          <Typography variant="caption" fontWeight="500" color="text.secondary">
-                            ATTENDANCE RATE
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </Box>
-
-                    {/* Attendance Stats */}
-                    <Box sx={{ flex: 2 }}>
-                      <Grid container spacing={2} sx={{ mb: 2 }}>
-                        <Grid item xs={4}>
-                          <Box sx={{
-                            textAlign: 'center',
-                            p: 1.5,
-                            borderRadius: 2,
-                            bgcolor: alpha(theme.palette.success.main, 0.08),
-                            border: `1px solid ${alpha(theme.palette.success.main, 0.2)}`
-                          }}>
-                            <Stack alignItems="center" spacing={1}>
-                              <Avatar sx={{ bgcolor: 'success.main', width: 40, height: 40 }}>
-                                <CheckCircleIcon />
-                              </Avatar>
-                              <div>
-                                <Typography variant="h5" fontWeight="700" color="success.main">
-                                  {attendanceStats.present}
-                                </Typography>
-                                <Typography variant="body2" fontWeight="500" color="text.secondary">
-                                  Present
-                                </Typography>
-                              </div>
-                            </Stack>
-                          </Box>
-                        </Grid>
-                        <Grid item xs={4}>
-                          <Box sx={{
-                            textAlign: 'center',
-                            p: 1.5,
-                            borderRadius: 2,
-                            bgcolor: alpha(theme.palette.warning.main, 0.08),
-                            border: `1px solid ${alpha(theme.palette.warning.main, 0.2)}`
-                          }}>
-                            <Stack alignItems="center" spacing={1}>
-                              <Avatar sx={{ bgcolor: 'warning.main', width: 40, height: 40 }}>
-                                <AccessTimeIcon />
-                              </Avatar>
-                              <div>
-                                <Typography variant="h5" fontWeight="700" color="warning.main">
-                                  {attendanceStats.late}
-                                </Typography>
-                                <Typography variant="body2" fontWeight="500" color="text.secondary">
-                                  Late
-                                </Typography>
-                              </div>
-                            </Stack>
-                          </Box>
-                        </Grid>
-                        <Grid item xs={4}>
-                          <Box sx={{
-                            textAlign: 'center',
-                            p: 1.5,
-                            borderRadius: 2,
-                            bgcolor: alpha(theme.palette.error.main, 0.08),
-                            border: `1px solid ${alpha(theme.palette.error.main, 0.2)}`
-                          }}>
-                            <Stack alignItems="center" spacing={1}>
-                              <Avatar sx={{ bgcolor: 'error.main', width: 40, height: 40 }}>
-                                <EventBusyIcon />
-                              </Avatar>
-                              <div>
-                                <Typography variant="h5" fontWeight="700" color="error.main">
-                                  {attendanceStats.absent}
-                                </Typography>
-                                <Typography variant="body2" fontWeight="500" color="text.secondary">
-                                  Absent
-                                </Typography>
-                              </div>
-                            </Stack>
-                          </Box>
-                        </Grid>
-                      </Grid>
-
-                      <Box
+              {locationStats.loading ? (
+                <Box display="flex" justifyContent="center" py={3}>
+                  <CircularProgress />
+                </Box>
+              ) : (
+                <Grid container spacing={2}>
+                  <Grid item xs={6} sm={4} md={2}>
+                    <LocationStatusCard statusColor={theme.palette.info.main}>
+                      <Avatar
                         sx={{
-                          p: 2,
-                          borderRadius: 2,
-                          backdropFilter: 'blur(4px)',
-                          bgcolor: alpha(theme.palette.common.white, 0.9),
-                          boxShadow: '0 4px 15px rgba(0, 0, 0, 0.05)',
-                          textAlign: 'center'
+                          bgcolor: 'info.main',
+                          mb: 1,
+                          width: 50,
+                          height: 50,
+                          boxShadow: `0 4px 15px ${alpha(theme.palette.info.main, 0.3)}`
                         }}
                       >
-                        <Typography variant="body1" gutterBottom color="text.secondary">
-                          {attendanceStats.total} Team Members Total
-                        </Typography>
-                        <Button
-                          variant="contained"
-                          color="primary"
-                          component={Link}
-                          to="/attendance"
-                          endIcon={<ArrowForwardIcon />}
-                          sx={{
-                            borderRadius: 2,
-                            textTransform: 'none',
-                            fontWeight: 600,
-                            py: 1
-                          }}
-                        >
-                          View Detailed Records
-                        </Button>
-                      </Box>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </GlassCard>
-            </Grid>
+                        <PublishedWithChangesIcon />
+                      </Avatar>
+                      <Typography variant="h5" fontWeight="700" color="info.main">
+                        {locationStats.released}
+                      </Typography>
+                      <Typography variant="body2" fontWeight="500" color="text.secondary">
+                        Released
+                      </Typography>
+                    </LocationStatusCard>
+                  </Grid>
 
-            <Grid item xs={12}>
-              <GlassCard elevation={0}>
-                <CardContent sx={{ p: 3 }}>
-                  <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2}>
-                    <Typography variant="h5" fontWeight="600">
-                      Recent Activities
+                  <Grid item xs={6} sm={4} md={2}>
+                    <LocationStatusCard statusColor={theme.palette.secondary.main}>
+                      <Avatar
+                        sx={{
+                          bgcolor: 'secondary.main',
+                          mb: 1,
+                          width: 50,
+                          height: 50,
+                          boxShadow: `0 4px 15px ${alpha(theme.palette.secondary.main, 0.3)}`
+                        }}
+                      >
+                        <AssignmentIndIcon />
+                      </Avatar>
+                      <Typography variant="h5" fontWeight="700" color="secondary.main">
+                        {locationStats.assigned}
+                      </Typography>
+                      <Typography variant="body2" fontWeight="500" color="text.secondary">
+                        Assigned
+                      </Typography>
+                    </LocationStatusCard>
+                  </Grid>
+
+                  <Grid item xs={6} sm={4} md={2}>
+                    <LocationStatusCard statusColor={theme.palette.success.main}>
+                      <Avatar
+                        sx={{
+                          bgcolor: 'success.main',
+                          mb: 1,
+                          width: 50,
+                          height: 50,
+                          boxShadow: `0 4px 15px ${alpha(theme.palette.success.main, 0.3)}`
+                        }}
+                      >
+                        <EditLocationIcon />
+                      </Avatar>
+                      <Typography variant="h5" fontWeight="700" color="success.main">
+                        {locationStats.active}
+                      </Typography>
+                      <Typography variant="body2" fontWeight="500" color="text.secondary">
+                        Active
+                      </Typography>
+                    </LocationStatusCard>
+                  </Grid>
+
+                  <Grid item xs={6} sm={4} md={2}>
+                    <LocationStatusCard statusColor={theme.palette.warning.main}>
+                      <Avatar
+                        sx={{
+                          bgcolor: 'warning.main',
+                          mb: 1,
+                          width: 50,
+                          height: 50,
+                          boxShadow: `0 4px 15px ${alpha(theme.palette.warning.main, 0.3)}`
+                        }}
+                      >
+                        <AssignmentTurnedInIcon />
+                      </Avatar>
+                      <Typography variant="h5" fontWeight="700" color="warning.main">
+                        {locationStats.submitted}
+                      </Typography>
+                      <Typography variant="body2" fontWeight="500" color="text.secondary">
+                        Submitted
+                      </Typography>
+                    </LocationStatusCard>
+                  </Grid>
+
+                  <Grid item xs={6} sm={4} md={2}>
+                    <LocationStatusCard statusColor={theme.palette.primary.main}>
+                      <Avatar
+                        sx={{
+                          bgcolor: 'primary.main',
+                          mb: 1,
+                          width: 50,
+                          height: 50,
+                          boxShadow: `0 4px 15px ${alpha(theme.palette.primary.main, 0.3)}`
+                        }}
+                      >
+                        <ThumbUpAltIcon />
+                      </Avatar>
+                      <Typography variant="h5" fontWeight="700" color="primary.main">
+                        {locationStats.accepted}
+                      </Typography>
+                      <Typography variant="body2" fontWeight="500" color="text.secondary">
+                        Accepted
+                      </Typography>
+                    </LocationStatusCard>
+                  </Grid>
+
+                  <Grid item xs={6} sm={4} md={2}>
+                    <LocationStatusCard statusColor={theme.palette.error.main}>
+                      <Avatar
+                        sx={{
+                          bgcolor: 'error.main',
+                          mb: 1,
+                          width: 50,
+                          height: 50,
+                          boxShadow: `0 4px 15px ${alpha(theme.palette.error.main, 0.3)}`
+                        }}
+                      >
+                        <ReplayIcon />
+                      </Avatar>
+                      <Typography variant="h5" fontWeight="700" color="error.main">
+                        {locationStats.reverted}
+                      </Typography>
+                      <Typography variant="body2" fontWeight="500" color="text.secondary">
+                        Reverted
+                      </Typography>
+                    </LocationStatusCard>
+                  </Grid>
+                </Grid>
+              )}
+
+              <Box mt={3} sx={{
+                bgcolor: alpha(theme.palette.background.paper, 0.7),
+                p: 2,
+                borderRadius: 2,
+                border: `1px dashed ${alpha(theme.palette.primary.main, 0.3)}`
+              }}>
+                <Stack direction={isMobile ? "column" : "row"} spacing={2} alignItems="center" justifyContent="space-between">
+                  <Box>
+                    <Typography variant="body1" fontWeight="600">
+                      Total of {locationStats.total} locations in the system
                     </Typography>
-                    <Button
-                      component={Link}
-                      to="/attendance"
-                      color="primary"
-                      endIcon={<ArrowForwardIcon />}
-                      sx={{
-                        borderRadius: 2,
-                        fontWeight: 600,
-                        textTransform: 'none'
-                      }}
-                    >
-                      View All
-                    </Button>
-                  </Stack>
-
-                  {error && (
-                    <Box sx={{
-                      p: 2,
+                    <Typography variant="body2" color="text.secondary">
+                      Updated: {new Date().toLocaleString()}
+                    </Typography>
+                  </Box>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<SpeedIcon />}
+                    sx={{
                       borderRadius: 2,
-                      bgcolor: alpha(theme.palette.error.main, 0.05),
-                      border: `1px solid ${alpha(theme.palette.error.main, 0.2)}`,
-                      mb: 2,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1
-                    }}>
-                      <ErrorOutlineIcon color="error" />
-                      <Typography color="error.main" fontWeight="500">{error}</Typography>
-                    </Box>
-                  )}
-
-                  {activitiesLoading ? (
-                    <Box display="flex" justifyContent="center" alignItems="center" py={4}>
-                      <CircularProgress />
-                    </Box>
-                  ) : recentActivities.length === 0 ? (
-                    <Box
-                      textAlign="center"
-                      py={4}
-                      sx={{
-                        bgcolor: alpha(theme.palette.primary.main, 0.03),
-                        borderRadius: 2,
-                        border: `1px dashed ${alpha(theme.palette.primary.main, 0.2)}`
-                      }}
-                    >
-                      <DateRangeIcon sx={{ fontSize: 40, color: 'text.secondary', mb: 1 }} />
-                      <Typography color="text.secondary" fontWeight="500">No recent activities found</Typography>
-                    </Box>
-                  ) : (
-                    <List sx={{ width: '100%', p: 0 }}>
-                      {recentActivities.map((activity, index) => (
-                        <React.Fragment key={activity.id || index}>
-                          <ListItem
-                            alignItems="flex-start"
-                            sx={{
-                              py: 2,
-                              px: 2,
-                              borderRadius: 2,
-                              mb: 1,
-                              transition: 'all 0.2s',
-                              bgcolor: index % 2 === 0 ? alpha(theme.palette.primary.main, 0.03) : 'transparent',
-                              '&:hover': {
-                                bgcolor: alpha(theme.palette.primary.main, 0.05),
-                                transform: 'translateX(5px)'
-                              }
-                            }}
-                          >
-                            <ListItemIcon>
-                              <Avatar
-                                sx={{
-                                  width: 45,
-                                  height: 45,
-                                  fontWeight: 'bold',
-                                  bgcolor:
-                                    activity.status === 'present' ? 'success.main' :
-                                    activity.status === 'late' ? 'warning.main' : 'error.main'
-                                }}
-                              >
-                                {activity.username.charAt(0).toUpperCase()}
-                              </Avatar>
-                            </ListItemIcon>
-                            <ListItemText
-                              primary={
-                                <Box display="flex" alignItems="center" justifyContent="space-between">
-                                  <Typography variant="body1" fontWeight="600">
-                                    {activity.username}
-                                  </Typography>
-                                  <Box display="flex" alignItems="center" gap={1}>
-                                    {getStatusChip(activity.status)}
-                                    <Typography variant="caption" fontWeight="500"
-                                      sx={{
-                                        color: 'text.secondary',
-                                        bgcolor: alpha(theme.palette.common.black, 0.03),
-                                        borderRadius: 1,
-                                        px: 1,
-                                        py: 0.5
-                                      }}
-                                    >
-                                      {activity.date}
-                                    </Typography>
-                                  </Box>
-                                </Box>
-                              }
-                              secondary={
-                                <Box display="flex" alignItems="center" mt={0.5}>
-                                  <AccessTimeIcon sx={{ fontSize: 16, mr: 0.5, color: 'text.secondary' }} />
-                                  <Typography variant="body2" color="text.secondary">
-                                    {activity.time}
-                                  </Typography>
-                                </Box>
-                              }
-                            />
-                          </ListItem>
-                          {index < recentActivities.length - 1 && <Divider component="li" variant="middle" />}
-                        </React.Fragment>
-                      ))}
-                    </List>
-                  )}
-                </CardContent>
-              </GlassCard>
-            </Grid>
-          </Grid>
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      boxShadow: `0 4px 14px ${alpha(theme.palette.primary.main, 0.3)}`
+                    }}
+                  >
+                    View Complete Analytics
+                  </Button>
+                </Stack>
+              </Box>
+            </CardContent>
+          </GlassCard>
         </Grid>
 
-        {/* Features and Team Overview */}
-        <Grid item xs={12} lg={4}>
-          <Grid container spacing={4}>
-            <Grid item xs={12}>
-              <GlassCard elevation={0}>
-                <CardContent sx={{ p: 3 }}>
-                  <Typography variant="h5" fontWeight="600" gutterBottom>
-                    Team Overview
-                  </Typography>
+        {/* Three-column layout for main widgets */}
+        <Grid item xs={12} md={4} sx={{ width: '100%' }}>
+          {/* Team Overview */}
+          <GlassCard elevation={0} sx={{ height: '100%' }}>
+            <CardContent sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="h5" fontWeight="600" gutterBottom mb={2}>
+                Team Overview
+              </Typography>
 
-                  {userStats.loading ? (
-                    <Box display="flex" justifyContent="center" py={3}>
-                      <CircularProgress />
-                    </Box>
-                  ) : (
-                    <>
+              {userStats.loading ? (
+                <Box display="flex" justifyContent="center" py={3} flexGrow={1} alignItems="center">
+                  <CircularProgress />
+                </Box>
+              ) : (
+                <>
+                  <Grid container spacing={2} mb={3}>
+                    <Grid item xs={12} sm={6} md={12}>
                       <Box sx={{
                         p: 2,
-                        mb: 3,
                         borderRadius: 2,
                         bgcolor: alpha(theme.palette.secondary.main, 0.05),
-                        border: `1px solid ${alpha(theme.palette.secondary.main, 0.2)}`
+                        border: `1px solid ${alpha(theme.palette.secondary.main, 0.2)}`,
+                        height: '100%'
                       }}>
                         <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1.5}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                            <Avatar sx={{ bgcolor: 'secondary.main' }}>
+                            <Avatar sx={{ bgcolor: 'secondary.main', width: 50, height: 50 }}>
                               <SupervisorAccountIcon />
                             </Avatar>
                             <Box>
@@ -847,17 +809,19 @@ const LandingPage = () => {
                           </Typography>
                         </Box>
                       </Box>
+                    </Grid>
 
+                    <Grid item xs={12} sm={6} md={12}>
                       <Box sx={{
                         p: 2,
-                        mb: 3,
                         borderRadius: 2,
                         bgcolor: alpha(theme.palette.info.main, 0.05),
-                        border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`
+                        border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
+                        height: '100%'
                       }}>
                         <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1.5}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                            <Avatar sx={{ bgcolor: 'info.main' }}>
+                            <Avatar sx={{ bgcolor: 'info.main', width: 50, height: 50 }}>
                               <PersonIcon />
                             </Avatar>
                             <Box>
@@ -890,102 +854,452 @@ const LandingPage = () => {
                           </Typography>
                         </Box>
                       </Box>
+                    </Grid>
+                  </Grid>
 
+                  <Box sx={{
+                    p: 2,
+                    borderRadius: 2,
+                    bgcolor: alpha(theme.palette.primary.main, 0.04),
+                    border: `1px dashed ${alpha(theme.palette.primary.main, 0.3)}`,
+                    textAlign: 'center',
+                    mb: 2
+                  }}>
+                    <Typography variant="h5" fontWeight="700" color="primary.main" gutterBottom>
+                      {userStats.total}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Total Team Members
+                    </Typography>
+                  </Box>
+
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    component={Link}
+                    to="/users"
+                    color="primary"
+                    endIcon={<ArrowForwardIcon />}
+                    sx={{
+                      borderRadius: 2,
+                      py: 1.5,
+                      fontWeight: 600,
+                      textTransform: 'none',
+                      mt: 'auto'
+                    }}
+                  >
+                    View All Team Members
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </GlassCard>
+        </Grid >
+
+        <Grid item xs={12} md={4} sx={{ width: '100%' }}>
+          {/* Attendance Overview */}
+          <GlassCard elevation={0} sx={{ height: '100%' }}>
+            <CardContent sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2}>
+                <Typography variant="h5" fontWeight="600">
+                  Attendance Overview
+                </Typography>
+                <Chip
+                  icon={<TrendingUpIcon fontSize="small" />}
+                  label={`${calculateAttendancePercentage()}% Present Today`}
+                  color="success"
+                  variant="outlined"
+                  sx={{
+                    fontWeight: 600,
+                    p: 0.5,
+                    borderWidth: 2,
+                    '& .MuiChip-icon': { color: 'success.main' }
+                  }}
+                />
+              </Stack>
+
+              {attendanceStats.loading ? (
+                <Box display="flex" justifyContent="center" py={3} flexGrow={1} alignItems="center">
+                  <CircularProgress />
+                </Box>
+              ) : (
+                <>
+                  <Box sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    flexGrow: 1
+                  }}>
+                    {/* Attendance Circle */}
+                    <Box sx={{ position: 'relative', textAlign: 'center', mb: 3, mt: 2 }}>
+                      <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+                        <CircularProgress
+                          variant="determinate"
+                          value={calculateAttendancePercentage()}
+                          size={160}
+                          thickness={5}
+                          sx={{
+                            color: theme.palette.success.main,
+                            boxShadow: `0 0 20px ${alpha(theme.palette.success.main, 0.2)}`,
+                            borderRadius: '50%'
+                          }}
+                        />
+                        <Box
+                          sx={{
+                            top: 0,
+                            left: 0,
+                            bottom: 0,
+                            right: 0,
+                            position: 'absolute',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexDirection: 'column'
+                          }}
+                        >
+                          <Typography variant="h3" fontWeight="700" sx={{ color: 'success.main' }}>
+                            {calculateAttendancePercentage()}%
+                          </Typography>
+                          <Typography variant="caption" fontWeight="500" color="text.secondary">
+                            ATTENDANCE RATE
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+
+                    {/* Attendance Stats */}
+                    <Grid container spacing={2} sx={{ mb: 3, width: '100%' }}>
+                      <Grid item xs={4}>
+                        <Box sx={{
+                          textAlign: 'center',
+                          p: 1.5,
+                          borderRadius: 2,
+                          bgcolor: alpha(theme.palette.success.main, 0.08),
+                          border: `1px solid ${alpha(theme.palette.success.main, 0.2)}`,
+                          height: '100%',
+                          minHeight: 110
+                        }}>
+                          <Stack alignItems="center" spacing={1}>
+                            <Avatar sx={{ bgcolor: 'success.main', width: 45, height: 45 }}>
+                              <CheckCircleIcon />
+                            </Avatar>
+                            <div>
+                              <Typography variant="h5" fontWeight="700" color="success.main">
+                                {attendanceStats.present}
+                              </Typography>
+                              <Typography variant="body2" fontWeight="500" color="text.secondary">
+                                Present
+                              </Typography>
+                            </div>
+                          </Stack>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={4}>
+                        <Box sx={{
+                          textAlign: 'center',
+                          p: 1.5,
+                          borderRadius: 2,
+                          bgcolor: alpha(theme.palette.warning.main, 0.08),
+                          border: `1px solid ${alpha(theme.palette.warning.main, 0.2)}`,
+                          height: '100%',
+                          minHeight: 110
+                        }}>
+                          <Stack alignItems="center" spacing={1}>
+                            <Avatar sx={{ bgcolor: 'warning.main', width: 45, height: 45 }}>
+                              <AccessTimeIcon />
+                            </Avatar>
+                            <div>
+                              <Typography variant="h5" fontWeight="700" color="warning.main">
+                                {attendanceStats.late}
+                              </Typography>
+                              <Typography variant="body2" fontWeight="500" color="text.secondary">
+                                Late
+                              </Typography>
+                            </div>
+                          </Stack>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={4}>
+                        <Box sx={{
+                          textAlign: 'center',
+                          p: 1.5,
+                          borderRadius: 2,
+                          bgcolor: alpha(theme.palette.error.main, 0.08),
+                          border: `1px solid ${alpha(theme.palette.error.main, 0.2)}`,
+                          height: '100%',
+                          minHeight: 110
+                        }}>
+                          <Stack alignItems="center" spacing={1}>
+                            <Avatar sx={{ bgcolor: 'error.main', width: 45, height: 45 }}>
+                              <EventBusyIcon />
+                            </Avatar>
+                            <div>
+                              <Typography variant="h5" fontWeight="700" color="error.main">
+                                {attendanceStats.absent}
+                              </Typography>
+                              <Typography variant="body2" fontWeight="500" color="text.secondary">
+                                Absent
+                              </Typography>
+                            </div>
+                          </Stack>
+                        </Box>
+                      </Grid>
+                    </Grid>
+
+                    <Box
+                      sx={{
+                        p: 2,
+                        borderRadius: 2,
+                        backdropFilter: 'blur(4px)',
+                        bgcolor: alpha(theme.palette.common.white, 0.9),
+                        boxShadow: '0 4px 15px rgba(0, 0, 0, 0.05)',
+                        textAlign: 'center',
+                        width: '100%',
+                        mt: 'auto'
+                      }}
+                    >
+                      <Typography variant="body1" gutterBottom color="text.secondary">
+                        {attendanceStats.total} Team Members Total
+                      </Typography>
                       <Button
-                        fullWidth
-                        variant="outlined"
-                        component={Link}
-                        to="/users"
+                        variant="contained"
                         color="primary"
+                        component={Link}
+                        to="/attendance"
                         endIcon={<ArrowForwardIcon />}
                         sx={{
                           borderRadius: 2,
-                          py: 1.5,
+                          textTransform: 'none',
                           fontWeight: 600,
-                          textTransform: 'none'
+                          py: 1,
+                          mt: 1
                         }}
                       >
-                        View All Team Members
+                        View Detailed Records
                       </Button>
-                    </>
-                  )}
-                </CardContent>
-              </GlassCard>
-            </Grid>
+                    </Box>
+                  </Box>
+                </>
+              )}
+            </CardContent>
+          </GlassCard>
+        </Grid>
 
-            <Grid item xs={12}>
-              <GlassCard elevation={0}>
-                <CardContent sx={{ p: 3 }}>
-                  <Typography variant="h5" fontWeight="600" gutterBottom mb={2}>
-                    Quick Actions
-                  </Typography>
+        <Grid item xs={12} md={4} sx={{ width: '100%' }}>
+          {/* Quick Actions */}
+          <GlassCard elevation={0} sx={{ height: '100%' }}>
+            <CardContent sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="h5" fontWeight="600" gutterBottom mb={2}>
+                Quick Actions
+              </Typography>
 
-                  <Grid container spacing={2}>
-                    <Grid item xs={12}>
-                      <QuickButton
-                        fullWidth
-                        variant="text"
-                        startIcon={<CalendarMonthIcon />}
-                        component={Link}
-                        to="/attendance"
-                        bgcolor="primary"
+              <Grid container spacing={2} sx={{ flexGrow: 1 }}>
+                <Grid item xs={12}>
+                  <QuickButton
+                    fullWidth
+                    variant="text"
+                    startIcon={
+                      <IconWrapper bgcolor="primary.light" sx={{ width: 40, height: 40 }}>
+                        <CalendarMonthIcon fontSize="small" />
+                      </IconWrapper>
+                    }
+                    component={Link}
+                    to="/attendance"
+                    bgcolor="primary"
+                    sx={{ py: 1.5 }}
+                  >
+                    <Box textAlign="left" sx={{ ml: 1 }}>
+                      <Typography fontWeight="600">Attendance Management</Typography>
+                      <Typography variant="caption" color="text.secondary">Track daily attendance</Typography>
+                    </Box>
+                  </QuickButton>
+                </Grid>
+                <Grid item xs={12}>
+                  <QuickButton
+                    fullWidth
+                    variant="text"
+                    startIcon={
+                      <IconWrapper bgcolor="secondary.light" sx={{ width: 40, height: 40 }}>
+                        <PeopleAltIcon fontSize="small" />
+                      </IconWrapper>
+                    }
+                    component={Link}
+                    to="/users"
+                    bgcolor="secondary"
+                    sx={{ py: 1.5 }}
+                  >
+                    <Box textAlign="left" sx={{ ml: 1 }}>
+                      <Typography fontWeight="600">User Management</Typography>
+                      <Typography variant="caption" color="text.secondary">Manage team members</Typography>
+                    </Box>
+                  </QuickButton>
+                </Grid>
+                <Grid item xs={12}>
+                  <QuickButton
+                    fullWidth
+                    variant="text"
+                    startIcon={
+                      <IconWrapper bgcolor="success.light" sx={{ width: 40, height: 40 }}>
+                        <AssessmentIcon fontSize="small" />
+                      </IconWrapper>
+                    }
+                    component={Link}
+                    to="/reports"
+                    bgcolor="success"
+                    sx={{ py: 1.5 }}
+                  >
+                    <Box textAlign="left" sx={{ ml: 1 }}>
+                      <Typography fontWeight="600">Reports & Analytics</Typography>
+                      <Typography variant="caption" color="text.secondary">Generate detailed reports</Typography>
+                    </Box>
+                  </QuickButton>
+                </Grid>
+                <Grid item xs={12}>
+                  <QuickButton
+                    fullWidth
+                    variant="text"
+                    startIcon={
+                      <IconWrapper bgcolor="info.light" sx={{ width: 40, height: 40 }}>
+                        <PersonIcon fontSize="small" />
+                      </IconWrapper>
+                    }
+                    component={Link}
+                    to="/profile"
+                    bgcolor="info"
+                    sx={{ py: 1.5 }}
+                  >
+                    <Box textAlign="left" sx={{ ml: 1 }}>
+                      <Typography fontWeight="600">My Profile</Typography>
+                      <Typography variant="caption" color="text.secondary">View your account</Typography>
+                    </Box>
+                  </QuickButton>
+                </Grid>
+              </Grid>
+            </CardContent>
+          </GlassCard>
+        </Grid>
+
+        {/* Recent Activities - Full width */}
+        <Grid item xs={12} sx={{ width: '100%' }}>
+          <GlassCard elevation={0}>
+            <CardContent sx={{ p: 3 }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2}>
+                <Typography variant="h5" fontWeight="600">
+                  Recent Activities
+                </Typography>
+                <Button
+                  component={Link}
+                  to="/attendance"
+                  color="primary"
+                  endIcon={<ArrowForwardIcon />}
+                  sx={{
+                    borderRadius: 2,
+                    fontWeight: 600,
+                    textTransform: 'none'
+                  }}
+                >
+                  View All
+                </Button>
+              </Stack>
+
+              {error && (
+                <Box sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  bgcolor: alpha(theme.palette.error.main, 0.05),
+                  border: `1px solid ${alpha(theme.palette.error.main, 0.2)}`,
+                  mb: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1
+                }}>
+                  <ErrorOutlineIcon color="error" />
+                  <Typography color="error.main" fontWeight="500">{error}</Typography>
+                </Box>
+              )}
+
+              {activitiesLoading ? (
+                <Box display="flex" justifyContent="center" alignItems="center" py={4}>
+                  <CircularProgress />
+                </Box>
+              ) : recentActivities.length === 0 ? (
+                <Box
+                  textAlign="center"
+                  py={4}
+                  sx={{
+                    bgcolor: alpha(theme.palette.primary.main, 0.03),
+                    borderRadius: 2,
+                    border: `1px dashed ${alpha(theme.palette.primary.main, 0.2)}`
+                  }}
+                >
+                  <DateRangeIcon sx={{ fontSize: 40, color: 'text.secondary', mb: 1 }} />
+                  <Typography color="text.secondary" fontWeight="500">No recent activities found</Typography>
+                </Box>
+              ) : (
+                <Grid container spacing={2}>
+                  {recentActivities.map((activity, index) => (
+                    <Grid item xs={12} md={6} lg={4} key={activity.id || index}>
+                      <Box
+                        sx={{
+                          p: 2,
+                          borderRadius: 2,
+                          backgroundColor: index % 2 === 0 ? alpha(theme.palette.primary.main, 0.03) : 'transparent',
+                          border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                          transition: 'all 0.2s',
+                          '&:hover': {
+                            backgroundColor: alpha(theme.palette.primary.main, 0.05),
+                            transform: 'translateY(-3px)',
+                            boxShadow: '0 4px 15px rgba(0, 0, 0, 0.05)'
+                          }
+                        }}
                       >
-                        <Box textAlign="left">
-                          <Typography fontWeight="600">Attendance Management</Typography>
-                          <Typography variant="caption" color="text.secondary">Track daily attendance</Typography>
-                        </Box>
-                      </QuickButton>
+                        <Stack direction="row" spacing={2} alignItems="flex-start">
+                          <Avatar
+                            sx={{
+                              width: 45,
+                              height: 45,
+                              fontWeight: 'bold',
+                              bgcolor:
+                                activity.status === 'present' ? 'success.main' :
+                                activity.status === 'late' ? 'warning.main' : 'error.main'
+                            }}
+                          >
+                            {activity.username.charAt(0).toUpperCase()}
+                          </Avatar>
+                          <Box sx={{ flexGrow: 1 }}>
+                            <Box display="flex" alignItems="center" justifyContent="space-between" mb={0.5}>
+                              <Typography variant="body1" fontWeight="600">
+                                {activity.username}
+                              </Typography>
+                              {getStatusChip(activity.status)}
+                            </Box>
+                            <Box display="flex" alignItems="center" mb={1}>
+                              <AccessTimeIcon sx={{ fontSize: 16, mr: 0.5, color: 'text.secondary' }} />
+                              <Typography variant="body2" color="text.secondary">
+                                {activity.time}
+                              </Typography>
+                            </Box>
+                            <Typography variant="caption" fontWeight="500"
+                              sx={{
+                                color: 'text.secondary',
+                                bgcolor: alpha(theme.palette.common.black, 0.03),
+                                borderRadius: 1,
+                                px: 1,
+                                py: 0.5,
+                                display: 'inline-block'
+                              }}
+                            >
+                              {activity.date}
+                            </Typography>
+                          </Box>
+                        </Stack>
+                      </Box>
                     </Grid>
-                    <Grid item xs={12}>
-                      <QuickButton
-                        fullWidth
-                        variant="text"
-                        startIcon={<PeopleAltIcon />}
-                        component={Link}
-                        to="/users"
-                        bgcolor="secondary"
-                      >
-                        <Box textAlign="left">
-                          <Typography fontWeight="600">User Management</Typography>
-                          <Typography variant="caption" color="text.secondary">Manage team members</Typography>
-                        </Box>
-                      </QuickButton>
-                    </Grid>
-                    <Grid item xs={12}>
-                      <QuickButton
-                        fullWidth
-                        variant="text"
-                        startIcon={<AssessmentIcon />}
-                        component={Link}
-                        to="/reports"
-                        bgcolor="success"
-                      >
-                        <Box textAlign="left">
-                          <Typography fontWeight="600">Reports & Analytics</Typography>
-                          <Typography variant="caption" color="text.secondary">Generate detailed reports</Typography>
-                        </Box>
-                      </QuickButton>
-                    </Grid>
-                    <Grid item xs={12}>
-                      <QuickButton
-                        fullWidth
-                        variant="text"
-                        startIcon={<PersonIcon />}
-                        component={Link}
-                        to="/profile"
-                        bgcolor="info"
-                      >
-                        <Box textAlign="left">
-                          <Typography fontWeight="600">My Profile</Typography>
-                          <Typography variant="caption" color="text.secondary">View your account</Typography>
-                        </Box>
-                      </QuickButton>
-                    </Grid>
-                  </Grid>
-                </CardContent>
-              </GlassCard>
-            </Grid>
-          </Grid>
+                  ))}
+                </Grid>
+              )}
+            </CardContent>
+          </GlassCard>
         </Grid>
       </Grid>
     </Container>
