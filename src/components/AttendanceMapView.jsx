@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+import {ATTENDANCE_URL, AUTH_URL} from "../API/api-keys.jsx";
 
 // Fix the default icon issue in Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -19,8 +20,8 @@ L.Icon.Default.mergeOptions({
 });
 
 // Get base URLs from environment variables
-const ATTENDANCE_API_URL ='https://attendance.annuprojects.com/api';
-const AUTH_API_URL =  'https://api.annuprojects.com/api';
+const ATTENDANCE_API_URL =ATTENDANCE_URL+'/api';
+const AUTH_API_URL =  AUTH_URL+'/api';
 
 const AttendanceMapView = () => {
   const [loading, setLoading] = useState(true);

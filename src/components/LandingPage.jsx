@@ -47,6 +47,7 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import SpeedIcon from '@mui/icons-material/Speed';
 import './LandingPage.css';
+import {ATTENDANCE_URL, AUTH_URL} from "../API/api-keys.jsx";
 
 // Styled components
 const GlassCard = styled(Card)(({ theme }) => ({
@@ -193,7 +194,7 @@ const LandingPage = () => {
       setStatsError(null);
 
       // Fetch users from auth API
-      const usersResponse = await fetch(`https://api.annuprojects.com/api/auth/users`);
+      const usersResponse = await fetch(`${AUTH_URL}/api/auth/users`);
       if (!usersResponse.ok) {
         throw new Error('Failed to fetch users data');
       }
@@ -220,7 +221,7 @@ const LandingPage = () => {
       const month = String(today.getMonth() + 1).padStart(2, '0');
       const year = today.getFullYear();
 
-      const attendanceResponse = await fetch(`https://attendance.annuprojects.com/api/attendance/all?month=${month}&year=${year}`);
+      const attendanceResponse = await fetch(`${ATTENDANCE_URL}/api/attendance/all?month=${month}&year=${year}`);
       if (!attendanceResponse.ok) {
         throw new Error('Failed to fetch attendance data');
       }
@@ -284,7 +285,7 @@ const LandingPage = () => {
       const month = String(today.getMonth() + 1).padStart(2, '0');
       const year = today.getFullYear();
 
-      const response = await fetch(`https://attendance.annuprojects.com/api/attendance/all?month=${month}&year=${year}`);
+      const response = await fetch(`${ATTENDANCE_URL}/api/attendance/all?month=${month}&year=${year}`);
       if (!response.ok) {
         throw new Error('Failed to fetch attendance data');
       }
@@ -295,7 +296,7 @@ const LandingPage = () => {
       }
 
       // Get user information to enrich attendance records
-      const usersResponse = await fetch(`https://api.annuprojects.com/api/auth/users`);
+      const usersResponse = await fetch(`${AUTH_URL}/api/auth/users`);
       if (!usersResponse.ok) {
         throw new Error('Failed to fetch users data');
       }

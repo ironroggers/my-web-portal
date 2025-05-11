@@ -9,6 +9,7 @@ import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import SurveySidebar from './SurveySidebar';
 import * as XLSX from 'xlsx';
+import {LOCATION_URL, SURVEY_URL} from "../API/api-keys.jsx";
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyC2pds2TL5_lGUM-7Y1CFiGq8Wrn0oULr0';
 
@@ -114,7 +115,7 @@ const MapViewPage = () => {
       setError(null);
 
       console.log('Attempting to fetch locations from API...');
-      const baseUrl = 'https://location.annuprojects.com/api';
+      const baseUrl = LOCATION_URL+'/api';
       const apiUrl = `${baseUrl}/locations`;
 
       // Add CORS headers to the request
@@ -162,7 +163,7 @@ const MapViewPage = () => {
 
   const fetchSurveys = async () => {
     try {
-      const response = await fetch(`https://survey.annuprojects.com/api/surveys`);
+      const response = await fetch(`${SURVEY_URL}/api/surveys`);
       if (!response.ok) throw new Error(`Failed to fetch surveys: ${response.statusText}`);
       const data = await response.json();
       if (!data.success || !Array.isArray(data.data)) throw new Error('Invalid survey data format received');
@@ -736,7 +737,7 @@ const MapViewPage = () => {
       console.log('Sending location data:', JSON.stringify(newLocation));
 
       // API endpoint
-      const apiEndpoint = `https://location.annuprojects.com/api/locations`;
+      const apiEndpoint = `${LOCATION_URL}/api/locations`;
 
       // Format data for API
       const formattedData = {
@@ -934,7 +935,7 @@ const MapViewPage = () => {
       console.log('Sending updated location data:', JSON.stringify(editLocation));
 
       // API endpoint
-      const apiEndpoint = `https://location.annuprojects.com/api/locations/${editLocation._id}`;
+      const apiEndpoint = `${LOCATION_URL}/api/locations/${editLocation._id}`;
 
       // Format data for API
       const formattedData = {

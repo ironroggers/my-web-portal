@@ -19,6 +19,7 @@ import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import TodayIcon from '@mui/icons-material/Today';
+import {AUTH_URL} from "../API/api-keys.jsx";
 
 // Create a localizer for the calendar
 const localizer = momentLocalizer(moment);
@@ -32,8 +33,8 @@ const AttendanceCalendarView = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   // Define API URLs - using environment variables if available
-  const ATTENDANCE_API_URL = 'https://attendance.annuprojects.com/api';
-  const AUTH_API_URL = 'https://api.annuprojects.com/api';
+  const ATTENDANCE_API_URL = ATTENDANCE_API_URL+'/api';
+  const AUTH_API_URL = AUTH_URL+'/api';
 
   // Create a memoized fetchData function
   const fetchData = useCallback(async (date) => {

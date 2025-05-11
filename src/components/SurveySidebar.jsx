@@ -109,14 +109,13 @@ const getFileTypeIcon = (fileType) => {
 };
 
 // Helper component for compact geotag overlay in thumbnails
-const CompactGeotagOverlay = ({ survey }) => {
-  if (!survey || !survey.latlong || !survey.latlong.length) {
+const CompactGeotagOverlay = ({ mediaFile }) => {
+  if (!mediaFile || !mediaFile.latitude || !mediaFile.longitude) {
     return null;
   }
 
-  const locationName = getLocationName(survey);
-  const latitude = survey.latlong[0];
-  const longitude = survey.latlong[1];
+  const locationName = mediaFile.place || getLocationName(mediaFile);
+  const { latitude, longitude } = mediaFile;
   
   return (
     <Box className="media-geotag-overlay" sx={{ padding: '4px 8px' }}>
@@ -127,23 +126,26 @@ const CompactGeotagOverlay = ({ survey }) => {
         <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
           {formatCoordinate(latitude, 6)}°, {formatCoordinate(longitude, 6)}°
         </Typography>
-        <PublicIcon sx={{ fontSize: '0.8rem', opacity: 0.8 }} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
+            ±{mediaFile.accuracy}m
+          </Typography>
+          <PublicIcon sx={{ fontSize: '0.8rem', opacity: 0.8 }} />
+        </Box>
       </Box>
     </Box>
   );
 };
 
 // Helper component for detailed geotag information overlay in fullscreen view
-const MediaGeotagOverlay = ({ survey }) => {
-  if (!survey || !survey.latlong || !survey.latlong.length) {
+const MediaGeotagOverlay = ({ mediaFile }) => {
+  if (!mediaFile || !mediaFile.latitude || !mediaFile.longitude) {
     return null;
   }
 
-  const locationName = getLocationName(survey);
-  const detailedAddress = getDetailedAddress(survey);
-  const captureTime = survey.created_on;
-  const latitude = survey.latlong[0];
-  const longitude = survey.latlong[1];
+  const locationName = mediaFile.place || getLocationName(mediaFile);
+  const { latitude, longitude, deviceName, accuracy } = mediaFile;
+  const captureTime = mediaFile.uploaded_at;
   
   // Generate Google Maps static image URL if an API key is available
   const mapEnabled = true; // Set to false to disable map thumbnail
@@ -170,16 +172,19 @@ const MediaGeotagOverlay = ({ survey }) => {
             {locationName}
           </Typography>
           <Typography className="geotag-coordinates">
-            {detailedAddress}
-          </Typography>
-          <Typography className="geotag-coordinates">
             Long {formatCoordinate(longitude, 6)}°
           </Typography>
           <Typography className="geotag-coordinates">
             Lat {formatCoordinate(latitude, 6)}°
           </Typography>
+          <Typography className="geotag-coordinates">
+            Accuracy: ±{accuracy}m
+          </Typography>
           <Typography className="geotag-timestamp">
             {formatDateDMY(captureTime)}
+          </Typography>
+          <Typography className="geotag-device">
+            Device: {deviceName}
           </Typography>
         </Box>
       </Box>
@@ -347,13 +352,13 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
                               sx={{ objectFit: 'cover' }}
                             />
                             {/* Geotag indicator */}
-                            {hasCoordinates && (
+                            {file.latitude && file.longitude && (
                               <Box className="geotag-indicator">
                                 <LocationOnIcon fontSize="small" />
                               </Box>
                             )}
-                            {hasCoordinates && (
-                              <CompactGeotagOverlay survey={survey} />
+                            {file.latitude && file.longitude && (
+                              <CompactGeotagOverlay mediaFile={file} />
                             )}
                           </Box>
                           <CardContent sx={{ p: 1, pb: '8px !important' }}>
@@ -369,11 +374,16 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
                               <Typography variant="caption" color="text.secondary">
                                 Uploaded: {formatDate(file.uploaded_at)}
                               </Typography>
-                              {hasCoordinates && (
-                                <Typography variant="caption" className="media-coordinates">
-                                  <LocationOnIcon fontSize="inherit" />
-                                  {formatCoordinate(survey.latlong[0], 6)}°, {formatCoordinate(survey.latlong[1], 6)}°
-                                </Typography>
+                              {file.latitude && file.longitude && (
+                                <>
+                                  <Typography variant="caption" className="media-coordinates">
+                                    <LocationOnIcon fontSize="inherit" />
+                                    {formatCoordinate(file.latitude, 6)}°, {formatCoordinate(file.longitude, 6)}°
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                                    Device: {file.deviceName}
+                                  </Typography>
+                                </>
                               )}
                             </Box>
                           </CardContent>
@@ -390,13 +400,13 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
                               <PlayArrowIcon className="video-play-overlay" />
                             </CardMedia>
                             {/* Geotag indicator for videos */}
-                            {hasCoordinates && (
+                            {file.latitude && file.longitude && (
                               <Box className="geotag-indicator">
                                 <LocationOnIcon fontSize="small" />
                               </Box>
                             )}
-                            {hasCoordinates && (
-                              <CompactGeotagOverlay survey={survey} />
+                            {file.latitude && file.longitude && (
+                              <CompactGeotagOverlay mediaFile={file} />
                             )}
                           </Box>
                           <CardContent sx={{ p: 1, pb: '8px !important' }}>
@@ -410,11 +420,16 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
                               <Typography variant="caption" color="text.secondary">
                                 Uploaded: {formatDate(file.uploaded_at)}
                               </Typography>
-                              {hasCoordinates && (
-                                <Typography variant="caption" className="media-coordinates">
-                                  <LocationOnIcon fontSize="inherit" />
-                                  {formatCoordinate(survey.latlong[0], 6)}°, {formatCoordinate(survey.latlong[1], 6)}°
-                                </Typography>
+                              {file.latitude && file.longitude && (
+                                <>
+                                  <Typography variant="caption" className="media-coordinates">
+                                    <LocationOnIcon fontSize="inherit" />
+                                    {formatCoordinate(file.latitude, 6)}°, {formatCoordinate(file.longitude, 6)}°
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                                    Device: {file.deviceName}
+                                  </Typography>
+                                </>
                               )}
                             </Box>
                           </CardContent>
@@ -503,7 +518,7 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
                     style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain' }}
                   />
                   {hasCoordinates && (
-                    <MediaGeotagOverlay survey={survey} />
+                    <MediaGeotagOverlay mediaFile={selectedMedia} />
                   )}
                 </>
               ) : selectedMedia.fileType === 'VIDEO' && (
@@ -515,7 +530,7 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
                     style={{ maxWidth: '100%', maxHeight: '80vh' }}
                   />
                   {hasCoordinates && (
-                    <MediaGeotagOverlay survey={survey} />
+                    <MediaGeotagOverlay mediaFile={selectedMedia} />
                   )}
                 </>
               )}
@@ -528,43 +543,7 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
                 </Typography>
               )}
               
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', mt: 1 }}>
-                {selectedMedia.uploaded_at && (
-                  <Box sx={{ mr: 3, mb: 1 }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold' }}>
-                      Uploaded
-                    </Typography>
-                    <Typography variant="body2">
-                      {formatDate(selectedMedia.uploaded_at)}
-                    </Typography>
-                  </Box>
-                )}
-                
-                {/* Capture time */}
-                {survey.created_on && (
-                  <Box sx={{ mr: 3, mb: 1 }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold' }}>
-                      Survey Created
-                    </Typography>
-                    <Typography variant="body2">
-                      {formatDate(survey.created_on)}
-                    </Typography>
-                  </Box>
-                )}
-                
-                {/* Location info */}
-                {hasCoordinates && (
-                  <Box sx={{ mr: 3, mb: 1 }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
-                      <LocationOnIcon fontSize="small" sx={{ mr: 0.5 }} /> 
-                      Location
-                    </Typography>
-                    <Typography variant="body2">
-                      Lat: {formatCoordinate(survey.latlong[0], 6)}°, Long: {formatCoordinate(survey.latlong[1], 6)}°
-                    </Typography>
-                  </Box>
-                )}
-              </Box>
+              
             </Box>
           </Box>
         )}

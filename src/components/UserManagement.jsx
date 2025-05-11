@@ -29,6 +29,7 @@ import {
 } from '@mui/material';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
+import {AUTH_URL} from "../API/api-keys.jsx";
 
 const UserManagement = () => {
   const [formData, setFormData] = useState({
@@ -84,7 +85,7 @@ const UserManagement = () => {
 
   const fetchPotentialManagers = async () => {
     try {
-      const baseUrl = 'https://api.annuprojects.com/api';
+      const baseUrl = AUTH_URL+'/api';
       const response = await fetch(`${baseUrl}/auth/potential-managers`);
 
       if (!response.ok) {

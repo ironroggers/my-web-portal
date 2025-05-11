@@ -33,10 +33,11 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import axios from 'axios';
 import moment from 'moment';
+import {ATTENDANCE_URL, AUTH_URL} from "../API/api-keys.jsx";
 
 // Define API URLs - using environment variables if available
-const ATTENDANCE_API_URL = 'https://attendance.annuprojects.com/api';
-const AUTH_API_URL = 'https://api.annuprojects.com/api';
+const ATTENDANCE_API_URL = ATTENDANCE_URL+'/api';
+const AUTH_API_URL = AUTH_URL+'/api';
 
 const AttendanceDetailedView = () => {
   const theme = useTheme();
