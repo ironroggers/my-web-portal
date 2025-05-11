@@ -25,10 +25,19 @@ import {
   CircularProgress,
   Card,
   CardContent,
-  CardHeader
+  CardHeader,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  IconButton,
+  FormHelperText,
 } from '@mui/material';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
+import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 import {AUTH_URL} from "../API/api-keys.jsx";
 
 const UserManagement = () => {
@@ -37,7 +46,8 @@ const UserManagement = () => {
     email: '',
     password: '',
     role: 'SURVEYOR',
-    reportingTo: ''
+    reportingTo: '',
+    designation: '',
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -47,6 +57,10 @@ const UserManagement = () => {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [editMode, setEditMode] = useState(false);
+  const [editUserId, setEditUserId] = useState(null);
 
   useEffect(() => {
     fetchPotentialManagers();
@@ -120,14 +134,19 @@ const UserManagement = () => {
     setLoading(true);
 
     try {
-      // Create the request body
       const requestBody = {
         ...formData,
         ...(formData.role !== 'ADMIN' && formData.reportingTo ? { reportingTo: formData.reportingTo } : {})
       };
 
-      const response = await fetch('https://auth-api-xz1q.onrender.com/api/auth/register', {
-        method: 'POST',
+      const url = editMode 
+        ? `${AUTH_URL}/api/auth/users/${editUserId}`
+        : `${AUTH_URL}/api/auth/register`;
+
+      const method = editMode ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -137,26 +156,80 @@ const UserManagement = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Registration failed');
+        throw new Error(data.message || 'Operation failed');
       }
 
-      setSuccess('User created successfully!');
+      setSuccess(editMode ? 'User updated successfully!' : 'User created successfully!');
       setFormData({
         username: '',
         email: '',
         password: '',
         role: 'SURVEYOR',
-        reportingTo: ''
+        reportingTo: '',
+        designation: '',
       });
+      setEditMode(false);
+      setEditUserId(null);
 
-      // Refresh users and managers list after successful registration
       fetchAllUsers();
       fetchPotentialManagers();
     } catch (err) {
-      setError(err.message || 'An error occurred during registration');
+      setError(err.message || 'An error occurred');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDelete = async (userId) => {
+    try {
+      const response = await fetch(`${AUTH_URL}/api/auth/users/${userId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Failed to delete user');
+      }
+
+      setSuccess('User deleted successfully!');
+      fetchAllUsers();
+    } catch (err) {
+      setError(err.message || 'An error occurred while deleting the user');
+    } finally {
+      setDeleteDialogOpen(false);
+      setUserToDelete(null);
+    }
+  };
+
+  const handleEdit = (user) => {
+    setFormData({
+      username: user.username,
+      email: user.email,
+      password: '', // Clear password field for security
+      role: user.role,
+      reportingTo: user.reportingTo?._id || '',
+      designation: user.designation || '',
+    });
+    setEditMode(true);
+    setEditUserId(user._id);
+  };
+
+  const handleDeleteClick = (user) => {
+    setUserToDelete(user);
+    setDeleteDialogOpen(true);
+  };
+
+  const cancelEdit = () => {
+    setFormData({
+      username: '',
+      email: '',
+      password: '',
+      role: 'SURVEYOR',
+      reportingTo: '',
+      designation: '',
+    });
+    setEditMode(false);
+    setEditUserId(null);
   };
 
   // Function to get reporting manager name
@@ -179,29 +252,89 @@ const UserManagement = () => {
   };
 
   return (
-    <Container maxWidth="lg" className="user-management-container">
-      <Typography variant="h4" component="h1" gutterBottom sx={{ textAlign: 'center', mb: 4, mt: 2, fontWeight: 'bold', color: 'primary.main' }}>
-        <PeopleAltIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-        User Access Management
-      </Typography>
+    <Container maxWidth="xl" className="user-management-container">
+      <Box sx={{ mb: 5, textAlign: 'center' }}>
+        <Typography 
+          variant="h4" 
+          component="h1" 
+          sx={{ 
+            fontWeight: 700,
+            background: 'linear-gradient(45deg, #2563eb 30%, #3b82f6 90%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 2
+          }}
+        >
+          <PeopleAltIcon sx={{ fontSize: 40, color: '#2563eb' }} />
+          User Access Management
+        </Typography>
+      </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 3 }}>{success}</Alert>}
+      <Box sx={{ mb: 3 }}>
+        {error && (
+          <Alert 
+            severity="error" 
+            sx={{ mb: 2 }}
+            action={
+              <IconButton
+                aria-label="close"
+                color="inherit"
+                size="small"
+                onClick={() => setError('')}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            }
+          >
+            {error}
+          </Alert>
+        )}
+        {success && (
+          <Alert 
+            severity="success"
+            sx={{ mb: 2 }}
+            action={
+              <IconButton
+                aria-label="close"
+                color="inherit"
+                size="small"
+                onClick={() => setSuccess('')}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            }
+          >
+            {success}
+          </Alert>
+        )}
+      </Box>
 
       <Grid container spacing={4}>
-        {/* User creation form */}
-        <Grid item xs={12} md={5}>
-          <Card elevation={3}>
+        <Grid item xs={12} md={4} sx={{ width: '100%'}}>
+          <Card elevation={0}>
             <CardHeader
-              title="Create New User"
+              title={editMode ? "Edit User" : "Create New User"}
               titleTypographyProps={{ variant: 'h6' }}
-              avatar={<PersonAddIcon color="primary" />}
-              sx={{ borderBottom: '1px solid #eee', bgcolor: 'primary.light', color: 'white' }}
+              avatar={
+                <Box sx={{ 
+                  bgcolor: 'primary.light', 
+                  borderRadius: '12px',
+                  width: 40,
+                  height: 40,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <PersonAddIcon sx={{ color: 'white' }} />
+                </Box>
+              }
             />
             <CardContent>
               <form onSubmit={handleSubmit}>
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
+                <Grid container spacing={2} sx={{ width: '100%' }}>
+                  <Grid item xs={12} sx={{ width: '20%' }}>
                     <TextField
                       fullWidth
                       label="Username"
@@ -212,10 +345,15 @@ const UserManagement = () => {
                       required
                       variant="outlined"
                       size="small"
+                      InputProps={{
+                        startAdornment: (
+                          <Box sx={{ color: 'text.secondary', mr: 1 }}>@</Box>
+                        ),
+                      }}
                     />
                   </Grid>
 
-                  <Grid item xs={12}>
+                  <Grid item xs={12} sx={{ width: '20%' }}>
                     <TextField
                       fullWidth
                       label="Email"
@@ -230,7 +368,7 @@ const UserManagement = () => {
                     />
                   </Grid>
 
-                  <Grid item xs={12}>
+                  <Grid item xs={12} sx={{ width: '20%' }}>
                     <TextField
                       fullWidth
                       label="Password"
@@ -239,14 +377,14 @@ const UserManagement = () => {
                       type="password"
                       value={formData.password}
                       onChange={handleChange}
-                      required
+                      required={!editMode}
                       variant="outlined"
                       size="small"
-                      inputProps={{ minLength: 6 }}
+                      helperText={editMode ? "Leave blank to keep current password" : "Minimum 6 characters"}
                     />
                   </Grid>
 
-                  <Grid item xs={12}>
+                  <Grid item xs={6} sx={{ width: '20%' }}>
                     <FormControl fullWidth variant="outlined" size="small">
                       <InputLabel id="role-label">Role</InputLabel>
                       <Select
@@ -258,14 +396,41 @@ const UserManagement = () => {
                         required
                         label="Role"
                       >
-                        <MenuItem value="SURVEYOR">Surveyor</MenuItem>
-                        <MenuItem value="SUPERVISOR">Supervisor</MenuItem>
-                        <MenuItem value="ADMIN">Admin</MenuItem>
+                        <MenuItem value="SURVEYOR">
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Chip 
+                              label="Surveyor" 
+                              size="small" 
+                              color="success"
+                              sx={{ height: 24 }}
+                            />
+                          </Box>
+                        </MenuItem>
+                        <MenuItem value="SUPERVISOR">
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Chip 
+                              label="Supervisor" 
+                              size="small" 
+                              color="warning"
+                              sx={{ height: 24 }}
+                            />
+                          </Box>
+                        </MenuItem>
+                        <MenuItem value="ADMIN">
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Chip 
+                              label="Admin" 
+                              size="small" 
+                              color="error"
+                              sx={{ height: 24 }}
+                            />
+                          </Box>
+                        </MenuItem>
                       </Select>
                     </FormControl>
                   </Grid>
 
-                  <Grid item xs={12}>
+                  <Grid item xs={6} sx={{ width: '20%' }}>
                     <FormControl
                       fullWidth
                       variant="outlined"
@@ -292,25 +457,49 @@ const UserManagement = () => {
                         ))}
                       </Select>
                       {isAdmin && (
-                        <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
-                          Not required for Admin role
-                        </Typography>
+                        <FormHelperText>Not required for Admin role</FormHelperText>
                       )}
                     </FormControl>
                   </Grid>
 
-                  <Grid item xs={12}>
-                    <Button
-                      type="submit"
-                      variant="contained"
-                      color="primary"
+                  <Grid item xs={12} sx={{ width: '20%' }}>
+                    <TextField
                       fullWidth
-                      disabled={loading}
-                      sx={{ mt: 1 }}
-                      startIcon={loading ? <CircularProgress size={20} /> : <PersonAddIcon />}
-                    >
-                      {loading ? 'Creating User...' : 'Create User'}
-                    </Button>
+                      label="Designation"
+                      id="designation"
+                      name="designation"
+                      value={formData.designation}
+                      onChange={handleChange}
+                      variant="outlined"
+                      size="small"
+                      placeholder="e.g. Senior Surveyor"
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} sx={{ width: '20%' }}>
+                    <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column'}}>
+                      <Button
+                        type="submit"
+                        variant="contained"
+                        color="primary"
+                        fullWidth
+                        disabled={loading}
+                        startIcon={loading ? <CircularProgress size={20} /> : <PersonAddIcon />}
+                      >
+                        {loading ? (editMode ? 'Updating...' : 'Creating...') : (editMode ? 'Update User' : 'Create User')}
+                      </Button>
+                      {editMode && (
+                        <Button
+                          variant="outlined"
+                          color="secondary"
+                          fullWidth
+                          onClick={cancelEdit}
+                          startIcon={<DeleteIcon />}
+                        >
+                          Cancel Edit
+                        </Button>
+                      )}
+                    </Box>
                   </Grid>
                 </Grid>
               </form>
@@ -318,30 +507,42 @@ const UserManagement = () => {
           </Card>
         </Grid>
 
-        {/* Users table */}
-        <Grid item xs={12} md={7}>
-          <Card elevation={3}>
+        <Grid item xs={12} md={4} sx={{ width: '100%'}}>
+          <Card elevation={0}>
             <CardHeader
               title="Existing Users"
               titleTypographyProps={{ variant: 'h6' }}
-              avatar={<PeopleAltIcon color="primary" />}
-              sx={{ borderBottom: '1px solid #eee', bgcolor: 'primary.light', color: 'white' }}
+              avatar={
+                <Box sx={{ 
+                  bgcolor: 'primary.light', 
+                  borderRadius: '12px',
+                  width: 40,
+                  height: 40,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <PeopleAltIcon sx={{ color: 'white' }} />
+                </Box>
+              }
             />
             <CardContent>
               {loadingUsers ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
                   <CircularProgress />
                 </Box>
               ) : users.length > 0 ? (
                 <>
-                  <TableContainer component={Paper} variant="outlined">
+                  <TableContainer>
                     <Table size="small">
                       <TableHead>
                         <TableRow>
                           <TableCell><Typography variant="subtitle2" fontWeight="bold">Username</Typography></TableCell>
                           <TableCell><Typography variant="subtitle2" fontWeight="bold">Email</Typography></TableCell>
                           <TableCell><Typography variant="subtitle2" fontWeight="bold">Role</Typography></TableCell>
+                          <TableCell><Typography variant="subtitle2" fontWeight="bold">Designation</Typography></TableCell>
                           <TableCell><Typography variant="subtitle2" fontWeight="bold">Reporting To</Typography></TableCell>
+                          <TableCell align="right"><Typography variant="subtitle2" fontWeight="bold">Actions</Typography></TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -349,7 +550,11 @@ const UserManagement = () => {
                           .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                           .map((user) => (
                             <TableRow key={user._id} hover>
-                              <TableCell>{user.username}</TableCell>
+                              <TableCell>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  {user.username}
+                                </Box>
+                              </TableCell>
                               <TableCell>{user.email}</TableCell>
                               <TableCell>
                                 <Chip
@@ -362,29 +567,111 @@ const UserManagement = () => {
                                   variant="outlined"
                                 />
                               </TableCell>
+                              <TableCell>{user.designation || '-'}</TableCell>
                               <TableCell>{user.reportingTo ? user.reportingTo.username : '-'}</TableCell>
+                              <TableCell align="right">
+                                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                                  <IconButton
+                                    size="small"
+                                    color="primary"
+                                    onClick={() => handleEdit(user)}
+                                    sx={{ 
+                                      '&:hover': { 
+                                        bgcolor: 'primary.light',
+                                        '& svg': { color: 'white' }
+                                      }
+                                    }}
+                                  >
+                                    <EditIcon fontSize="small" />
+                                  </IconButton>
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    onClick={() => handleDeleteClick(user)}
+                                    sx={{ 
+                                      '&:hover': { 
+                                        bgcolor: 'error.light',
+                                        '& svg': { color: 'white' }
+                                      }
+                                    }}
+                                  >
+                                    <DeleteIcon fontSize="small" />
+                                  </IconButton>
+                                </Box>
+                              </TableCell>
                             </TableRow>
                           ))}
                       </TableBody>
                     </Table>
                   </TableContainer>
                   <TablePagination
-                    rowsPerPageOptions={[5, 10, 25]}
                     component="div"
                     count={users.length}
                     rowsPerPage={rowsPerPage}
                     page={page}
                     onPageChange={handleChangePage}
                     onRowsPerPageChange={handleChangeRowsPerPage}
+                    rowsPerPageOptions={[5, 10, 25]}
                   />
                 </>
               ) : (
-                <Typography variant="body1" sx={{ p: 2 }}>No users found.</Typography>
+                <Box sx={{ 
+                  p: 4, 
+                  textAlign: 'center',
+                  bgcolor: '#f8fafc',
+                  borderRadius: 2,
+                  border: '1px dashed #e2e8f0'
+                }}>
+                  <Typography variant="body1" color="text.secondary">
+                    No users found.
+                  </Typography>
+                </Box>
               )}
             </CardContent>
           </Card>
         </Grid>
       </Grid>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        PaperProps={{
+          elevation: 0,
+          sx: {
+            borderRadius: 2,
+            minWidth: 360
+          }
+        }}
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Typography variant="h6" component="div" sx={{ fontWeight: 600 }}>
+            Confirm Delete
+          </Typography>
+        </DialogTitle>
+        <DialogContent sx={{ pt: '8px !important' }}>
+          <DialogContentText>
+            Are you sure you want to delete user "{userToDelete?.username}"? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, pt: 1 }}>
+          <Button 
+            onClick={() => setDeleteDialogOpen(false)}
+            variant="outlined"
+            color="inherit"
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={() => handleDelete(userToDelete?._id)} 
+            color="error" 
+            variant="contained"
+            startIcon={<DeleteIcon />}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

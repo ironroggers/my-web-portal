@@ -1,3 +1,198 @@
+/* Modern UI styling for User Management */
+:root {
+  --primary-color: #2563eb;
+  --primary-light: #3b82f6;
+  --primary-dark: #1d4ed8;
+  --success-color: #059669;
+  --warning-color: #d97706;
+  --error-color: #dc2626;
+  --background-color: #f8fafc;
+  --card-background: #ffffff;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --border-color: #e2e8f0;
+}
+
+body {
+  background: var(--background-color);
+  background-image: 
+    radial-gradient(at 40% 20%, rgba(37, 99, 235, 0.1) 0px, transparent 50%),
+    radial-gradient(at 80% 0%, rgba(5, 150, 105, 0.1) 0px, transparent 50%),
+    radial-gradient(at 0% 50%, rgba(220, 38, 38, 0.1) 0px, transparent 50%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+.user-management-container {
+  padding: 2rem 1rem;
+  max-width: 1280px !important;
+}
+
+/* Card Styling */
+.MuiCard-root {
+  background: var(--card-background);
+  border-radius: 1rem !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+  transition: all 0.3s ease;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.MuiCard-root::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(to right, var(--primary-color), var(--primary-light));
+}
+
+.MuiCardHeader-root {
+  background: var(--card-background) !important;
+  border-bottom: 1px solid var(--border-color);
+  padding: 1.25rem !important;
+}
+
+.MuiCardHeader-title {
+  font-size: 1.25rem !important;
+  color: var(--text-primary) !important;
+  font-weight: 600 !important;
+}
+
+.MuiCardContent-root {
+  padding: 1.5rem !important;
+}
+
+/* Form Controls */
+.MuiFormControl-root {
+  margin-bottom: 1rem !important;
+}
+
+.MuiOutlinedInput-root {
+  border-radius: 0.5rem !important;
+  background: #fff;
+  transition: all 0.2s ease;
+}
+
+.MuiOutlinedInput-root:hover {
+  background: #f8fafc;
+}
+
+.MuiOutlinedInput-root.Mui-focused {
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+/* Buttons */
+.MuiButton-contained {
+  text-transform: none !important;
+  padding: 0.5rem 1.5rem !important;
+  border-radius: 0.5rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.3px !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+.MuiButton-contained:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Table Styling */
+.MuiTableContainer-root {
+  border-radius: 0.75rem !important;
+  box-shadow: none !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.MuiTableHead-root {
+  background: #f8fafc;
+}
+
+.MuiTableCell-head {
+  background: #f8fafc !important;
+  font-weight: 600 !important;
+  color: var(--text-primary) !important;
+  border-bottom: 2px solid var(--border-color) !important;
+}
+
+.MuiTableBody-root .MuiTableRow-root:hover {
+  background-color: #f1f5f9 !important;
+}
+
+/* Chips */
+.MuiChip-root {
+  font-weight: 500 !important;
+  height: 24px !important;
+  border-radius: 6px !important;
+}
+
+.MuiChip-root.MuiChip-colorError {
+  background-color: #fef2f2 !important;
+  color: var(--error-color) !important;
+  border-color: #fecaca !important;
+}
+
+.MuiChip-root.MuiChip-colorWarning {
+  background-color: #fffbeb !important;
+  color: var(--warning-color) !important;
+  border-color: #fef3c7 !important;
+}
+
+.MuiChip-root.MuiChip-colorSuccess {
+  background-color: #f0fdf4 !important;
+  color: var(--success-color) !important;
+  border-color: #dcfce7 !important;
+}
+
+/* Icons */
+.MuiIconButton-root {
+  border-radius: 0.5rem !important;
+}
+
+.MuiIconButton-root:hover {
+  background-color: #f1f5f9 !important;
+}
+
+/* Alerts */
+.MuiAlert-root {
+  border-radius: 0.75rem !important;
+  font-weight: 500 !important;
+}
+
+/* Dialog */
+.MuiDialog-paper {
+  border-radius: 1rem !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+}
+
+.MuiDialogTitle-root {
+  background: var(--card-background);
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* Responsive Design */
+@media (max-width: 960px) {
+  .user-management-container {
+    padding: 1rem;
+  }
+  
+  .MuiCard-root {
+    border-radius: 0.75rem !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .MuiTableCell-root {
+    padding: 8px !important;
+  }
+  
+  .MuiCardContent-root {
+    padding: 1rem !important;
+  }
+}
+
 .user-management-container {
   max-width: 900px;
   margin: 2rem auto;
