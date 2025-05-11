@@ -24,6 +24,16 @@ const containerStyle = {
 
 const defaultCenter = { lat: 9.31, lng: 76.45 }; // Kerala
 
+// Add status mapping
+const STATUS_MAPPING = {
+  1: 'Released',
+  2: 'Assigned',
+  3: 'Active',
+  4: 'Submitted',
+  5: 'Accepted',
+  6: 'Reverted'
+};
+
 // Set color palette for OFC routes to blue shades
 const routeColor = '#2563eb'; // Brighter blue
 const surveyRouteColor = '#f59e0b'; // More vibrant yellow
@@ -35,7 +45,7 @@ const MapViewPage = () => {
   const [surveys, setSurveys] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [selectedLocations, setSelectedLocations] = useState([]); // Changed to array for multiple selection
   const [mapZoom, setMapZoom] = useState(11);
 
   // New state for route visibility
@@ -618,25 +628,31 @@ const MapViewPage = () => {
     return hours > 0 ? `${hours} hr ${minutes} min` : `${minutes} min`;
   };
 
-  // Find a center for the map (first available point, or default)
-  const mapCenter = selectedSurvey && selectedSurvey.latlong
-    ? { lat: selectedSurvey.latlong[0], lng: selectedSurvey.latlong[1] }
-    : selectedLocation && selectedLocation.points && selectedLocation.points.length > 0
-      ? selectedLocation.points[0]
-      : locationRoutes.find(r => r.points && r.points.length > 0)?.points[0] || defaultCenter;
+  // Find a center for the map (first available point from selected locations, or default)
+  const mapCenter = selectedLocations.length > 0 && selectedLocations[0].points.length > 0
+    ? selectedLocations[0].points[0]
+    : locationRoutes.find(r => r.points && r.points.length > 0)?.points[0] || defaultCenter;
 
   // Handle location selection from dropdown
-  const handleLocationSelect = (event, value) => {
-    if (!value) {
-      setSelectedLocation(null);
+  const handleLocationSelect = (event, values) => {
+    if (!values || values.length === 0) {
+      setSelectedLocations([]);
       setMapZoom(11);
       return;
     }
-    const found = locationRoutes.find(
-      r => r.location && `${r.location.block} (${r.location.district})` === value
-    );
-    setSelectedLocation(found || null);
-    setMapZoom(15);
+    
+    const selectedRoutes = values.map(value => 
+      locationRoutes.find(r => r.location && `${r.location.block} (${r.location.district})` === value)
+    ).filter(Boolean);
+    
+    setSelectedLocations(selectedRoutes);
+    
+    // If only one location is selected, zoom to it
+    if (selectedRoutes.length === 1) {
+      setMapZoom(15);
+    } else {
+      setMapZoom(11);
+    }
   };
 
   // Prepare options for Autocomplete
@@ -819,10 +835,10 @@ const MapViewPage = () => {
 
   // Handle open/close of edit dialog
   const handleOpenEditDialog = () => {
-    if (!selectedLocation || !selectedLocation.location) {
+    if (!selectedLocations || selectedLocations.length !== 1) {
       setSnackbar({
         open: true,
-        message: 'Please select a location to edit',
+        message: 'Please select exactly one location to edit',
         severity: 'warning'
       });
       return;
@@ -830,8 +846,8 @@ const MapViewPage = () => {
 
     // Clone the selected location for editing
     setEditLocation({
-      ...selectedLocation.location,
-      route: selectedLocation.location.route ? [...selectedLocation.location.route] : []
+      ...selectedLocations[0].location,
+      route: selectedLocations[0].location.route ? [...selectedLocations[0].location.route] : []
     });
 
     setOpenEditDialog(true);
@@ -1043,7 +1059,7 @@ const MapViewPage = () => {
 
   // Export to Excel
   const handleExportToExcel = (type = 'desktop') => {
-    if (!selectedLocation || !selectedLocation.location) return;
+    if (!selectedLocations || selectedLocations.length === 0) return;
 
     handleExportClose();
 
@@ -1051,13 +1067,13 @@ const MapViewPage = () => {
     setExportType(type);
 
     // Create data in the format shown in the image
-    const routePoints = selectedLocation.location.route || [];
+    const routePoints = selectedLocations.map(loc => loc.location.route || []).flat();
 
     // Format data to match the table in the image
     const excelData = [];
 
     // Find survey route for comparison (if it exists)
-    const surveyRoute = surveyRoutes.find(route => route.locationId === selectedLocation.location._id);
+    const surveyRoute = surveyRoutes.find(route => route.locationId === selectedLocations[0].location._id);
     let physicalTotalLength = 0;
 
     // Calculate total physical survey length if available
@@ -1076,8 +1092,8 @@ const MapViewPage = () => {
 
     // Calculate desktop survey total length
     let desktopTotalLength = 0;
-    if (selectedLocation.routeInfo && selectedLocation.routeInfo.distance) {
-      desktopTotalLength = Math.round(selectedLocation.routeInfo.distance);
+    if (selectedLocations.length > 0 && selectedLocations[0].routeInfo && selectedLocations[0].routeInfo.distance) {
+      desktopTotalLength = Math.round(selectedLocations[0].routeInfo.distance);
     }
 
     // Calculate difference between physical and desktop survey
@@ -1116,13 +1132,13 @@ const MapViewPage = () => {
 
           // Calculate distance for this segment (in meters)
           let segmentDistance = 0;
-          if (selectedLocation && selectedLocation.directions &&
-              selectedLocation.directions.routes &&
-              selectedLocation.directions.routes[0] &&
-              selectedLocation.directions.routes[0].legs) {
+          if (selectedLocations.length > 0 && selectedLocations[0].directions &&
+              selectedLocations[0].directions.routes &&
+              selectedLocations[0].directions.routes[0] &&
+              selectedLocations[0].directions.routes[0].legs) {
             // Make sure we have a valid index
-            const legIndex = Math.min(i, selectedLocation.directions.routes[0].legs.length - 1);
-            segmentDistance = Math.round(selectedLocation.directions.routes[0].legs[legIndex].distance.value);
+            const legIndex = Math.min(i, selectedLocations[0].directions.routes[0].legs.length - 1);
+            segmentDistance = Math.round(selectedLocations[0].directions.routes[0].legs[legIndex].distance.value);
           }
 
           // For comparison - try to find equivalent segment in physical survey
@@ -1144,8 +1160,8 @@ const MapViewPage = () => {
 
           excelData.push([
             i + 1, // Sl. No.
-            selectedLocation.location.district,
-            selectedLocation.location.block,
+            selectedLocations[0].location.district,
+            selectedLocations[0].location.block,
             fromPoint.place, // Gram Panchayat
             fromPoint.place, // From
             Number(fromPoint.latitude).toFixed(6), // Lat of From
@@ -1168,12 +1184,12 @@ const MapViewPage = () => {
 
         // Calculate distance for the final segment
         let finalSegmentDistance = 0;
-        if (selectedLocation.directions &&
-            selectedLocation.directions.routes &&
-            selectedLocation.directions.routes[0] &&
-            selectedLocation.directions.routes[0].legs &&
-            selectedLocation.directions.routes[0].legs[routePoints.length - 1]) {
-          finalSegmentDistance = Math.round(selectedLocation.directions.routes[0].legs[routePoints.length - 1].distance.value);
+        if (selectedLocations[0].directions &&
+            selectedLocations[0].directions.routes &&
+            selectedLocations[0].directions.routes[0] &&
+            selectedLocations[0].directions.routes[0].legs &&
+            selectedLocations[0].directions.routes[0].legs[routePoints.length - 1]) {
+          finalSegmentDistance = Math.round(selectedLocations[0].directions.routes[0].legs[routePoints.length - 1].distance.value);
         }
 
         // Final segment for physical survey
@@ -1189,8 +1205,8 @@ const MapViewPage = () => {
 
         excelData.push([
           routePoints.length, // Sl. No.
-          selectedLocation.location.district,
-          selectedLocation.location.block,
+          selectedLocations[0].location.district,
+          selectedLocations[0].location.block,
           lastPoint.place, // Gram Panchayat
           lastPoint.place, // From
           Number(lastPoint.latitude).toFixed(6), // Lat of From
@@ -1248,7 +1264,7 @@ const MapViewPage = () => {
       ]);
 
       // Original physical survey export code remains largely unchanged
-      const locationSurveys = getSurveysForLocation(selectedLocation.location._id);
+      const locationSurveys = getSurveysForLocation(selectedLocations[0].location._id);
 
       if (locationSurveys.length < 2) {
         setSnackbar({
@@ -1281,13 +1297,13 @@ const MapViewPage = () => {
 
           // For comparison - try to find equivalent segment in desktop survey
           let desktopSegmentDistance = 0;
-          if (selectedLocation && selectedLocation.directions &&
-              selectedLocation.directions.routes &&
-              selectedLocation.directions.routes[0] &&
-              selectedLocation.directions.routes[0].legs) {
+          if (selectedLocations.length > 0 && selectedLocations[0].directions &&
+              selectedLocations[0].directions.routes &&
+              selectedLocations[0].directions.routes[0] &&
+              selectedLocations[0].directions.routes[0].legs) {
             // Make sure we have a valid index
-            const legIndex = Math.min(i, selectedLocation.directions.routes[0].legs.length - 1);
-            desktopSegmentDistance = Math.round(selectedLocation.directions.routes[0].legs[legIndex].distance.value);
+            const legIndex = Math.min(i, selectedLocations[0].directions.routes[0].legs.length - 1);
+            desktopSegmentDistance = Math.round(selectedLocations[0].directions.routes[0].legs[legIndex].distance.value);
           }
 
           // Calculate segment difference
@@ -1297,8 +1313,8 @@ const MapViewPage = () => {
 
           excelData.push([
             i + 1, // Sl. No.
-            selectedLocation.location.district,
-            selectedLocation.location.block,
+            selectedLocations[0].location.district,
+            selectedLocations[0].location.block,
             fromSurvey.title || 'Survey Point', // Gram Panchayat
             fromSurvey.title || 'Survey Point', // From
             Number(fromSurvey.latlong[0]).toFixed(6), // Lat of From
@@ -1330,8 +1346,8 @@ const MapViewPage = () => {
 
         // Final segment for desktop survey
         let finalDesktopSegmentDistance = 0;
-        if (selectedLocation.directions?.routes?.[0]?.legs?.[validSurveys.length - 1]) {
-          finalDesktopSegmentDistance = Math.round(selectedLocation.directions.routes[0].legs[validSurveys.length - 1].distance.value);
+        if (selectedLocations[0].directions?.routes?.[0]?.legs?.[validSurveys.length - 1]) {
+          finalDesktopSegmentDistance = Math.round(selectedLocations[0].directions.routes[0].legs[validSurveys.length - 1].distance.value);
         }
 
         // Calculate final segment difference
@@ -1341,8 +1357,8 @@ const MapViewPage = () => {
 
         excelData.push([
           validSurveys.length, // Sl. No.
-          selectedLocation.location.district,
-          selectedLocation.location.block,
+          selectedLocations[0].location.district,
+          selectedLocations[0].location.block,
           lastSurvey.title || 'Survey Point', // Gram Panchayat
           lastSurvey.title || 'Survey Point', // From
           Number(lastSurvey.latlong[0]).toFixed(6), // Lat of From
@@ -1388,7 +1404,7 @@ const MapViewPage = () => {
     XLSX.utils.book_append_sheet(wb, ws, type === 'desktop' ? 'OFC Route Comparison' : 'Survey Route Comparison');
 
     // Generate filename from location info
-    const fileName = `${selectedLocation.location.block}_${selectedLocation.location.district}_${type === 'desktop' ? 'OFC' : 'Survey'}_Route_Comparison.xlsx`;
+    const fileName = `${selectedLocations[0].location.block}_${selectedLocations[0].location.district}_${type === 'desktop' ? 'OFC' : 'Survey'}_Route_Comparison.xlsx`;
 
     // Write and download the file
     XLSX.writeFile(wb, fileName);
@@ -1403,10 +1419,10 @@ const MapViewPage = () => {
 
   // Export to KML
   const handleExportToKML = (type = 'desktop') => {
-    if (!selectedLocation || !selectedLocation.location) {
+    if (!selectedLocations || selectedLocations.length === 0) {
       setSnackbar({
         open: true,
-        message: 'Error: No location selected',
+        message: 'Error: No locations selected',
         severity: 'error'
       });
       return;
@@ -1423,9 +1439,9 @@ const MapViewPage = () => {
 
     if (type === 'desktop') {
       // Desktop survey export (OFC routes - blue)
-      const routePoints = selectedLocation.location.route || [];
+      const routePoints = selectedLocations.map(loc => loc.location.route || []).flat();
 
-      if (!selectedLocation.directions) {
+      if (!selectedLocations[0].directions) {
         setSnackbar({
           open: true,
           message: 'Error: No route data available for export',
@@ -1437,7 +1453,7 @@ const MapViewPage = () => {
       // Extract route path points from directions
       try {
         // Extract the detailed path from Google's directions response
-        const routes = selectedLocation.directions.routes;
+        const routes = selectedLocations[0].directions.routes;
 
         if (routes && routes.length > 0) {
           // Get the overview path (encoded polyline)
@@ -1496,7 +1512,7 @@ const MapViewPage = () => {
     } else {
       // Physical survey export (survey routes - yellow)
       // Find survey route for this location
-      const surveyRoute = surveyRoutes.find(route => route.locationId === selectedLocation.location._id);
+      const surveyRoute = surveyRoutes.find(route => route.locationId === selectedLocations[0].location._id);
 
       if (!surveyRoute || !surveyRoute.directions) {
         setSnackbar({
@@ -1508,7 +1524,7 @@ const MapViewPage = () => {
       }
 
       // Get surveys for this location
-      const locationSurveys = getSurveysForLocation(selectedLocation.location._id);
+      const locationSurveys = getSurveysForLocation(selectedLocations[0].location._id);
 
       if (locationSurveys.length < 2) {
         setSnackbar({
@@ -1581,8 +1597,8 @@ const MapViewPage = () => {
     let kml = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
-    <name>${selectedLocation.location.block} - ${selectedLocation.location.district} ${type === 'desktop' ? 'OFC' : 'Survey'} Route</name>
-    <description>${type === 'desktop' ? 'Optimized OFC' : 'Physical Survey'} Route for ${selectedLocation.location.block}, ${selectedLocation.location.district}</description>
+    <name>${selectedLocations[0].location.block} - ${selectedLocations[0].location.district} ${type === 'desktop' ? 'OFC' : 'Survey'} Route</name>
+    <description>${type === 'desktop' ? 'Optimized OFC' : 'Physical Survey'} Route for ${selectedLocations[0].location.block}, ${selectedLocations[0].location.district}</description>
     <Style id="routeStyle">
       <LineStyle>
         <color>${type === 'desktop' ? 'ff0000ff' : 'ff00aaff'}</color>
@@ -1646,7 +1662,7 @@ const MapViewPage = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${selectedLocation.location.block}_${selectedLocation.location.district}_${type === 'desktop' ? 'OFC' : 'Survey'}_Route.kml`;
+    a.download = `${selectedLocations[0].location.block}_${selectedLocations[0].location.district}_${type === 'desktop' ? 'OFC' : 'Survey'}_Route.kml`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1697,7 +1713,7 @@ const MapViewPage = () => {
     setSelectedSurvey(null);
 
     // Reset map zoom based on whether a location is selected
-    if (selectedLocation) {
+    if (selectedLocations.length > 0 && selectedLocations[0].points.length > 0) {
       setMapZoom(15);
     } else {
       setMapZoom(11);
@@ -1743,12 +1759,13 @@ const MapViewPage = () => {
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 4 }}>
           <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
             <Autocomplete
+              multiple // Enable multiple selection
               options={locationOptions}
-              value={selectedLocation && selectedLocation.location ? `${selectedLocation.location.block} (${selectedLocation.location.district})` : null}
+              value={selectedLocations.map(loc => `${loc.location.block} (${loc.location.district})`)}
               onChange={handleLocationSelect}
               renderInput={(params) => <TextField
                 {...params}
-                label="Search Location"
+                label="Select Locations"
                 variant="outlined"
                 fullWidth
                 InputProps={{
@@ -1777,13 +1794,14 @@ const MapViewPage = () => {
               }}
             />
           </Box>
-          {selectedLocation && (
+          {selectedLocations.length > 0 && (
             <Box sx={{ display: 'flex', gap: 1 }}>
               <Button
                 variant="outlined"
                 color="primary"
                 startIcon={<EditIcon />}
                 onClick={handleOpenEditDialog}
+                disabled={selectedLocations.length !== 1}
                 sx={{ borderRadius: '8px', fontWeight: 500, flex: 1 }}
               >
                 Edit
@@ -1793,6 +1811,7 @@ const MapViewPage = () => {
                 color="success"
                 startIcon={<FileDownloadIcon />}
                 onClick={handleExportClick}
+                disabled={selectedLocations.length !== 1}
                 sx={{ borderRadius: '8px', fontWeight: 500, flex: 1 }}
               >
                 Export
@@ -1841,126 +1860,128 @@ const MapViewPage = () => {
               </Box>
             </Box>
 
-            {/* Info cards for each location or summary */}
+            {/* Info cards for selected locations */}
             <Grid container spacing={3} sx={{ mb: 3 }}>
-              {selectedLocation ? (
-                <Grid item xs={12} md={6} lg={4}>
-                  <Card sx={{
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-                    borderRadius: '12px',
-                    overflow: 'hidden',
-                    border: `1px solid ${routeColor}20`
-                  }}>
-                    <CardContent sx={{ p: 3 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                        <Typography variant="h6" sx={{ fontWeight: 'bold', color: routeColor }}>
-                          {selectedLocation.location?.block} ({selectedLocation.location?.district})
-                        </Typography>
-                      </Box>
-                      <Box sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        mb: 2,
-                        p: 1.5,
-                        bgcolor: 'rgba(0,0,0,0.03)',
-                        borderRadius: '8px'
-                      }}>
-                        <Typography variant="subtitle2" sx={{ mr: 1 }}>
-                          Status: {selectedLocation.location?.status}
-                        </Typography>
-                        {selectedLocation.location?.status === 5 &&
-                          <Chip label="Survey Route Enabled" color="warning" size="small" sx={{ fontWeight: 500 }} />
-                        }
-                      </Box>
-                      {selectedLocation.error && (
-                        <Alert severity="warning" sx={{ my: 2, borderRadius: '8px' }}>{selectedLocation.error}</Alert>
-                      )}
-                      {selectedLocation.routeInfo && (
-                        <>
-                          <Grid container spacing={2} sx={{ mb: 2 }}>
-                            <Grid item xs={6}>
-                              <Typography variant="subtitle2" color="text.secondary">Desktop Survey Distance:</Typography>
-                              <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
-                                {formatDistance(selectedLocation.routeInfo.distance)}
-                              </Typography>
-                            </Grid>
-                            <Grid item xs={6}>
-                              <Typography variant="subtitle2" color="text.secondary">Est. Survey Time:</Typography>
-                              <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
-                                {formatTime(selectedLocation.routeInfo.time)}
-                              </Typography>
-                            </Grid>
-                          </Grid>
-
-                          {/* Add Physical Survey Distance and Difference */}
-                          {selectedLocation.location && selectedLocation.location.status === 5 && (() => {
-                            // Find survey route for this location
-                            const surveyRoute = surveyRoutes.find(route => route.locationId === selectedLocation.location._id);
-
-                            if (surveyRoute) {
-                              // Get physical survey distance from the pre-calculated totalDistance when available
-                              let physicalDistance = 0;
-
-                              if (surveyRoute.totalDistance) {
-                                // Use the pre-calculated totalDistance
-                                physicalDistance = surveyRoute.totalDistance;
-                              } else if (surveyRoute.directions &&
-                                  surveyRoute.directions.routes &&
-                                  surveyRoute.directions.routes[0] &&
-                                  surveyRoute.directions.routes[0].legs) {
-                                // Fallback to calculating again if needed
-                                surveyRoute.directions.routes[0].legs.forEach(leg => {
-                                  physicalDistance += leg.distance.value;
-                                });
-                              }
-
-                              // Only proceed if we have a valid physical distance
-                              if (physicalDistance > 0) {
-                                // Calculate difference
-                                const difference = physicalDistance - selectedLocation.routeInfo.distance;
-                                const percentDiff = ((difference / selectedLocation.routeInfo.distance) * 100).toFixed(1);
-
-                                return (
-                                  <Grid container spacing={2} sx={{ mb: 2, mt: 0.5, pt: 2, borderTop: '1px dashed rgba(0,0,0,0.1)' }}>
-                                    <Grid item xs={6}>
-                                      <Typography variant="subtitle2" color="text.secondary">Physical Survey Distance:</Typography>
-                                      <Typography variant="body1" color="warning.dark" sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
-                                        {formatDistance(physicalDistance)}
-                                      </Typography>
-                                    </Grid>
-                                    <Grid item xs={6}>
-                                      <Typography variant="subtitle2" color="text.secondary">Difference:</Typography>
-                                      <Typography
-                                        variant="body1"
-                                        color={difference > 0 ? "error.main" : "success.main"}
-                                        sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}
-                                      >
-                                        {formatDistance(Math.abs(difference))} ({difference > 0 ? '+' : '-'}{Math.abs(percentDiff)}%)
-                                      </Typography>
-                                      <Typography variant="caption" color="text.secondary">
-                                        {difference > 0 ? 'Physical survey is longer' : 'Physical survey is shorter'}
-                                      </Typography>
-                                    </Grid>
-                                  </Grid>
-                                );
-                              }
-                            }
-                            return null;
-                          })()}
-
-                          <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
-                            Survey Points: {getSurveysForLocation(selectedLocation.location?._id).length}
+              {selectedLocations.length > 0 ? (
+                selectedLocations.map((location, index) => (
+                  <Grid item xs={12} md={6} lg={4} key={index}>
+                    <Card sx={{
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                      borderRadius: '12px',
+                      overflow: 'hidden',
+                      border: `1px solid ${routeColor}20`
+                    }}>
+                      <CardContent sx={{ p: 3 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                          <Typography variant="h6" sx={{ fontWeight: 'bold', color: routeColor }}>
+                            {location.location?.block} ({location.location?.district})
                           </Typography>
-                          <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                            <Chip label="Optimized OFC Route" color="success" size="small" sx={{ fontWeight: 500 }} />
-                            <Chip label="Complete Loop" color="primary" size="small" sx={{ fontWeight: 500 }} />
-                            <Chip label={`${selectedLocation.routeInfo.legs} Segments`} color="info" size="small" sx={{ fontWeight: 500 }} />
-                          </Box>
-                        </>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Grid>
+                        </Box>
+                        <Box sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          mb: 2,
+                          p: 1.5,
+                          bgcolor: 'rgba(0,0,0,0.03)',
+                          borderRadius: '8px'
+                        }}>
+                          <Typography variant="subtitle2" sx={{ mr: 1 }}>
+                            Status: {STATUS_MAPPING[location.location?.status] || 'Unknown'}
+                          </Typography>
+                          {location.location?.status === 5 &&
+                            <Chip label="Survey Route Enabled" color="warning" size="small" sx={{ fontWeight: 500 }} />
+                          }
+                        </Box>
+                        {location.error && (
+                          <Alert severity="warning" sx={{ my: 2, borderRadius: '8px' }}>{location.error}</Alert>
+                        )}
+                        {location.routeInfo && (
+                          <>
+                            <Grid container spacing={2} sx={{ mb: 2 }}>
+                              <Grid item xs={6}>
+                                <Typography variant="subtitle2" color="text.secondary">Desktop Survey Distance:</Typography>
+                                <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
+                                  {formatDistance(location.routeInfo.distance)}
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={6}>
+                                <Typography variant="subtitle2" color="text.secondary">Est. Survey Time:</Typography>
+                                <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
+                                  {formatTime(location.routeInfo.time)}
+                                </Typography>
+                              </Grid>
+                            </Grid>
+
+                            {/* Add Physical Survey Distance and Difference */}
+                            {location.location && location.location.status === 5 && (() => {
+                              // Find survey route for this location
+                              const surveyRoute = surveyRoutes.find(route => route.locationId === location.location._id);
+
+                              if (surveyRoute) {
+                                // Get physical survey distance from the pre-calculated totalDistance when available
+                                let physicalDistance = 0;
+
+                                if (surveyRoute.totalDistance) {
+                                  // Use the pre-calculated totalDistance
+                                  physicalDistance = surveyRoute.totalDistance;
+                                } else if (surveyRoute.directions &&
+                                    surveyRoute.directions.routes &&
+                                    surveyRoute.directions.routes[0] &&
+                                    surveyRoute.directions.routes[0].legs) {
+                                  // Fallback to calculating again if needed
+                                  surveyRoute.directions.routes[0].legs.forEach(leg => {
+                                    physicalDistance += leg.distance.value;
+                                  });
+                                }
+
+                                // Only proceed if we have a valid physical distance
+                                if (physicalDistance > 0) {
+                                  // Calculate difference
+                                  const difference = physicalDistance - location.routeInfo.distance;
+                                  const percentDiff = ((difference / location.routeInfo.distance) * 100).toFixed(1);
+
+                                  return (
+                                    <Grid container spacing={2} sx={{ mb: 2, mt: 0.5, pt: 2, borderTop: '1px dashed rgba(0,0,0,0.1)' }}>
+                                      <Grid item xs={6}>
+                                        <Typography variant="subtitle2" color="text.secondary">Physical Survey Distance:</Typography>
+                                        <Typography variant="body1" color="warning.dark" sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
+                                          {formatDistance(physicalDistance)}
+                                        </Typography>
+                                      </Grid>
+                                      <Grid item xs={6}>
+                                        <Typography variant="subtitle2" color="text.secondary">Difference:</Typography>
+                                        <Typography
+                                          variant="body1"
+                                          color={difference > 0 ? "error.main" : "success.main"}
+                                          sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}
+                                        >
+                                          {formatDistance(Math.abs(difference))} ({difference > 0 ? '+' : '-'}{Math.abs(percentDiff)}%)
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                          {difference > 0 ? 'Physical survey is longer' : 'Physical survey is shorter'}
+                                        </Typography>
+                                      </Grid>
+                                    </Grid>
+                                  );
+                                }
+                              }
+                              return null;
+                            })()}
+
+                            <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
+                              Survey Points: {getSurveysForLocation(location.location?._id).length}
+                            </Typography>
+                            <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                              <Chip label="Optimized OFC Route" color="success" size="small" sx={{ fontWeight: 500 }} />
+                              <Chip label="Complete Loop" color="primary" size="small" sx={{ fontWeight: 500 }} />
+                              <Chip label={`${location.routeInfo.legs} Segments`} color="info" size="small" sx={{ fontWeight: 500 }} />
+                            </Box>
+                          </>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))
               ) : (
                 (() => {
                   // Calculate total distance and time for all locations
@@ -2121,40 +2142,60 @@ const MapViewPage = () => {
                 center={mapCenter}
                 zoom={mapZoom}
               >
-                {/* Render markers and routes for all locations */}
-                {locationRoutes.map((route, idx) => {
-                  const isSelected = selectedLocation && selectedLocation.location && route.location &&
-                    route.location.block === selectedLocation.location.block &&
-                    route.location.district === selectedLocation.location.district;
-                  return (
-                    <React.Fragment key={`routefrag-${idx}`}>
-                      {route.points.map((point, pidx) => {
-                        // Determine if this point corresponds to a BHQ type
-                        const routePoint = route.location?.route[pidx];
-                        const isBHQ = routePoint && routePoint.type === 'BHQ';
+                {/* Render markers and routes for selected locations only */}
+                {(selectedLocations.length > 0 ? selectedLocations : locationRoutes).map((route, idx) => {
+                  const isSelected = selectedLocations.some(selected => 
+                    selected.location && route.location &&
+                    selected.location.block === route.location.block &&
+                    selected.location.district === route.location.district
+                  );
+                  
+                  // Only render if no locations are selected or if this route is selected
+                  if (selectedLocations.length === 0 || isSelected) {
+                    return (
+                      <React.Fragment key={`routefrag-${idx}`}>
+                        {route.points.map((point, pidx) => {
+                          // Determine if this point corresponds to a BHQ type
+                          const routePoint = route.location?.route[pidx];
+                          const isBHQ = routePoint && routePoint.type === 'BHQ';
 
-                        return (
-                          <Marker
-                            key={`marker-${idx}-${pidx}`}
-                            position={point}
-                            label={`${pidx + 1}`}
-                            icon={{
-                              path: window.google && window.google.maps ? window.google.maps.SymbolPath.CIRCLE : undefined,
-                              scale: isSelected ? 11 : 7,
-                              fillColor: isBHQ ? '#f44336' : routeColor, // Red color for BHQ points
-                              fillOpacity: 1,
-                              strokeColor: isSelected ? '#000' : '#fff',
-                              strokeWeight: isSelected ? 4 : 2,
-                            }}
-                          />
-                        );
-                      })}
-                      {/* Render chunked routes if they exist */}
-                      {route.isChunked && route.chunks && routeVisibility.desktopSurvey &&
-                        route.chunks.map((chunk, chunkIdx) => (
+                          return (
+                            <Marker
+                              key={`marker-${idx}-${pidx}`}
+                              position={point}
+                              label={`${pidx + 1}`}
+                              icon={{
+                                path: window.google && window.google.maps ? window.google.maps.SymbolPath.CIRCLE : undefined,
+                                scale: isSelected ? 11 : 7,
+                                fillColor: isBHQ ? '#f44336' : routeColor, // Red color for BHQ points
+                                fillOpacity: 1,
+                                strokeColor: isSelected ? '#000' : '#fff',
+                                strokeWeight: isSelected ? 4 : 2,
+                              }}
+                            />
+                          );
+                        })}
+                        {/* Render chunked routes if they exist */}
+                        {route.isChunked && route.chunks && routeVisibility.desktopSurvey &&
+                          route.chunks.map((chunk, chunkIdx) => (
+                            <DirectionsRenderer
+                              key={`chunk-${idx}-${chunkIdx}`}
+                              directions={chunk}
+                              options={{
+                                suppressMarkers: true,
+                                polylineOptions: {
+                                  strokeColor: routeColor,
+                                  strokeWeight: isSelected ? 10 : 6,
+                                  strokeOpacity: isSelected ? 1 : 0.9,
+                                },
+                              }}
+                            />
+                          ))
+                        }
+                        {/* Render single route if not chunked */}
+                        {!route.isChunked && route.directions && routeVisibility.desktopSurvey && (
                           <DirectionsRenderer
-                            key={`chunk-${idx}-${chunkIdx}`}
-                            directions={chunk}
+                            directions={route.directions}
                             options={{
                               suppressMarkers: true,
                               polylineOptions: {
@@ -2164,50 +2205,41 @@ const MapViewPage = () => {
                               },
                             }}
                           />
-                        ))
-                      }
-                      {/* Render single route if not chunked */}
-                      {!route.isChunked && route.directions && routeVisibility.desktopSurvey && (
-                        <DirectionsRenderer
-                          directions={route.directions}
-                          options={{
-                            suppressMarkers: true,
-                            polylineOptions: {
-                              strokeColor: routeColor,
-                              strokeWeight: isSelected ? 10 : 6,
-                              strokeOpacity: isSelected ? 1 : 0.9,
-                            },
-                          }}
-                        />
-                      )}
+                        )}
 
-                      {/* Render survey points for this location */}
-                      {route.location && getSurveysForLocation(route.location._id).map((survey, sidx) => (
-                        <Marker
-                          key={`survey-${idx}-${sidx}`}
-                          position={{ lat: survey.latlong[0], lng: survey.latlong[1] }}
-                          title={survey.title}
-                          onClick={() => handleSurveyMarkerClick(survey._id)}
-                          icon={{
-                            path: window.google && window.google.maps ? window.google.maps.SymbolPath.CIRCLE : undefined,
-                            scale: 8,
-                            fillColor: '#FFD700', // Yellow color for survey points
-                            fillOpacity: 1,
-                            strokeColor: '#000',
-                            strokeWeight: 2,
-                          }}
-                        />
-                      ))}
-                    </React.Fragment>
-                  );
+                        {/* Render survey points for this location */}
+                        {route.location && getSurveysForLocation(route.location._id).map((survey, sidx) => (
+                          <Marker
+                            key={`survey-${idx}-${sidx}`}
+                            position={{ lat: survey.latlong[0], lng: survey.latlong[1] }}
+                            title={survey.title}
+                            onClick={() => handleSurveyMarkerClick(survey._id)}
+                            icon={{
+                              path: window.google && window.google.maps ? window.google.maps.SymbolPath.CIRCLE : undefined,
+                              scale: 8,
+                              fillColor: '#FFD700', // Yellow color for survey points
+                              fillOpacity: 1,
+                              strokeColor: '#000',
+                              strokeWeight: 2,
+                            }}
+                          />
+                        ))}
+                      </React.Fragment>
+                    );
+                  }
+                  return null;
                 })}
 
                 {/* Render survey routes for locations with status 5 */}
                 {routeVisibility.physicalSurvey && surveyRoutes.map((route, idx) => {
                   if (!route.directions) return null;
                   const locationData = locations.find(loc => loc._id === route.locationId);
-                  const isSelected = selectedLocation && selectedLocation.location &&
-                    locationData && selectedLocation.location._id === locationData._id;
+                  
+                  // Only show survey routes for selected locations
+                  const isSelected = selectedLocations.length === 0 || 
+                    selectedLocations.some(selected => selected.location._id === locationData?._id);
+                  
+                  if (!isSelected) return null;
 
                   return (
                     <React.Fragment key={`survey-route-frag-${idx}`}>
@@ -2566,7 +2598,14 @@ const MapViewPage = () => {
                     margin="normal"
                     required
                     inputProps={{ min: 1, max: 6 }}
-                  />
+                    select
+                  >
+                    {Object.entries(STATUS_MAPPING).map(([value, label]) => (
+                      <MenuItem key={value} value={parseInt(value)}>
+                        {label}
+                      </MenuItem>
+                    ))}
+                  </TextField>
                 </Grid>
               </Grid>
 
