@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background Circle -->
+    <circle cx="100" cy="100" r="90" fill="#1976D2" />
+
+    <!-- Location Pin -->
+    <path d="M100 40c-25 0-45 20-45 45 0 30 45 75 45 75s45-45 45-75c0-25-20-45-45-45zm0 60c-8.3 0-15-6.7-15-15s6.7-15 15-15 15 6.7 15 15-6.7 15-15 15z" fill="white" />
+
+    <!-- Text "LOCUS" -->
+    <text x="100" y="165" font-family="Arial, sans-serif" font-weight="bold" font-size="24" text-anchor="middle" fill="white">LOCUS</text>
+</svg>

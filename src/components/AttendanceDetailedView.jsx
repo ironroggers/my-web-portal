@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -48,6 +48,13 @@ const AttendanceDetailedView = () => {
   const [attendanceData, setAttendanceData] = useState({});
   const [selectedUser, setSelectedUser] = useState(null);
   const [weekStart, setWeekStart] = useState(moment().startOf('week').toDate());
+  const [locationNames, setLocationNames] = useState({});
+  const locationNamesRef = useRef(locationNames);
+
+  // Update ref when locationNames changes
+  useEffect(() => {
+    locationNamesRef.current = locationNames;
+  }, [locationNames]);
 
   // Fetch users and their attendance data
   const fetchData = useCallback(async () => {
@@ -82,27 +89,77 @@ const AttendanceDetailedView = () => {
 
       // Group attendance by user ID
       const attendanceByUser = {};
+      const newLocations = {};
+      
       (attendanceResponse.data.data || []).forEach(record => {
         if (!attendanceByUser[record.userId]) {
           attendanceByUser[record.userId] = [];
         }
         attendanceByUser[record.userId].push(record);
+        
+        // Store location coordinates for reverse geocoding
+        if (record.location && record.location.coordinates && record.location.coordinates.length === 2) {
+          const locKey = `${record.location.coordinates[1]},${record.location.coordinates[0]}`;
+          if (!locationNamesRef.current[locKey]) {
+            newLocations[locKey] = true;
+          }
+        }
       });
 
       setUsers(userData);
       setAttendanceData(attendanceByUser);
       setLoading(false);
+
+      // Fetch location names separately to avoid dependency issues
+      fetchLocationNames(newLocations);
     } catch (err) {
       console.error('Error fetching data:', err);
       setError('Failed to load attendance data: ' + err.message);
       setLoading(false);
     }
-  }, [weekStart]);
+  }, [weekStart]); // Only depend on weekStart
+
+  // Separate function for fetching location names
+  const fetchLocationNames = async (locations) => {
+    const locationKeys = Object.keys(locations);
+    if (locationKeys.length === 0) return;
+    
+    const newLocationNames = {...locationNamesRef.current};
+    
+    for (const locKey of locationKeys) {
+      try {
+        const [lat, lng] = locKey.split(',');
+        const geoResponse = await axios.get(`https://nominatim.openstreetmap.org/reverse`, {
+          params: {
+            format: 'json',
+            lat,
+            lon: lng,
+            zoom: 18,
+            addressdetails: 1
+          },
+          headers: {
+            'User-Agent': 'AttendanceApp'
+          }
+        });
+        
+        if (geoResponse.data && geoResponse.data.display_name) {
+          newLocationNames[locKey] = geoResponse.data.display_name;
+        }
+        
+        // Add a small delay to avoid overwhelming the Nominatim API
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (error) {
+        console.error('Error fetching location name:', error);
+      }
+    }
+    
+    setLocationNames(newLocationNames);
+  };
 
   // Effect to fetch data on component mount and when week changes
   useEffect(() => {
     fetchData();
-  }, [fetchData, weekStart]);
+  }, [fetchData]);
 
   // Handle tab change
   const handleTabChange = (event, newValue) => {
@@ -168,7 +225,11 @@ const AttendanceDetailedView = () => {
 
   // Navigate to next week
   const goToNextWeek = () => {
-    setWeekStart(moment(weekStart).add(1, 'week').toDate());
+    const nextWeek = moment(weekStart).add(1, 'week');
+    // Only allow navigation if next week is not in the future
+    if (nextWeek.isSameOrBefore(moment(), 'week')) {
+      setWeekStart(nextWeek.toDate());
+    }
   };
 
   // Navigate to current week
@@ -176,16 +237,43 @@ const AttendanceDetailedView = () => {
     setWeekStart(moment().startOf('week').toDate());
   };
 
+  // Get the location name from coordinates
+  const getLocationName = (location) => {
+    if (!location || !location.coordinates || location.coordinates.length !== 2) {
+      return '-';
+    }
+    
+    const locKey = `${location.coordinates[1]},${location.coordinates[0]}`;
+    return locationNames[locKey] || location.address || 'Unknown location';
+  };
+
   // Attendance detail row component
   const AttendanceDetailRow = ({ userId }) => {
     const user = users.find(u => u._id === userId) || {};
     const weekDates = getWeekDates();
     const userAttendance = attendanceData[userId] || [];
+    const today = moment().startOf('day');
 
-    // Calculate attendance stats
-    const presentDays = userAttendance.filter(a => a.status === 'present').length;
-    const lateDays = userAttendance.filter(a => a.status === 'late').length;
-    const absentDays = 7 - presentDays - lateDays;
+    // Calculate attendance stats (only count past dates)
+    const pastDates = weekDates.filter(date => moment(date).isSameOrBefore(today));
+    const totalPastDays = pastDates.length;
+    
+    let presentDays = 0;
+    let lateDays = 0;
+    
+    pastDates.forEach(date => {
+      const formattedDate = moment(date).format('YYYY-MM-DD');
+      const attendance = userAttendance.find(a => 
+        moment(a.date).format('YYYY-MM-DD') === formattedDate
+      );
+      
+      if (attendance) {
+        if (attendance.status === 'present') presentDays++;
+        if (attendance.status === 'late') lateDays++;
+      }
+    });
+    
+    const absentDays = totalPastDays - presentDays - lateDays;
 
     return (
       <TableRow>
@@ -263,6 +351,7 @@ const AttendanceDetailedView = () => {
                 </TableHead>
                 <TableBody>
                   {weekDates.map((date, index) => {
+                    const isFuture = moment(date).isAfter(today);
                     const attendance = getUserAttendanceForDate(userId, date);
                     const checkInTime = attendance.sessions && attendance.sessions.length > 0
                       ? moment(attendance.sessions[0].checkInTime).format('hh:mm A')
@@ -279,29 +368,31 @@ const AttendanceDetailedView = () => {
                         <TableCell>{moment(date).format('dddd')}</TableCell>
                         <TableCell>{moment(date).format('MMM DD, YYYY')}</TableCell>
                         <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            {getStatusIcon(attendance.status)}
-                            <Typography
-                              variant="body2"
-                              sx={{ color: getStatusColor(attendance.status) }}
-                            >
-                              {attendance.status.charAt(0).toUpperCase() + attendance.status.slice(1)}
-                            </Typography>
-                          </Box>
+                          {isFuture ? (
+                            <Typography variant="body2" color="textSecondary">Upcoming</Typography>
+                          ) : (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              {getStatusIcon(attendance.status)}
+                              <Typography
+                                variant="body2"
+                                sx={{ color: getStatusColor(attendance.status) }}
+                              >
+                                {attendance.status.charAt(0).toUpperCase() + attendance.status.slice(1)}
+                              </Typography>
+                            </Box>
+                          )}
                         </TableCell>
-                        <TableCell>{checkInTime}</TableCell>
-                        <TableCell>{checkOutTime}</TableCell>
-                        <TableCell>{hoursWorked}</TableCell>
+                        <TableCell>{isFuture ? '-' : checkInTime}</TableCell>
+                        <TableCell>{isFuture ? '-' : checkOutTime}</TableCell>
+                        <TableCell>{isFuture ? '-' : hoursWorked}</TableCell>
                         <TableCell>
-                          {attendance.location && attendance.location.address
-                            ? (
-                              <Tooltip title={attendance.location.address}>
-                                <Typography noWrap sx={{ maxWidth: 200 }}>
-                                  {attendance.location.address}
-                                </Typography>
-                              </Tooltip>
-                            )
-                            : '-'}
+                          {!isFuture && attendance.location ? (
+                            <Tooltip title={getLocationName(attendance.location)}>
+                              <Typography noWrap sx={{ maxWidth: 200 }}>
+                                {getLocationName(attendance.location)}
+                              </Typography>
+                            </Tooltip>
+                          ) : '-'}
                         </TableCell>
                       </TableRow>
                     );
@@ -319,11 +410,32 @@ const AttendanceDetailedView = () => {
   const UserRow = ({ user }) => {
     const open = selectedUser === user._id;
     const userAttendance = attendanceData[user._id] || [];
-
-    // Calculate attendance stats
-    const presentDays = userAttendance.filter(a => a.status === 'present').length;
-    const lateDays = userAttendance.filter(a => a.status === 'late').length;
-    const absentDays = 7 - presentDays - lateDays;
+    const today = moment().startOf('day');
+    
+    // Get all dates in the current week that are not in the future
+    const pastDates = getWeekDates().filter(date => moment(date).isSameOrBefore(today));
+    const totalPastDays = pastDates.length;
+    
+    // Calculate attendance stats only for past dates
+    let presentDays = 0;
+    let lateDays = 0;
+    
+    pastDates.forEach(date => {
+      const formattedDate = moment(date).format('YYYY-MM-DD');
+      const attendance = userAttendance.find(a => 
+        moment(a.date).format('YYYY-MM-DD') === formattedDate
+      );
+      
+      if (attendance) {
+        if (attendance.status === 'present') presentDays++;
+        if (attendance.status === 'late') lateDays++;
+      }
+    });
+    
+    const absentDays = totalPastDays - presentDays - lateDays;
+    const attendancePercentage = totalPastDays > 0 
+      ? Math.round((presentDays + lateDays) / totalPastDays * 100) 
+      : 0;
 
     return (
       <>
@@ -395,9 +507,7 @@ const AttendanceDetailedView = () => {
             />
           </TableCell>
           <TableCell align="center">
-            {(presentDays + lateDays) > 0
-              ? Math.round((presentDays + lateDays) / 7 * 100) + '%'
-              : '0%'}
+            {attendancePercentage + '%'}
           </TableCell>
         </TableRow>
         {open && <AttendanceDetailRow userId={user._id} />}

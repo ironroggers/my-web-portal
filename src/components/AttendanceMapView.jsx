@@ -38,17 +38,20 @@ const AttendanceMapView = () => {
         setLoading(true);
         setError(null);
 
-        // Get today's date in ISO format
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        // Get today's date with time set to beginning and end of day
+        const startDate = new Date();
+        startDate.setHours(0, 0, 0, 0);
+        
+        const endDate = new Date();
+        endDate.setHours(23, 59, 59, 999);
 
         console.log('Fetching attendance data...');
 
         // Get all attendance records for today with status 'present'
         const attendanceResponse = await axios.get(`${ATTENDANCE_API_URL}/attendance/all`, {
           params: {
-            startDate: today.toISOString(),
-            endDate: today.toISOString(),
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
             status: 'present'
           },
           headers: {

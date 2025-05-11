@@ -97,10 +97,54 @@ const MapViewPage = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loadingSurvey, setLoadingSurvey] = useState(false);
 
+  // Add this state near the other state declarations at the top
+  const [recentlySelectedLocation, setRecentlySelectedLocation] = useState(null);
+
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
     libraries: ['places'],
   });
+
+  // Add this useEffect to adjust map bounds when locations are selected
+  useEffect(() => {
+    if (isLoaded && selectedLocations.length > 0 && window.google) {
+      // If we have a map reference, we can fit the bounds
+      // This will be implemented via the onLoad callback below
+    }
+  }, [selectedLocations, isLoaded]);
+
+  // Add state for map reference
+  const [map, setMap] = useState(null);
+
+  // Add this function to handle map load and store reference
+  const onMapLoad = (mapInstance) => {
+    setMap(mapInstance);
+  };
+
+  // Add this function to adjust bounds when needed
+  const adjustMapBounds = () => {
+    if (!map || !window.google || selectedLocations.length === 0) return;
+    
+    // If we only have one location or a recently selected location, fit bounds to show all its points
+    const targetLocation = recentlySelectedLocation || selectedLocations[0];
+    
+    if (targetLocation && targetLocation.points && targetLocation.points.length > 1) {
+      const bounds = new window.google.maps.LatLngBounds();
+      
+      // Add all points to bounds
+      targetLocation.points.forEach(point => {
+        bounds.extend(point);
+      });
+      
+      // Adjust bounds with some padding
+      map.fitBounds(bounds);
+    }
+  };
+
+  // Call adjustMapBounds when relevant state changes
+  useEffect(() => {
+    adjustMapBounds();
+  }, [map, selectedLocations, recentlySelectedLocation]);
 
   useEffect(() => {
     fetchLocations();
@@ -629,29 +673,54 @@ const MapViewPage = () => {
   };
 
   // Find a center for the map (first available point from selected locations, or default)
-  const mapCenter = selectedLocations.length > 0 && selectedLocations[0].points.length > 0
-    ? selectedLocations[0].points[0]
-    : locationRoutes.find(r => r.points && r.points.length > 0)?.points[0] || defaultCenter;
+  const mapCenter = recentlySelectedLocation && recentlySelectedLocation.points && recentlySelectedLocation.points.length > 0
+    ? recentlySelectedLocation.points[0]
+    : selectedLocations.length > 0 && selectedLocations[0].points.length > 0
+      ? selectedLocations[0].points[0]
+      : locationRoutes.find(r => r.points && r.points.length > 0)?.points[0] || defaultCenter;
 
-  // Handle location selection from dropdown
+  // Update handleLocationSelect to handle transitions better
   const handleLocationSelect = (event, values) => {
     if (!values || values.length === 0) {
       setSelectedLocations([]);
-      setMapZoom(11);
+      setRecentlySelectedLocation(null);
+      setMapZoom(11); // Zoom out for overview
       return;
     }
     
+    // Get previous selection for comparison
+    const prevSelectedIds = selectedLocations.map(loc => loc.location?._id).filter(Boolean);
+    
+    // Find the selected routes
     const selectedRoutes = values.map(value => 
       locationRoutes.find(r => r.location && `${r.location.block} (${r.location.district})` === value)
     ).filter(Boolean);
     
+    // Find which location was just added (if any)
+    const newSelectedIds = selectedRoutes.map(loc => loc.location?._id).filter(Boolean);
+    const addedIds = newSelectedIds.filter(id => !prevSelectedIds.includes(id));
+    
     setSelectedLocations(selectedRoutes);
     
-    // If only one location is selected, zoom to it
-    if (selectedRoutes.length === 1) {
+    // If a new location was added, use that as the recently selected location
+    if (addedIds.length > 0) {
+      const mostRecentlyAdded = selectedRoutes.find(route => route.location?._id === addedIds[addedIds.length - 1]);
+      if (mostRecentlyAdded) {
+        setRecentlySelectedLocation(mostRecentlyAdded);
+        setMapZoom(15);
+        return;
+      }
+    }
+    
+    // Otherwise use the last selected location (as before)
+    const mostRecentValue = values[values.length - 1];
+    const mostRecentRoute = locationRoutes.find(r => 
+      r.location && `${r.location.block} (${r.location.district})` === mostRecentValue
+    );
+    
+    if (mostRecentRoute) {
+      setRecentlySelectedLocation(mostRecentRoute);
       setMapZoom(15);
-    } else {
-      setMapZoom(11);
     }
   };
 
@@ -2141,6 +2210,7 @@ const MapViewPage = () => {
                 mapContainerStyle={containerStyle}
                 center={mapCenter}
                 zoom={mapZoom}
+                onLoad={onMapLoad}
               >
                 {/* Render markers and routes for selected locations only */}
                 {(selectedLocations.length > 0 ? selectedLocations : locationRoutes).map((route, idx) => {
