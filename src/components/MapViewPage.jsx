@@ -5,6 +5,7 @@ import {
   DirectionsRenderer,
   useJsApiLoader,
 } from "@react-google-maps/api";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Typography,
@@ -73,6 +74,7 @@ const routeColor = "#2563eb"; // Brighter blue
 const surveyRouteColor = "#f59e0b"; // More vibrant yellow
 
 const MapViewPage = () => {
+  const navigate = useNavigate();
   const [locations, setLocations] = useState([]);
   const [locationRoutes, setLocationRoutes] = useState([]); // [{points, directions, routeInfo, mapCenter, error}]
   const [surveyRoutes, setSurveyRoutes] = useState([]); // [{locationId, directions}]
@@ -2545,7 +2547,18 @@ const MapViewPage = () => {
                                   label="Hoto Information"
                                   color="primary"
                                   size="small"
-                                  sx={{ fontWeight: 500, ml: 1 }}
+                                  sx={{
+                                    fontWeight: 500,
+                                    ml: 1,
+                                    cursor: "pointer",
+                                  }}
+                                  onClick={() =>
+                                    navigate("/hoto", {
+                                      state: {
+                                        locationId: location.location?._id,
+                                      },
+                                    })
+                                  }
                                 />
                               </Typography>
                               <Box
