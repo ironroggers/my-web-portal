@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import './UserManagement.css';
+import React, { useState, useEffect } from "react";
+import "./UserManagement.css";
 import {
   Container,
   Typography,
@@ -33,24 +33,24 @@ import {
   DialogTitle,
   IconButton,
   FormHelperText,
-} from '@mui/material';
-import PersonAddIcon from '@mui/icons-material/PersonAdd';
-import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
-import DeleteIcon from '@mui/icons-material/Delete';
-import EditIcon from '@mui/icons-material/Edit';
-import {AUTH_URL} from "../API/api-keys.jsx";
+} from "@mui/material";
+import PersonAddIcon from "@mui/icons-material/PersonAdd";
+import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
+import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
+import { AUTH_URL } from "../API/api-keys.jsx";
 
 const UserManagement = () => {
   const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
-    role: 'SURVEYOR',
-    reportingTo: '',
-    designation: '',
+    username: "",
+    email: "",
+    password: "",
+    role: "SURVEYOR",
+    reportingTo: "",
+    designation: "",
   });
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [potentialManagers, setPotentialManagers] = useState([]);
   const [users, setUsers] = useState([]);
@@ -69,29 +69,29 @@ const UserManagement = () => {
 
   // Clear reportingTo when role changes to ADMIN
   useEffect(() => {
-    if (formData.role === 'ADMIN') {
-      setFormData(prev => ({ ...prev, reportingTo: '' }));
+    if (formData.role === "ADMIN") {
+      setFormData((prev) => ({ ...prev, reportingTo: "" }));
     }
   }, [formData.role]);
 
   const fetchAllUsers = async () => {
     try {
       setLoadingUsers(true);
-      const response = await fetch('https://auth-api-xz1q.onrender.com/api/auth/users');
+      const response = await fetch(`${AUTH_URL}/api/auth/users`);
 
       if (!response.ok) {
-        throw new Error('Failed to fetch users');
+        throw new Error("Failed to fetch users");
       }
 
       const responseData = await response.json();
       if (responseData.success && Array.isArray(responseData.data)) {
         setUsers(responseData.data);
       } else {
-        throw new Error('Invalid data format received from server');
+        throw new Error("Invalid data format received from server");
       }
     } catch (err) {
-      setError('Failed to load users');
-      console.error('Error fetching users:', err);
+      setError("Failed to load users");
+      console.error("Error fetching users:", err);
     } finally {
       setLoadingUsers(false);
     }
@@ -99,11 +99,11 @@ const UserManagement = () => {
 
   const fetchPotentialManagers = async () => {
     try {
-      const baseUrl = AUTH_URL+'/api';
+      const baseUrl = AUTH_URL + "/api";
       const response = await fetch(`${baseUrl}/auth/potential-managers`);
 
       if (!response.ok) {
-        throw new Error('Failed to fetch potential managers');
+        throw new Error("Failed to fetch potential managers");
       }
 
       const responseData = await response.json();
@@ -111,44 +111,46 @@ const UserManagement = () => {
       if (responseData.success && Array.isArray(responseData.data)) {
         setPotentialManagers(responseData.data);
       } else {
-        throw new Error('Invalid data format received from server');
+        throw new Error("Invalid data format received from server");
       }
     } catch (err) {
-      setError('Failed to load potential managers');
-      console.error('Error fetching managers:', err);
+      setError("Failed to load potential managers");
+      console.error("Error fetching managers:", err);
     }
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prevData => ({
+    setFormData((prevData) => ({
       ...prevData,
-      [name]: value
+      [name]: value,
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
+    setError("");
+    setSuccess("");
     setLoading(true);
 
     try {
       const requestBody = {
         ...formData,
-        ...(formData.role !== 'ADMIN' && formData.reportingTo ? { reportingTo: formData.reportingTo } : {})
+        ...(formData.role !== "ADMIN" && formData.reportingTo
+          ? { reportingTo: formData.reportingTo }
+          : {}),
       };
 
-      const url = editMode 
+      const url = editMode
         ? `${AUTH_URL}/api/auth/users/${editUserId}`
         : `${AUTH_URL}/api/auth/register`;
 
-      const method = editMode ? 'PUT' : 'POST';
+      const method = editMode ? "PUT" : "POST";
 
       const response = await fetch(url, {
         method,
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(requestBody),
       });
@@ -156,17 +158,19 @@ const UserManagement = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Operation failed');
+        throw new Error(data.message || "Operation failed");
       }
 
-      setSuccess(editMode ? 'User updated successfully!' : 'User created successfully!');
+      setSuccess(
+        editMode ? "User updated successfully!" : "User created successfully!"
+      );
       setFormData({
-        username: '',
-        email: '',
-        password: '',
-        role: 'SURVEYOR',
-        reportingTo: '',
-        designation: '',
+        username: "",
+        email: "",
+        password: "",
+        role: "SURVEYOR",
+        reportingTo: "",
+        designation: "",
       });
       setEditMode(false);
       setEditUserId(null);
@@ -174,7 +178,7 @@ const UserManagement = () => {
       fetchAllUsers();
       fetchPotentialManagers();
     } catch (err) {
-      setError(err.message || 'An error occurred');
+      setError(err.message || "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -183,18 +187,18 @@ const UserManagement = () => {
   const handleDelete = async (userId) => {
     try {
       const response = await fetch(`${AUTH_URL}/api/auth/users/${userId}`, {
-        method: 'DELETE',
+        method: "DELETE",
       });
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.message || 'Failed to delete user');
+        throw new Error(data.message || "Failed to delete user");
       }
 
-      setSuccess('User deleted successfully!');
+      setSuccess("User deleted successfully!");
       fetchAllUsers();
     } catch (err) {
-      setError(err.message || 'An error occurred while deleting the user');
+      setError(err.message || "An error occurred while deleting the user");
     } finally {
       setDeleteDialogOpen(false);
       setUserToDelete(null);
@@ -205,10 +209,10 @@ const UserManagement = () => {
     setFormData({
       username: user.username,
       email: user.email,
-      password: '', // Clear password field for security
+      password: "", // Clear password field for security
       role: user.role,
-      reportingTo: user.reportingTo?._id || '',
-      designation: user.designation || '',
+      reportingTo: user.reportingTo?._id || "",
+      designation: user.designation || "",
     });
     setEditMode(true);
     setEditUserId(user._id);
@@ -221,12 +225,12 @@ const UserManagement = () => {
 
   const cancelEdit = () => {
     setFormData({
-      username: '',
-      email: '',
-      password: '',
-      role: 'SURVEYOR',
-      reportingTo: '',
-      designation: '',
+      username: "",
+      email: "",
+      password: "",
+      role: "SURVEYOR",
+      reportingTo: "",
+      designation: "",
     });
     setEditMode(false);
     setEditUserId(null);
@@ -234,12 +238,12 @@ const UserManagement = () => {
 
   // Function to get reporting manager name
   const getManagerName = (managerId) => {
-    if (!managerId) return '-';
-    const manager = users.find(user => user._id === managerId);
-    return manager ? manager.username : 'Unknown';
+    if (!managerId) return "-";
+    const manager = users.find((user) => user._id === managerId);
+    return manager ? manager.username : "Unknown";
   };
 
-  const isAdmin = formData.role === 'ADMIN';
+  const isAdmin = formData.role === "ADMIN";
 
   // Handle table pagination
   const handleChangePage = (event, newPage) => {
@@ -253,36 +257,36 @@ const UserManagement = () => {
 
   return (
     <Container maxWidth="xl" className="user-management-container">
-      <Box sx={{ mb: 5, textAlign: 'center' }}>
-        <Typography 
-          variant="h4" 
-          component="h1" 
-          sx={{ 
+      <Box sx={{ mb: 5, textAlign: "center" }}>
+        <Typography
+          variant="h4"
+          component="h1"
+          sx={{
             fontWeight: 700,
-            background: 'linear-gradient(45deg, #2563eb 30%, #3b82f6 90%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 2
+            background: "linear-gradient(45deg, #2563eb 30%, #3b82f6 90%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 2,
           }}
         >
-          <PeopleAltIcon sx={{ fontSize: 40, color: '#2563eb' }} />
+          <PeopleAltIcon sx={{ fontSize: 40, color: "#2563eb" }} />
           User Access Management
         </Typography>
       </Box>
 
       <Box sx={{ mb: 3 }}>
         {error && (
-          <Alert 
-            severity="error" 
+          <Alert
+            severity="error"
             sx={{ mb: 2 }}
             action={
               <IconButton
                 aria-label="close"
                 color="inherit"
                 size="small"
-                onClick={() => setError('')}
+                onClick={() => setError("")}
               >
                 <DeleteIcon fontSize="small" />
               </IconButton>
@@ -292,7 +296,7 @@ const UserManagement = () => {
           </Alert>
         )}
         {success && (
-          <Alert 
+          <Alert
             severity="success"
             sx={{ mb: 2 }}
             action={
@@ -300,7 +304,7 @@ const UserManagement = () => {
                 aria-label="close"
                 color="inherit"
                 size="small"
-                onClick={() => setSuccess('')}
+                onClick={() => setSuccess("")}
               >
                 <DeleteIcon fontSize="small" />
               </IconButton>
@@ -312,29 +316,31 @@ const UserManagement = () => {
       </Box>
 
       <Grid container spacing={4}>
-        <Grid item xs={12} md={4} sx={{ width: '100%'}}>
+        <Grid item xs={12} md={4} sx={{ width: "100%" }}>
           <Card elevation={0}>
             <CardHeader
               title={editMode ? "Edit User" : "Create New User"}
-              titleTypographyProps={{ variant: 'h6' }}
+              titleTypographyProps={{ variant: "h6" }}
               avatar={
-                <Box sx={{ 
-                  bgcolor: 'primary.light', 
-                  borderRadius: '12px',
-                  width: 40,
-                  height: 40,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <PersonAddIcon sx={{ color: 'white' }} />
+                <Box
+                  sx={{
+                    bgcolor: "primary.light",
+                    borderRadius: "12px",
+                    width: 40,
+                    height: 40,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <PersonAddIcon sx={{ color: "white" }} />
                 </Box>
               }
             />
             <CardContent>
               <form onSubmit={handleSubmit}>
-                <Grid container spacing={2} sx={{ width: '100%' }}>
-                  <Grid item xs={12} sx={{ width: '20%' }}>
+                <Grid container spacing={2} sx={{ width: "100%" }}>
+                  <Grid item xs={12} sx={{ width: "20%" }}>
                     <TextField
                       fullWidth
                       label="Username"
@@ -347,13 +353,13 @@ const UserManagement = () => {
                       size="small"
                       InputProps={{
                         startAdornment: (
-                          <Box sx={{ color: 'text.secondary', mr: 1 }}>@</Box>
+                          <Box sx={{ color: "text.secondary", mr: 1 }}>@</Box>
                         ),
                       }}
                     />
                   </Grid>
 
-                  <Grid item xs={12} sx={{ width: '20%' }}>
+                  <Grid item xs={12} sx={{ width: "20%" }}>
                     <TextField
                       fullWidth
                       label="Email"
@@ -368,7 +374,7 @@ const UserManagement = () => {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sx={{ width: '20%' }}>
+                  <Grid item xs={12} sx={{ width: "20%" }}>
                     <TextField
                       fullWidth
                       label="Password"
@@ -380,11 +386,15 @@ const UserManagement = () => {
                       required={!editMode}
                       variant="outlined"
                       size="small"
-                      helperText={editMode ? "Leave blank to keep current password" : "Minimum 6 characters"}
+                      helperText={
+                        editMode
+                          ? "Leave blank to keep current password"
+                          : "Minimum 6 characters"
+                      }
                     />
                   </Grid>
 
-                  <Grid item xs={6} sx={{ width: '20%' }}>
+                  <Grid item xs={6} sx={{ width: "20%" }}>
                     <FormControl fullWidth variant="outlined" size="small">
                       <InputLabel id="role-label">Role</InputLabel>
                       <Select
@@ -397,30 +407,48 @@ const UserManagement = () => {
                         label="Role"
                       >
                         <MenuItem value="SURVEYOR">
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Chip 
-                              label="Surveyor" 
-                              size="small" 
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                            }}
+                          >
+                            <Chip
+                              label="Surveyor"
+                              size="small"
                               color="success"
                               sx={{ height: 24 }}
                             />
                           </Box>
                         </MenuItem>
                         <MenuItem value="SUPERVISOR">
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Chip 
-                              label="Supervisor" 
-                              size="small" 
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                            }}
+                          >
+                            <Chip
+                              label="Supervisor"
+                              size="small"
                               color="warning"
                               sx={{ height: 24 }}
                             />
                           </Box>
                         </MenuItem>
                         <MenuItem value="ADMIN">
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Chip 
-                              label="Admin" 
-                              size="small" 
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                            }}
+                          >
+                            <Chip
+                              label="Admin"
+                              size="small"
                               color="error"
                               sx={{ height: 24 }}
                             />
@@ -430,14 +458,16 @@ const UserManagement = () => {
                     </FormControl>
                   </Grid>
 
-                  <Grid item xs={6} sx={{ width: '20%' }}>
+                  <Grid item xs={6} sx={{ width: "20%" }}>
                     <FormControl
                       fullWidth
                       variant="outlined"
                       size="small"
                       disabled={isAdmin}
                     >
-                      <InputLabel id="reporting-to-label">Reporting To</InputLabel>
+                      <InputLabel id="reporting-to-label">
+                        Reporting To
+                      </InputLabel>
                       <Select
                         labelId="reporting-to-label"
                         id="reportingTo"
@@ -450,19 +480,22 @@ const UserManagement = () => {
                         <MenuItem value="">
                           <em>Select Manager</em>
                         </MenuItem>
-                        {potentialManagers && potentialManagers.map((manager) => (
-                          <MenuItem key={manager._id} value={manager._id}>
-                            {manager.username}
-                          </MenuItem>
-                        ))}
+                        {potentialManagers &&
+                          potentialManagers.map((manager) => (
+                            <MenuItem key={manager._id} value={manager._id}>
+                              {manager.username}
+                            </MenuItem>
+                          ))}
                       </Select>
                       {isAdmin && (
-                        <FormHelperText>Not required for Admin role</FormHelperText>
+                        <FormHelperText>
+                          Not required for Admin role
+                        </FormHelperText>
                       )}
                     </FormControl>
                   </Grid>
 
-                  <Grid item xs={12} sx={{ width: '20%' }}>
+                  <Grid item xs={12} sx={{ width: "20%" }}>
                     <TextField
                       fullWidth
                       label="Designation"
@@ -476,17 +509,31 @@ const UserManagement = () => {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sx={{ width: '20%' }}>
-                    <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column'}}>
+                  <Grid item xs={12} sx={{ width: "20%" }}>
+                    <Box
+                      sx={{ display: "flex", gap: 2, flexDirection: "column" }}
+                    >
                       <Button
                         type="submit"
                         variant="contained"
                         color="primary"
                         fullWidth
                         disabled={loading}
-                        startIcon={loading ? <CircularProgress size={20} /> : <PersonAddIcon />}
+                        startIcon={
+                          loading ? (
+                            <CircularProgress size={20} />
+                          ) : (
+                            <PersonAddIcon />
+                          )
+                        }
                       >
-                        {loading ? (editMode ? 'Updating...' : 'Creating...') : (editMode ? 'Update User' : 'Create User')}
+                        {loading
+                          ? editMode
+                            ? "Updating..."
+                            : "Creating..."
+                          : editMode
+                          ? "Update User"
+                          : "Create User"}
                       </Button>
                       {editMode && (
                         <Button
@@ -507,28 +554,37 @@ const UserManagement = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={4} sx={{ width: '100%'}}>
+        <Grid item xs={12} md={4} sx={{ width: "100%" }}>
           <Card elevation={0}>
             <CardHeader
               title="Existing Users"
-              titleTypographyProps={{ variant: 'h6' }}
+              titleTypographyProps={{ variant: "h6" }}
               avatar={
-                <Box sx={{ 
-                  bgcolor: 'primary.light', 
-                  borderRadius: '12px',
-                  width: 40,
-                  height: 40,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <PeopleAltIcon sx={{ color: 'white' }} />
+                <Box
+                  sx={{
+                    bgcolor: "primary.light",
+                    borderRadius: "12px",
+                    width: 40,
+                    height: 40,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <PeopleAltIcon sx={{ color: "white" }} />
                 </Box>
               }
             />
             <CardContent>
               {loadingUsers ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    p: 4,
+                  }}
+                >
                   <CircularProgress />
                 </Box>
               ) : users.length > 0 ? (
@@ -537,21 +593,54 @@ const UserManagement = () => {
                     <Table size="small">
                       <TableHead>
                         <TableRow>
-                          <TableCell><Typography variant="subtitle2" fontWeight="bold">Username</Typography></TableCell>
-                          <TableCell><Typography variant="subtitle2" fontWeight="bold">Email</Typography></TableCell>
-                          <TableCell><Typography variant="subtitle2" fontWeight="bold">Role</Typography></TableCell>
-                          <TableCell><Typography variant="subtitle2" fontWeight="bold">Designation</Typography></TableCell>
-                          <TableCell><Typography variant="subtitle2" fontWeight="bold">Reporting To</Typography></TableCell>
-                          <TableCell align="right"><Typography variant="subtitle2" fontWeight="bold">Actions</Typography></TableCell>
+                          <TableCell>
+                            <Typography variant="subtitle2" fontWeight="bold">
+                              Username
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="subtitle2" fontWeight="bold">
+                              Email
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="subtitle2" fontWeight="bold">
+                              Role
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="subtitle2" fontWeight="bold">
+                              Designation
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="subtitle2" fontWeight="bold">
+                              Reporting To
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography variant="subtitle2" fontWeight="bold">
+                              Actions
+                            </Typography>
+                          </TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
                         {users
-                          .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                          .slice(
+                            page * rowsPerPage,
+                            page * rowsPerPage + rowsPerPage
+                          )
                           .map((user) => (
                             <TableRow key={user._id} hover>
                               <TableCell>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Box
+                                  sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 1,
+                                  }}
+                                >
                                   {user.username}
                                 </Box>
                               </TableCell>
@@ -561,25 +650,38 @@ const UserManagement = () => {
                                   label={user.role}
                                   size="small"
                                   color={
-                                    user.role === 'ADMIN' ? 'error' :
-                                    user.role === 'SUPERVISOR' ? 'warning' : 'success'
+                                    user.role === "ADMIN"
+                                      ? "error"
+                                      : user.role === "SUPERVISOR"
+                                      ? "warning"
+                                      : "success"
                                   }
                                   variant="outlined"
                                 />
                               </TableCell>
-                              <TableCell>{user.designation || '-'}</TableCell>
-                              <TableCell>{user.reportingTo ? user.reportingTo.username : '-'}</TableCell>
+                              <TableCell>{user.designation || "-"}</TableCell>
+                              <TableCell>
+                                {user.reportingTo
+                                  ? user.reportingTo.username
+                                  : "-"}
+                              </TableCell>
                               <TableCell align="right">
-                                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                                <Box
+                                  sx={{
+                                    display: "flex",
+                                    gap: 1,
+                                    justifyContent: "flex-end",
+                                  }}
+                                >
                                   <IconButton
                                     size="small"
                                     color="primary"
                                     onClick={() => handleEdit(user)}
-                                    sx={{ 
-                                      '&:hover': { 
-                                        bgcolor: 'primary.light',
-                                        '& svg': { color: 'white' }
-                                      }
+                                    sx={{
+                                      "&:hover": {
+                                        bgcolor: "primary.light",
+                                        "& svg": { color: "white" },
+                                      },
                                     }}
                                   >
                                     <EditIcon fontSize="small" />
@@ -588,11 +690,11 @@ const UserManagement = () => {
                                     size="small"
                                     color="error"
                                     onClick={() => handleDeleteClick(user)}
-                                    sx={{ 
-                                      '&:hover': { 
-                                        bgcolor: 'error.light',
-                                        '& svg': { color: 'white' }
-                                      }
+                                    sx={{
+                                      "&:hover": {
+                                        bgcolor: "error.light",
+                                        "& svg": { color: "white" },
+                                      },
                                     }}
                                   >
                                     <DeleteIcon fontSize="small" />
@@ -615,13 +717,15 @@ const UserManagement = () => {
                   />
                 </>
               ) : (
-                <Box sx={{ 
-                  p: 4, 
-                  textAlign: 'center',
-                  bgcolor: '#f8fafc',
-                  borderRadius: 2,
-                  border: '1px dashed #e2e8f0'
-                }}>
+                <Box
+                  sx={{
+                    p: 4,
+                    textAlign: "center",
+                    bgcolor: "#f8fafc",
+                    borderRadius: 2,
+                    border: "1px dashed #e2e8f0",
+                  }}
+                >
                   <Typography variant="body1" color="text.secondary">
                     No users found.
                   </Typography>
@@ -640,8 +744,8 @@ const UserManagement = () => {
           elevation: 0,
           sx: {
             borderRadius: 2,
-            minWidth: 360
-          }
+            minWidth: 360,
+          },
         }}
       >
         <DialogTitle sx={{ pb: 1 }}>
@@ -649,22 +753,23 @@ const UserManagement = () => {
             Confirm Delete
           </Typography>
         </DialogTitle>
-        <DialogContent sx={{ pt: '8px !important' }}>
+        <DialogContent sx={{ pt: "8px !important" }}>
           <DialogContentText>
-            Are you sure you want to delete user "{userToDelete?.username}"? This action cannot be undone.
+            Are you sure you want to delete user "{userToDelete?.username}"?
+            This action cannot be undone.
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ p: 2, pt: 1 }}>
-          <Button 
+          <Button
             onClick={() => setDeleteDialogOpen(false)}
             variant="outlined"
             color="inherit"
           >
             Cancel
           </Button>
-          <Button 
-            onClick={() => handleDelete(userToDelete?._id)} 
-            color="error" 
+          <Button
+            onClick={() => handleDelete(userToDelete?._id)}
+            color="error"
             variant="contained"
             startIcon={<DeleteIcon />}
           >

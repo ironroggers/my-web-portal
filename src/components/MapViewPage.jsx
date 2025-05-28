@@ -2044,9 +2044,7 @@ const MapViewPage = () => {
       }
 
       // Fetch complete survey details if needed
-      const response = await fetch(
-        `https://survey-service-nxvj.onrender.com/api/surveys/${surveyId}`
-      );
+      const response = await fetch(`${SURVEY_URL}/api/surveys/${surveyId}`);
       if (!response.ok)
         throw new Error(
           `Failed to fetch survey details: ${response.statusText}`
