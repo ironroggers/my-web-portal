@@ -2556,6 +2556,9 @@ const MapViewPage = () => {
                                     navigate("/hoto", {
                                       state: {
                                         locationId: location.location?._id,
+                                        locationName: location.location?.block,
+                                        locationDistrict:
+                                          location.location?.district,
                                       },
                                     })
                                   }
