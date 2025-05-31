@@ -39,7 +39,7 @@ const HotoPage = () => {
       }
     };
     fetchAllHotoInfo();
-  }, [locationId]);
+  }, []);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);

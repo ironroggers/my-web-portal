@@ -8,14 +8,10 @@ export const fetchLocationDetails = async (locationId) => {
 
 export const fetchAllHotoList = async (locationId) => {
   try {
-    console.log("locationId", locationId);
-    const blockData = await fetchBlockHotoInfo(locationId);
-    const gpData = await fetchGpHotoInfo(locationId);
-    const ofcData = await fetchOFCInfo(locationId);
-    const data = {
-      blockHotoInfo: blockData,
-      gpHotoInfo: gpData,
-      ofcHotoInfo: ofcData,
+    let data = {
+      blockHotoInfo: { data: [] },
+      gpHotoInfo: { data: [] },
+      ofcHotoInfo: { data: [] },
     };
     return data;
   } catch (error) {
