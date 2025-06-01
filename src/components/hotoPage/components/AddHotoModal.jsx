@@ -18,7 +18,14 @@ import { useState } from "react";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 
-const AddHotoModal = ({ open, onClose }) => {
+const AddHotoModal = ({
+  open,
+  onClose,
+  locationId,
+  locationName,
+  locationDistrict,
+}) => {
+  
   const handleSubmit = () => {
     onClose();
   };

@@ -76,7 +76,21 @@ const HotoPage = () => {
           <Typography variant="h4" fontWeight="700" sx={{ color: "#1e293b" }}>
             {locationName}
           </Typography>
-          <Button variant="contained" color="primary" onClick={handleOpenAddModal}>
+          <Button
+            variant="outlined"
+            color="primary"
+            sx={{
+              outline: "none",
+              "&:hover": {
+                backgroundColor: "primary.main",
+                color: "white",
+              },
+              "&:focus": {
+                outline: "none",
+              },
+            }}
+            onClick={handleOpenAddModal}
+          >
             Add HOTO
           </Button>
         </Box>
@@ -151,12 +165,8 @@ const HotoPage = () => {
         open={isAddModalOpen}
         onClose={handleCloseAddModal}
         locationId={locationId}
-        locationDetails={{
-          districtCode: locationDistrict,
-          districtName: locationDistrict,
-          blockCode: locationName,
-          blockName: locationName,
-        }}
+        locationName={locationName}
+        locationDistrict={locationDistrict}
       />
     </Container>
   );
