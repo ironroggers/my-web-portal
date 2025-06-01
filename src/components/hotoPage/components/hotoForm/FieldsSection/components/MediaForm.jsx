@@ -76,6 +76,11 @@ const MediaForm = ({ media, onChange, onDelete, index }) => {
         width: "100%",
         my: 1,
         alignItems: "center",
+        border: "1px solid",
+        borderColor: "divider",
+        borderRadius: 1,
+        p: 1,
+        mb: 1,
       }}
     >
       <input

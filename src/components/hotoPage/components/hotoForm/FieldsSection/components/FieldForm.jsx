@@ -97,11 +97,6 @@ const FieldForm = ({
           onChange={handleChange("value")}
         />
         <FormField
-          label="Status"
-          value={field.status || ""}
-          onChange={handleChange("status")}
-        />
-        <FormField
           label="Remarks"
           value={field.remarks || ""}
           onChange={handleChange("remarks")}
