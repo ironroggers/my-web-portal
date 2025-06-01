@@ -10,9 +10,39 @@ import {
 import DeleteIcon from "@mui/icons-material/Delete";
 import FormField from "./FormField";
 import { useRef } from "react";
+import EXIF from 'exif-js';
 
 const MediaForm = ({ media, onChange, onDelete, index }) => {
   const fileInputRef = useRef(null);
+
+  const getImageMetadata = (file) => {
+    return new Promise((resolve) => {
+      EXIF.getData(file, function() {
+        const exifData = EXIF.getAllTags(this);
+        if (exifData && exifData.GPSLatitude && exifData.GPSLongitude) {
+          // Convert GPS coordinates to decimal format
+          const latitude = exifData.GPSLatitude[0] + 
+            exifData.GPSLatitude[1]/60 + 
+            exifData.GPSLatitude[2]/3600;
+          const longitude = exifData.GPSLongitude[0] + 
+            exifData.GPSLongitude[1]/60 + 
+            exifData.GPSLongitude[2]/3600;
+          
+          // Apply negative sign for South and West
+          const finalLatitude = exifData.GPSLatitudeRef === "S" ? -latitude : latitude;
+          const finalLongitude = exifData.GPSLongitudeRef === "W" ? -longitude : longitude;
+          
+          resolve({
+            latitude: finalLatitude.toString(),
+            longitude: finalLongitude.toString(),
+            place: exifData.GPSAreaInformation || ""
+          });
+        } else {
+          resolve(null);
+        }
+      });
+    });
+  };
 
   const handleFileChange = async (event) => {
     const file = event.target.files?.[0];
@@ -24,19 +54,28 @@ const MediaForm = ({ media, onChange, onDelete, index }) => {
     // Get file type from file
     const fileType = file.type;
 
-    // Get location if available
+    // Get location from file metadata first
     let latitude = "";
     let longitude = "";
     let place = "";
 
-    try {
-      const position = await getCurrentPosition();
-      latitude = position.coords.latitude.toString();
-      longitude = position.coords.longitude.toString();
-      // You might want to use a geocoding service here to get place name
-      place = "Current Location"; // Placeholder
-    } catch (error) {
-      console.log("Location not available");
+    if (file.type.startsWith('image/')) {
+      const metadata = await getImageMetadata(file);
+      if (metadata) {
+        ({ latitude, longitude, place } = metadata);
+      }
+    }
+
+    // If no metadata location, try getting current location
+    if (!latitude || !longitude) {
+      try {
+        const position = await getCurrentPosition();
+        latitude = position.coords.latitude.toString();
+        longitude = position.coords.longitude.toString();
+        place = "Current Location"; // Placeholder
+      } catch (error) {
+        console.log("Location not available");
+      }
     }
 
     // Get device info
