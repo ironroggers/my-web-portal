@@ -20,6 +20,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import LocationSection from "./hotoForm/LocationSection/LocationSection";
 import ContactPersonSection from "./hotoForm/ContactPersonSection/ContactPersonSection";
 import FieldsSection from "./hotoForm/FieldsSection/FieldsSection";
+import { uploadHotoMedia, createHoto } from "../../../services/hotoPageService";
 
 const AddHotoModal = ({
   open,
@@ -63,17 +64,36 @@ const AddHotoModal = ({
     }
   };
 
-  const handleSubmit = () => {
-    const data = {
-      locationId: locationId,
-      ...location,
-      contactPerson: contactPerson,
-      fields: fields,
-    };
+  const handleSubmit = async () => {
+    try {
+      // First upload media files if any exist
+      const fieldsWithMedia = await Promise.all(
+        fields.map(async (field) => {
+          if (field.mediaFiles && field.mediaFiles.length > 0) {
+            const uploadedMedia = await uploadHotoMedia({
+              fields: [field]
+            });
+            return uploadedMedia.fields[0];
+          }
+          return field;
+        })
+      );
 
-    console.log(data);
+      // Prepare the HOTO data according to the API schema
+      const hotoData = {
+        locationId: locationId,
+        ...location,
+        contactPerson: contactPerson,
+        fields: fieldsWithMedia,
+      };
 
-    // onClose();
+      const response = await createHoto(hotoData);
+      console.log('HOTO created successfully:', response);
+      
+      onClose();
+    } catch (error) {
+      console.error('Error creating HOTO:', error);
+    }
   };
 
   return (
