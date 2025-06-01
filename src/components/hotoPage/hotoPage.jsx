@@ -152,7 +152,9 @@ const HotoPage = () => {
         onClose={handleCloseAddModal}
         locationId={locationId}
         locationDetails={{
+          districtCode: locationDistrict,
           districtName: locationDistrict,
+          blockCode: locationName,
           blockName: locationName,
         }}
       />
