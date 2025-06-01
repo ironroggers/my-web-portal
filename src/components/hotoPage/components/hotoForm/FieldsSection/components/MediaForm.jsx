@@ -10,38 +10,66 @@ import {
 import DeleteIcon from "@mui/icons-material/Delete";
 import FormField from "./FormField";
 import { useRef } from "react";
-import EXIF from 'exif-js';
+import EXIF from "exif-js";
 
 const MediaForm = ({ media, onChange, onDelete, index }) => {
   const fileInputRef = useRef(null);
+  const timeoutRef = useRef(null);
 
   const getImageMetadata = (file) => {
     return new Promise((resolve) => {
-      EXIF.getData(file, function() {
+      EXIF.getData(file, function () {
         const exifData = EXIF.getAllTags(this);
         if (exifData && exifData.GPSLatitude && exifData.GPSLongitude) {
           // Convert GPS coordinates to decimal format
-          const latitude = exifData.GPSLatitude[0] + 
-            exifData.GPSLatitude[1]/60 + 
-            exifData.GPSLatitude[2]/3600;
-          const longitude = exifData.GPSLongitude[0] + 
-            exifData.GPSLongitude[1]/60 + 
-            exifData.GPSLongitude[2]/3600;
-          
+          const latitude =
+            exifData.GPSLatitude[0] +
+            exifData.GPSLatitude[1] / 60 +
+            exifData.GPSLatitude[2] / 3600;
+          const longitude =
+            exifData.GPSLongitude[0] +
+            exifData.GPSLongitude[1] / 60 +
+            exifData.GPSLongitude[2] / 3600;
+
           // Apply negative sign for South and West
-          const finalLatitude = exifData.GPSLatitudeRef === "S" ? -latitude : latitude;
-          const finalLongitude = exifData.GPSLongitudeRef === "W" ? -longitude : longitude;
-          
+          const finalLatitude =
+            exifData.GPSLatitudeRef === "S" ? -latitude : latitude;
+          const finalLongitude =
+            exifData.GPSLongitudeRef === "W" ? -longitude : longitude;
+
           resolve({
             latitude: finalLatitude.toString(),
             longitude: finalLongitude.toString(),
-            place: exifData.GPSAreaInformation || ""
+            place: exifData.GPSAreaInformation || "",
           });
         } else {
           resolve(null);
         }
       });
     });
+  };
+
+  const getCurrentPosition = () => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("Geolocation not supported"));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(resolve, reject);
+    });
+  };
+
+  const getPlaceFromCoordinates = async (latitude, longitude) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`
+      );
+      const data = await response.json();
+      return data.display_name || "";
+    } catch (error) {
+      console.error("Error fetching place name:", error);
+      return "";
+    }
   };
 
   const handleFileChange = async (event) => {
@@ -59,7 +87,7 @@ const MediaForm = ({ media, onChange, onDelete, index }) => {
     let longitude = "";
     let place = "";
 
-    if (file.type.startsWith('image/')) {
+    if (file.type.startsWith("image/")) {
       const metadata = await getImageMetadata(file);
       if (metadata) {
         ({ latitude, longitude, place } = metadata);
@@ -72,7 +100,7 @@ const MediaForm = ({ media, onChange, onDelete, index }) => {
         const position = await getCurrentPosition();
         latitude = position.coords.latitude.toString();
         longitude = position.coords.longitude.toString();
-        place = "Current Location"; // Placeholder
+        place = await getPlaceFromCoordinates(latitude, longitude);
       } catch (error) {
         console.log("Location not available");
       }
@@ -93,16 +121,6 @@ const MediaForm = ({ media, onChange, onDelete, index }) => {
       place,
       source: "web",
       file, // Store the actual file object for later upload
-    });
-  };
-
-  const getCurrentPosition = () => {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error("Geolocation not supported"));
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(resolve, reject);
     });
   };
 
@@ -166,8 +184,58 @@ const MediaForm = ({ media, onChange, onDelete, index }) => {
               onChange(index, { ...media, description: e.target.value })
             }
           />
-          <FormField label="Latitude" value={media.latitude || ""} disabled />
-          <FormField label="Longitude" value={media.longitude || ""} disabled />
+          <FormField
+            label="Latitude"
+            value={media.latitude || ""}
+            onChange={async (e) => {
+              const newLat = e.target.value;
+              let newPlace = "loading...";
+              if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+              }
+              timeoutRef.current = setTimeout(async () => {
+                newPlace = await getPlaceFromCoordinates(
+                  newLat,
+                  media.longitude
+                );
+                onChange(index, {
+                  ...media,
+                  place: newPlace,
+                });
+              }, 1000);
+              onChange(index, {
+                ...media,
+                latitude: newLat,
+                place: newPlace,
+              });
+            }}
+          />
+          <FormField
+            label="Longitude"
+            value={media.longitude || ""}
+            onChange={async (e) => {
+              const newLong = e.target.value;
+              let newPlace = "loading...";
+              if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+              }
+              timeoutRef.current = setTimeout(async () => {
+                newPlace = await getPlaceFromCoordinates(
+                  media.latitude,
+                  newLong
+                );
+                onChange(index, {
+                  ...media,
+                  place: newPlace,
+                });
+              }, 1000);
+              onChange(index, {
+                ...media,
+                longitude: newLong,
+                place: newPlace,
+              });
+            }}
+          />
           <FormField
             label="Device Name"
             value={media.deviceName || ""}
