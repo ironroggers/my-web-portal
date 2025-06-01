@@ -6,6 +6,7 @@ const FieldsSection = ({ fields, setFields, scrollDialogContent }) => {
     setFields([
       ...fields,
       {
+        sequence: fields.length + 1,
         mediaFiles: [],
       },
     ]);
@@ -25,6 +26,7 @@ const FieldsSection = ({ fields, setFields, scrollDialogContent }) => {
     const newFields = fields.filter((_, idx) => idx !== index);
     const updatedFields = newFields.map((field, idx) => ({
       ...field,
+      sequence: idx + 1,
     }));
     setFields(updatedFields);
   };

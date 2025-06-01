@@ -64,7 +64,16 @@ const AddHotoModal = ({
   };
 
   const handleSubmit = () => {
-    onClose();
+    const data = {
+      locationId: locationId,
+      ...location,
+      contactPerson: contactPerson,
+      fields: fields,
+    };
+
+    console.log(data);
+
+    // onClose();
   };
 
   return (
