@@ -10,10 +10,12 @@ import {
   Alert,
   Tabs,
   Tab,
+  Button,
 } from "@mui/material";
 import BlockTabPanel from "./components/blockTabPanel";
 import GpTabPanel from "./components/gpTabPanel";
 import OfcTabPanel from "./components/ofcTabPanel";
+import AddHotoModal from "./components/AddHotoModal";
 
 const HotoPage = () => {
   const { locationId, locationName, locationDistrict } = useLocation().state;
@@ -24,25 +26,35 @@ const HotoPage = () => {
   const [ofcHotoInfo, setOfcHotoInfo] = useState([]);
   const [error, setError] = useState(null);
   const [tabValue, setTabValue] = useState(0);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  const fetchAllHotoInfo = async () => {
+    try {
+      const response = await fetchAllHotoList(locationId);
+      setBlockHotoInfo(response.blockHotoInfo);
+      setGpHotoInfo(response.gpHotoInfo);
+      setOfcHotoInfo(response.ofcHotoInfo);
+      setLoading(false);
+    } catch (err) {
+      setError(err.message || "Error fetching HOTO information");
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchAllHotoInfo = async () => {
-      try {
-        const response = await fetchAllHotoList(locationId);
-        setBlockHotoInfo(response.blockHotoInfo);
-        setGpHotoInfo(response.gpHotoInfo);
-        setOfcHotoInfo(response.ofcHotoInfo);
-        setLoading(false);
-      } catch (err) {
-        setError(err.message || "Error fetching HOTO information");
-        setLoading(false);
-      }
-    };
     fetchAllHotoInfo();
   }, []);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
+  };
+
+  const handleOpenAddModal = () => {
+    setIsAddModalOpen(true);
+  };
+
+  const handleCloseAddModal = () => {
+    setIsAddModalOpen(false);
   };
 
   return (
@@ -64,6 +76,9 @@ const HotoPage = () => {
           <Typography variant="h4" fontWeight="700" sx={{ color: "#1e293b" }}>
             {locationName}
           </Typography>
+          <Button variant="contained" color="primary" onClick={handleOpenAddModal}>
+            Add HOTO
+          </Button>
         </Box>
         <Typography
           variant="subtitle1"
@@ -131,6 +146,16 @@ const HotoPage = () => {
           </Box>
         )}
       </Paper>
+
+      <AddHotoModal
+        open={isAddModalOpen}
+        onClose={handleCloseAddModal}
+        locationId={locationId}
+        locationDetails={{
+          districtName: locationDistrict,
+          blockName: locationName,
+        }}
+      />
     </Container>
   );
 };
