@@ -79,6 +79,8 @@ const AddHotoModal = ({
         })
       );
 
+      console.log(fieldsWithMedia)
+
       // Prepare the HOTO data according to the API schema
       const hotoData = {
         locationId: locationId,

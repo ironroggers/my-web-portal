@@ -45,36 +45,90 @@ const fetchOFCInfo = async (locationId) => {
 };
 
 export const uploadHotoMedia = async (data) => {
-  // data in fields array in mediaFiles array update url
-  // with dummy url
+  try {
+    // Process each field's media files
+    const updatedFields = await Promise.all(
+      data.fields.map(async (field) => {
+        if (!field.mediaFiles || field.mediaFiles.length === 0) {
+          return field;
+        }
 
-  const newData = {
-    ...data,
-    fields: data.fields.map((field) => ({
-      ...field,
-      mediaFiles: field.mediaFiles.map((media) => ({
-        ...media,
-        url: "dummy-url",
-      })),
-    })),
-  };
+        // Upload each media file in the field
+        const updatedMediaFiles = await Promise.all(
+          field.mediaFiles.map(async (media) => {
+            // Get signed URL for upload
+            const response = await fetch(`${HOTO_URL}/api/media/upload-url`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                filename: media.file.name,
+                contentType: media.file.type,
+              }),
+            });
 
-  return newData;
+            if (!response.ok) {
+              throw new Error("Failed to get upload URL");
+            }
+
+            const { data: uploadData } = await response.json();
+
+            // Upload file to S3 using signed URL
+            const uploadResponse = fetch(uploadData.signedUrl, {
+              method: "PUT",
+              headers: {
+                "Content-Type": media.file.type,
+              },
+              body: media.file,
+            });
+
+            // if (!uploadResponse.ok) {
+            //   throw new Error('Failed to upload file to S3');
+            // }
+
+            // Return updated media object with the S3 URL
+            return {
+              ...media,
+              url: uploadData.fileUrl,
+              fileName: uploadData.fileName,
+              fileType: uploadData.fileType,
+            };
+          })
+        );
+
+        // Return updated field with new media files
+        return {
+          ...field,
+          mediaFiles: updatedMediaFiles,
+        };
+      })
+    );
+
+    // Return updated data with new fields
+    return {
+      ...data,
+      fields: updatedFields,
+    };
+  } catch (error) {
+    console.error("Error uploading media:", error);
+    throw error;
+  }
 };
 
 export const createHoto = async (data) => {
   try {
     const response = await fetch(`${HOTO_URL}/api/hotos`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to create HOTO');
+      throw new Error(errorData.error || "Failed to create HOTO");
     }
 
     const responseData = await response.json();
@@ -84,5 +138,3 @@ export const createHoto = async (data) => {
     throw error;
   }
 };
-
-
