@@ -14,9 +14,12 @@ import {
   Typography,
   Box,
 } from "@mui/material";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
+import LocationSection from "./hotoForm/LocationSection/LocationSection";
+import ContactPersonSection from "./hotoForm/ContactPersonSection/ContactPersonSection";
+import FieldsSection from "./hotoForm/FieldsSection/FieldsSection";
 
 const AddHotoModal = ({
   open,
@@ -25,7 +28,41 @@ const AddHotoModal = ({
   locationName,
   locationDistrict,
 }) => {
-  
+  const [location, setLocation] = useState({
+    state: "kerala",
+    blockName: locationName,
+    blockCode: "",
+    districtName: locationDistrict,
+    districtCode: "",
+    latitude: "",
+    longitude: "",
+    hotoType: "",
+    gpName: "",
+    gpCode: "",
+    ofcName: "",
+    ofcCode: "",
+    remarks: "",
+  });
+
+  const [contactPerson, setContactPerson] = useState({
+    name: "",
+    email: "",
+    mobile: "",
+    description: "",
+  });
+
+  const [fields, setFields] = useState([]);
+  const dialogContentRef = useRef(null);
+
+  const ScrollDialogContent = () => {
+    if (dialogContentRef.current) {
+      dialogContentRef.current.scrollTo({
+        top: dialogContentRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+  };
+
   const handleSubmit = () => {
     onClose();
   };
@@ -56,8 +93,18 @@ const AddHotoModal = ({
         Add New HOTO
       </DialogTitle>
 
-      <DialogContent sx={{ p: 3 }}>
+      <DialogContent sx={{ p: 3 }} ref={dialogContentRef}>
         {/* We'll add form content step by step */}
+        <LocationSection location={location} setLocation={setLocation} />
+        <ContactPersonSection
+          contactPerson={contactPerson}
+          setContactPerson={setContactPerson}
+        />
+        <FieldsSection
+          fields={fields}
+          setFields={setFields}
+          scrollDialogContent={ScrollDialogContent}
+        />
       </DialogContent>
 
       <DialogActions
