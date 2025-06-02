@@ -50,7 +50,7 @@ const GpTabPanel = ({ gpHotoInfo, tabValue }) => {
                   },
                 }}
               >
-                {item.gpName}
+                {item?.gpName || item?.blockName}
               </Button>
             ))}
           </Box>

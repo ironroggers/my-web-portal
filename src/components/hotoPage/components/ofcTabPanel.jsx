@@ -50,7 +50,7 @@ const OfcTabPanel = ({ ofcHotoInfo, tabValue }) => {
                   },
                 }}
               >
-                {item.ofcName}
+                {item?.ofcName || item?.blockName}
               </Button>
             ))}
           </Box>
