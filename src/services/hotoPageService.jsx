@@ -1,4 +1,5 @@
 import { HOTO_URL, LOCATION_URL } from "../API/api-keys";
+import { Alert } from "@mui/material";
 
 export const fetchLocationDetails = async (locationId) => {
   const response = await fetch(`${LOCATION_URL}/api/locations/${locationId}`);
@@ -119,6 +120,11 @@ export const createHoto = async (data) => {
     return responseData.data;
   } catch (error) {
     console.error("Error creating HOTO:", error);
+    // display error message to user
+    alert(
+      error.message || "Failed to create HOTO entry. Please try again later."
+    );
+
     throw error;
   }
 };

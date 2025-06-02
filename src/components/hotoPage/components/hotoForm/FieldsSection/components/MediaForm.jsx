@@ -4,49 +4,50 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  IconButton,
   Button,
 } from "@mui/material";
-import DeleteIcon from "@mui/icons-material/Delete";
 import FormField from "./FormField";
 import { useRef } from "react";
-import EXIF from "exif-js";
+import * as exifr from "exifr";
 
 const MediaForm = ({ media, onChange, onDelete, index }) => {
   const fileInputRef = useRef(null);
   const timeoutRef = useRef(null);
 
-  const getImageMetadata = (file) => {
-    return new Promise((resolve) => {
-      EXIF.getData(file, function () {
-        const exifData = EXIF.getAllTags(this);
-        if (exifData && exifData.GPSLatitude && exifData.GPSLongitude) {
-          // Convert GPS coordinates to decimal format
-          const latitude =
-            exifData.GPSLatitude[0] +
-            exifData.GPSLatitude[1] / 60 +
-            exifData.GPSLatitude[2] / 3600;
-          const longitude =
-            exifData.GPSLongitude[0] +
-            exifData.GPSLongitude[1] / 60 +
-            exifData.GPSLongitude[2] / 3600;
-
-          // Apply negative sign for South and West
-          const finalLatitude =
-            exifData.GPSLatitudeRef === "S" ? -latitude : latitude;
-          const finalLongitude =
-            exifData.GPSLongitudeRef === "W" ? -longitude : longitude;
-
-          resolve({
-            latitude: finalLatitude.toString(),
-            longitude: finalLongitude.toString(),
-            place: exifData.GPSAreaInformation || "",
-          });
-        } else {
-          resolve(null);
-        }
+  const getImageMetadata = async (file) => {
+    try {
+      const exifData = await exifr.parse(file, {
+        pick: [
+          "GPSLatitude",
+          "GPSLongitude",
+          "GPSLatitudeRef",
+          "GPSLongitudeRef",
+          "GPSAreaInformation",
+        ],
       });
-    });
+
+      if (exifData && exifData.GPSLatitude && exifData.GPSLongitude) {
+        // Apply negative sign for South and West
+        const finalLatitude =
+          exifData.GPSLatitudeRef === "S"
+            ? -exifData.GPSLatitude
+            : exifData.GPSLatitude;
+        const finalLongitude =
+          exifData.GPSLongitudeRef === "W"
+            ? -exifData.GPSLongitude
+            : exifData.GPSLongitude;
+
+        return {
+          latitude: finalLatitude.toString(),
+          longitude: finalLongitude.toString(),
+          place: exifData.GPSAreaInformation || "",
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error("Error reading EXIF data:", error);
+      return null;
+    }
   };
 
   const getCurrentPosition = () => {
@@ -154,25 +155,23 @@ const MediaForm = ({ media, onChange, onDelete, index }) => {
       >
         {media.url ? "Change File" : "Choose File"}
       </Button>
-      {media.url && (
-        <Button
-          variant="outlined"
-          color="error"
-          onClick={() => onDelete(index)}
-          sx={{
+      <Button
+        variant="outlined"
+        color="error"
+        onClick={() => onDelete(index)}
+        sx={{
+          outline: "none",
+          "&:hover": {
+            backgroundColor: "error.main",
+            color: "white",
+          },
+          "&:focus": {
             outline: "none",
-            "&:hover": {
-              backgroundColor: "error.main",
-              color: "white",
-            },
-            "&:focus": {
-              outline: "none",
-            },
-          }}
-        >
-          Delete Media
-        </Button>
-      )}
+          },
+        }}
+      >
+        Delete Media
+      </Button>
 
       {media.url && (
         <>
