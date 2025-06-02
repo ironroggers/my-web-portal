@@ -343,7 +343,7 @@ const UserManagement = () => {
                   <Grid item xs={12} sx={{ width: "20%" }}>
                     <TextField
                       fullWidth
-                      label="Username"
+                      label="Name"
                       id="username"
                       name="username"
                       value={formData.username}
@@ -351,11 +351,6 @@ const UserManagement = () => {
                       required
                       variant="outlined"
                       size="small"
-                      InputProps={{
-                        startAdornment: (
-                          <Box sx={{ color: "text.secondary", mr: 1 }}>@</Box>
-                        ),
-                      }}
                     />
                   </Grid>
 
