@@ -14,7 +14,7 @@ const BlockTabPanel = ({ blockHotoInfo, tabValue }) => {
 
   return (
     <TabPanel value={tabValue} index={0}>
-      {blockHotoInfo.data.length === 0 ? (
+      {blockHotoInfo.length === 0 ? (
         <Alert severity="info" sx={{ borderRadius: "8px", my: 2 }}>
           No Block HOTO information available
         </Alert>
@@ -29,7 +29,7 @@ const BlockTabPanel = ({ blockHotoInfo, tabValue }) => {
               py: 2,
             }}
           >
-            {blockHotoInfo.data.map((item) => (
+            {blockHotoInfo.map((item) => (
               <Button
                 key={item._id}
                 variant={selectedBlock === item._id ? "contained" : "outlined"}
@@ -50,7 +50,7 @@ const BlockTabPanel = ({ blockHotoInfo, tabValue }) => {
                   },
                 }}
               >
-                {item.Block_Name}
+                {item.blockName}
               </Button>
             ))}
           </Box>

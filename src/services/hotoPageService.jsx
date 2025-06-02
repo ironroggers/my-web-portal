@@ -8,40 +8,24 @@ export const fetchLocationDetails = async (locationId) => {
 
 export const fetchAllHotoList = async (locationId) => {
   try {
-    let data = {
-      blockHotoInfo: { data: [] },
-      gpHotoInfo: { data: [] },
-      ofcHotoInfo: { data: [] },
+    // Fetch all three types of HOTO data in parallel
+    const result = await fetch(`${HOTO_URL}/api/hotos/location/${locationId}`);
+    const data = (await result.json()).data;
+    // console.log(data);
+
+    const blockHotoInfo = data.filter((hoto) => hoto.hotoType === "block");
+    const gpHotoInfo = data.filter((hoto) => hoto.hotoType === "gp");
+    const ofcHotoInfo = data.filter((hoto) => hoto.hotoType === "ofc");
+
+    return {
+      blockHotoInfo,
+      gpHotoInfo,
+      ofcHotoInfo,
     };
-    return data;
   } catch (error) {
     console.error("Error fetching HOTO entries:", error);
     throw error;
   }
-};
-
-const fetchBlockHotoInfo = async (locationId) => {
-  const response = await fetch(
-    `${HOTO_URL}/api/blockhoto?location=${locationId}`
-  );
-  const data = await response.json();
-  return data;
-};
-
-const fetchGpHotoInfo = async (locationId) => {
-  const response = await fetch(`${HOTO_URL}/api/gphoto?location=${locationId}`);
-
-  const data = await response.json();
-  return data;
-};
-
-const fetchOFCInfo = async (locationId) => {
-  const response = await fetch(
-    `${HOTO_URL}/api/ofchoto?location=${locationId}`
-  );
-
-  const data = await response.json();
-  return data;
 };
 
 export const uploadHotoMedia = async (data) => {

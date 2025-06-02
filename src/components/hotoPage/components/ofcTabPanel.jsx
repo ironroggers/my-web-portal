@@ -14,7 +14,7 @@ const OfcTabPanel = ({ ofcHotoInfo, tabValue }) => {
 
   return (
     <TabPanel value={tabValue} index={2}>
-      {ofcHotoInfo.data.length === 0 ? (
+      {ofcHotoInfo.length === 0 ? (
         <Alert severity="info" sx={{ borderRadius: "8px", my: 2 }}>
           No OFC HOTO information available
         </Alert>
@@ -29,7 +29,7 @@ const OfcTabPanel = ({ ofcHotoInfo, tabValue }) => {
               py: 2,
             }}
           >
-            {ofcHotoInfo.data.map((item) => (
+            {ofcHotoInfo.map((item) => (
               <Button
                 key={item._id}
                 variant={selectedOfc === item._id ? "contained" : "outlined"}
@@ -50,7 +50,7 @@ const OfcTabPanel = ({ ofcHotoInfo, tabValue }) => {
                   },
                 }}
               >
-                {item.GP_Name}
+                {item.ofcName}
               </Button>
             ))}
           </Box>

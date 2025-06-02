@@ -14,7 +14,7 @@ const GpTabPanel = ({ gpHotoInfo, tabValue }) => {
 
   return (
     <TabPanel value={tabValue} index={1}>
-      {gpHotoInfo.data.length === 0 ? (
+      {gpHotoInfo.length === 0 ? (
         <Alert severity="info" sx={{ borderRadius: "8px", my: 2 }}>
           No GP HOTO information available
         </Alert>
@@ -29,7 +29,7 @@ const GpTabPanel = ({ gpHotoInfo, tabValue }) => {
               py: 2,
             }}
           >
-            {gpHotoInfo.data.map((item) => (
+            {gpHotoInfo.map((item) => (
               <Button
                 key={item._id}
                 variant={selectedGp === item._id ? "contained" : "outlined"}
@@ -50,7 +50,7 @@ const GpTabPanel = ({ gpHotoInfo, tabValue }) => {
                   },
                 }}
               >
-                {item.GP_Name}
+                {item.gpName}
               </Button>
             ))}
           </Box>
