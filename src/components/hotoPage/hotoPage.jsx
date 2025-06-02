@@ -167,6 +167,7 @@ const HotoPage = () => {
         locationId={locationId}
         locationName={locationName}
         locationDistrict={locationDistrict}
+        fetchAllHotoInfo={fetchAllHotoInfo}
       />
     </Container>
   );

@@ -1,7 +1,6 @@
 import { Box, Typography } from "@mui/material";
 import { useState } from "react";
 import DataTable from "./DataTable";
-import MediaFilesButton from "./MediaFilesButton";
 import MediaFilesSidePanel from "./MediaFilesSidePanel";
 
 const FieldsSection = ({ fields }) => {
@@ -36,10 +35,10 @@ const FieldsSection = ({ fields }) => {
             <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
               Field {field.sequence}
             </Typography>
-            <DataTable data={filteredField} />
-            <MediaFilesButton
+            <DataTable
+              data={filteredField}
               mediaFiles={mediaFiles}
-              onClick={() => handleMediaFilesClick(mediaFiles)}
+              onMediaFilesClick={() => handleMediaFilesClick(mediaFiles)}
             />
           </Box>
         );

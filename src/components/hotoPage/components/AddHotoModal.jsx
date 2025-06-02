@@ -4,19 +4,8 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  TextField,
-  Grid,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  IconButton,
-  Typography,
-  Box,
 } from "@mui/material";
 import { useRef, useState } from "react";
-import AddIcon from "@mui/icons-material/Add";
-import DeleteIcon from "@mui/icons-material/Delete";
 import LocationSection from "./hotoForm/LocationSection/LocationSection";
 import ContactPersonSection from "./hotoForm/ContactPersonSection/ContactPersonSection";
 import FieldsSection from "./hotoForm/FieldsSection/FieldsSection";
@@ -28,6 +17,7 @@ const AddHotoModal = ({
   locationId,
   locationName,
   locationDistrict,
+  fetchAllHotoInfo,
 }) => {
   const [location, setLocation] = useState({
     state: "kerala",
@@ -71,7 +61,7 @@ const AddHotoModal = ({
         fields.map(async (field) => {
           if (field.mediaFiles && field.mediaFiles.length > 0) {
             const uploadedMedia = await uploadHotoMedia({
-              fields: [field]
+              fields: [field],
             });
             return uploadedMedia.fields[0];
           }
@@ -79,7 +69,7 @@ const AddHotoModal = ({
         })
       );
 
-      console.log(fieldsWithMedia)
+      console.log(fieldsWithMedia);
 
       // Prepare the HOTO data according to the API schema
       const hotoData = {
@@ -90,11 +80,11 @@ const AddHotoModal = ({
       };
 
       const response = await createHoto(hotoData);
-      console.log('HOTO created successfully:', response);
-      
+      console.log("HOTO created successfully:", response);
+      fetchAllHotoInfo();
       onClose();
     } catch (error) {
-      console.error('Error creating HOTO:', error);
+      console.error("Error creating HOTO:", error);
     }
   };
 

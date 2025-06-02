@@ -6,13 +6,18 @@ const MediaFilesButton = ({ mediaFiles, onClick }) => {
 
   return (
     <Button
-      variant="text"
+      size="small"
+      variant="outlined"
       startIcon={<AttachFileIcon />}
       onClick={onClick}
       sx={{
-        mt: 1,
+        outline: "none",
         textTransform: "none",
         justifyContent: "flex-start",
+        color: "primary.main",
+        "&:focus": {
+          outline: "none",
+        },
       }}
     >
       {mediaFiles.length}{" "}

@@ -7,8 +7,19 @@ import {
   Paper,
 } from "@mui/material";
 import { formatKey, formatValue } from "./utils";
+import MediaFilesButton from "./MediaFilesButton";
 
-const DataTable = ({ data }) => {
+const DataTable = ({ data, mediaFiles, onMediaFilesClick }) => {
+  const dataWithMediaFiles = {
+    ...data,
+    ...(mediaFiles?.length > 0 && {
+      "Media Files": {
+        type: "mediaFiles",
+        value: mediaFiles,
+      },
+    }),
+  };
+
   return (
     <TableContainer
       component={Paper}
@@ -17,7 +28,7 @@ const DataTable = ({ data }) => {
     >
       <Table size="small">
         <TableBody>
-          {Object.entries(data).map(([key, value]) => (
+          {Object.entries(dataWithMediaFiles).map(([key, value]) => (
             <TableRow
               key={key}
               sx={{
@@ -45,7 +56,14 @@ const DataTable = ({ data }) => {
                   borderColor: "divider",
                 }}
               >
-                {formatValue(value)}
+                {value?.type === "mediaFiles" ? (
+                  <MediaFilesButton
+                    mediaFiles={value.value}
+                    onClick={onMediaFilesClick}
+                  />
+                ) : (
+                  formatValue(value)
+                )}
               </TableCell>
             </TableRow>
           ))}
@@ -55,4 +73,4 @@ const DataTable = ({ data }) => {
   );
 };
 
-export default DataTable; 
+export default DataTable;
