@@ -224,9 +224,16 @@ const AttendanceMapView = () => {
                   <div><strong>Status:</strong> {attendance.status}</div>
                   <div>
                     <strong>Check-in time:</strong> {
-                      attendance.sessions.length > 0
+                      attendance.sessions && attendance.sessions.length > 0
                         ? new Date(attendance.sessions[attendance.sessions.length - 1].checkInTime).toLocaleTimeString()
                         : 'N/A'
+                    }
+                  </div>
+                  <div>
+                    <strong>Check-out time:</strong> {
+                      attendance.sessions && attendance.sessions.length > 0 && attendance.sessions[attendance.sessions.length - 1].checkOutTime
+                        ? new Date(attendance.sessions[attendance.sessions.length - 1].checkOutTime).toLocaleTimeString()
+                        : 'Not checked out yet'
                     }
                   </div>
                 </div>
