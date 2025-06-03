@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   GoogleMap,
   Marker,
@@ -45,8 +45,12 @@ import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import SurveySidebar from "./SurveySidebar";
 import * as XLSX from "xlsx";
 import { LOCATION_URL, SURVEY_URL } from "../API/api-keys.jsx";
+import surveyService from "../services/surveyService";
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyC2pds2TL5_lGUM-7Y1CFiGq8Wrn0oULr0";
+
+// Move libraries array outside component to prevent LoadScript reloading
+const GOOGLE_MAPS_LIBRARIES = ["places"];
 
 const containerStyle = {
   width: "100%",
@@ -139,7 +143,7 @@ const MapViewPage = () => {
 
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-    libraries: ["places"],
+    libraries: GOOGLE_MAPS_LIBRARIES,
   });
 
   // Add this useEffect to adjust map bounds when locations are selected
@@ -199,10 +203,11 @@ const MapViewPage = () => {
   }, [locations, isLoaded]);
 
   useEffect(() => {
-    if (isLoaded && locations.length > 0 && surveys.length > 0) {
+    if (surveys.length > 0 && isLoaded) {
       getSurveyRoutes();
+      console.log('Survey routes updated for', surveys.length, 'surveys');
     }
-  }, [locations, surveys, isLoaded]);
+  }, [surveys, isLoaded]);
 
   const fetchLocations = async () => {
     try {
@@ -262,13 +267,32 @@ const MapViewPage = () => {
 
   const fetchSurveys = async () => {
     try {
-      const response = await fetch(`${SURVEY_URL}/api/surveys`);
-      if (!response.ok)
-        throw new Error(`Failed to fetch surveys: ${response.statusText}`);
-      const data = await response.json();
-      if (!data.success || !Array.isArray(data.data))
+      const response = await surveyService.getSurveys();
+      if (!response.success || !Array.isArray(response.data))
         throw new Error("Invalid survey data format received");
-      setSurveys(data.data);
+      
+      // Process surveys to ensure proper data format for map rendering
+      const processedSurveys = response.data.map(survey => ({
+        ...survey,
+        // Convert string coordinates to numbers for map rendering
+        lat: parseFloat(survey.latitude) || 0,
+        lng: parseFloat(survey.longitude) || 0,
+        // Keep original fields for backward compatibility
+        latitude: survey.latitude,
+        longitude: survey.longitude,
+        // Ensure proper position object for Google Maps
+        position: {
+          lat: parseFloat(survey.latitude) || 0,
+          lng: parseFloat(survey.longitude) || 0
+        }
+      })).filter(survey => 
+        // Only include surveys with valid coordinates
+        survey.lat !== 0 && survey.lng !== 0 && 
+        !isNaN(survey.lat) && !isNaN(survey.lng)
+      );
+      
+      setSurveys(processedSurveys);
+      console.log('Processed surveys for map:', processedSurveys.length, 'valid surveys');
     } catch (err) {
       setError((prevError) =>
         prevError
@@ -549,25 +573,15 @@ const MapViewPage = () => {
       if (location.status !== 5) continue;
 
       // Get surveys for this location
-      const locationSurveys = surveys.filter(
-        (survey) =>
-          survey.location &&
-          ((typeof survey.location === "string" &&
-            survey.location === location._id) ||
-            (typeof survey.location === "object" &&
-              survey.location._id === location._id))
-      );
+      const locationSurveys = getSurveysForLocation(location._id);
 
       // Skip if less than 2 survey points
       if (locationSurveys.length < 2) continue;
 
-      // Create points from survey latlong
+      // Create points from survey coordinates using the processed lat/lng values
       const points = locationSurveys
-        .filter(
-          (survey) =>
-            Array.isArray(survey.latlong) && survey.latlong.length === 2
-        )
-        .map((survey) => ({ lat: survey.latlong[0], lng: survey.latlong[1] }));
+        .filter(survey => survey.lat && survey.lng && survey.lat !== 0 && survey.lng !== 0)
+        .map((survey) => ({ lat: survey.lat, lng: survey.lng }));
 
       if (points.length < 2) continue;
 
@@ -768,14 +782,28 @@ const MapViewPage = () => {
 
   // Filter surveys for a specific location
   const getSurveysForLocation = (locationId) => {
-    return surveys.filter(
-      (survey) =>
-        survey.location &&
-        ((typeof survey.location === "string" &&
-          survey.location === locationId) ||
-          (typeof survey.location === "object" &&
-            survey.location._id === locationId))
-    );
+    return surveys.filter((survey) => {
+      // Handle the new backend structure where surveys have locationId
+      if (survey.locationId) {
+        // locationId can be a string ID or populated object
+        if (typeof survey.locationId === 'string') {
+          return survey.locationId === locationId;
+        } else if (typeof survey.locationId === 'object' && survey.locationId._id) {
+          return survey.locationId._id === locationId;
+        }
+      }
+      
+      // Fallback to old structure for backward compatibility
+      if (survey.location) {
+        if (typeof survey.location === "string") {
+          return survey.location === locationId;
+        } else if (typeof survey.location === "object" && survey.location._id) {
+          return survey.location._id === locationId;
+        }
+      }
+      
+      return false;
+    });
   };
 
   const formatDistance = (meters) => {
@@ -1559,9 +1587,9 @@ const MapViewPage = () => {
         return;
       }
 
-      // Filter surveys with valid latlong
+      // Filter surveys with valid coordinates
       const validSurveys = locationSurveys.filter(
-        (s) => Array.isArray(s.latlong) && s.latlong.length === 2
+        (s) => s.lat && s.lng && s.lat !== 0 && s.lng !== 0
       );
 
       // Add rows for each segment of the route
@@ -1620,13 +1648,13 @@ const MapViewPage = () => {
             i + 1, // Sl. No.
             selectedLocations[0].location.district,
             selectedLocations[0].location.block,
-            fromSurvey.title || "Survey Point", // Gram Panchayat
-            fromSurvey.title || "Survey Point", // From
-            Number(fromSurvey.latlong[0]).toFixed(6), // Lat of From
-            Number(fromSurvey.latlong[1]).toFixed(6), // Long of From
-            toSurvey.title || "Survey Point", // To
-            Number(toSurvey.latlong[0]).toFixed(6), // Lat of To
-            Number(toSurvey.latlong[1]).toFixed(6), // Long of To
+            fromSurvey.name || fromSurvey.title || "Survey Point", // Gram Panchayat
+            fromSurvey.name || fromSurvey.title || "Survey Point", // From
+            Number(fromSurvey.lat).toFixed(6), // Lat of From
+            Number(fromSurvey.lng).toFixed(6), // Long of From
+            toSurvey.name || toSurvey.title || "Survey Point", // To
+            Number(toSurvey.lat).toFixed(6), // Lat of To
+            Number(toSurvey.lng).toFixed(6), // Long of To
             segmentDistance, // Physical Survey OFC Length (Mtr)
             desktopSegmentDistance || "N/A", // Desktop Survey Length
             desktopSegmentDistance ? segmentDifference : "N/A", // Difference
@@ -1683,13 +1711,13 @@ const MapViewPage = () => {
           validSurveys.length, // Sl. No.
           selectedLocations[0].location.district,
           selectedLocations[0].location.block,
-          lastSurvey.title || "Survey Point", // Gram Panchayat
-          lastSurvey.title || "Survey Point", // From
-          Number(lastSurvey.latlong[0]).toFixed(6), // Lat of From
-          Number(lastSurvey.latlong[1]).toFixed(6), // Long of From
-          firstSurvey.title || "Survey Point", // To
-          Number(firstSurvey.latlong[0]).toFixed(6), // Lat of To
-          Number(firstSurvey.latlong[1]).toFixed(6), // Long of To
+          lastSurvey.name || lastSurvey.title || "Survey Point", // Gram Panchayat
+          lastSurvey.name || lastSurvey.title || "Survey Point", // From
+          Number(lastSurvey.lat).toFixed(6), // Lat of From
+          Number(lastSurvey.lng).toFixed(6), // Long of From
+          firstSurvey.name || firstSurvey.title || "Survey Point", // To
+          Number(firstSurvey.lat).toFixed(6), // Lat of To
+          Number(firstSurvey.lng).toFixed(6), // Long of To
           finalSegmentDistance, // Physical Survey OFC Length (Mtr)
           finalDesktopSegmentDistance || "N/A", // Desktop Survey Length
           finalDesktopSegmentDistance ? finalSegmentDifference : "N/A", // Difference
@@ -1909,15 +1937,12 @@ const MapViewPage = () => {
 
       // Use survey points as waypoints
       waypoints = locationSurveys
-        .filter(
-          (survey) =>
-            Array.isArray(survey.latlong) && survey.latlong.length === 2
-        )
+        .filter(survey => survey.lat && survey.lng && survey.lat !== 0 && survey.lng !== 0)
         .map((survey) => ({
-          name: survey.title || "Survey Point",
+          name: survey.name || survey.title || "Survey Point",
           type: "Survey",
-          lat: survey.latlong[0],
-          lng: survey.latlong[1],
+          lat: survey.lat,
+          lng: survey.lng,
         }));
     }
 
@@ -2057,6 +2082,9 @@ const MapViewPage = () => {
     } catch (err) {
       console.error("Error fetching survey details:", err);
       setError(`Error fetching survey details: ${err.message}`);
+      // Close sidebar on error
+      setSidebarOpen(false);
+      setSelectedSurvey(null);
     } finally {
       setLoadingSurvey(false);
     }
@@ -2066,16 +2094,10 @@ const MapViewPage = () => {
   const handleSidebarClose = () => {
     setSidebarOpen(false);
     setSelectedSurvey(null);
+  };
 
-    // Reset map zoom based on whether a location is selected
-    if (
-      selectedLocations.length > 0 &&
-      selectedLocations[0].points.length > 0
-    ) {
-      setMapZoom(15);
-    } else {
-      setMapZoom(11);
-    }
+  const handleLocationMarkerClick = (locationId) => {
+    navigate(`/location/${locationId}`);
   };
 
   // Handle route visibility toggle
@@ -2204,6 +2226,7 @@ const MapViewPage = () => {
             {error}
           </Alert>
         )}
+        
         {loading || !isLoaded ? (
           <Box sx={{ textAlign: "center", py: 6 }}>
             <CircularProgress size={60} thickness={4} />
@@ -2228,11 +2251,11 @@ const MapViewPage = () => {
               <Box sx={{ display: "flex", alignItems: "center" }}>
                 <Box
                   sx={{
-                    width: 24,
-                    height: 5,
+                    width: 20,
+                    height: 4,
                     bgcolor: routeColor,
+                    borderRadius: 1,
                     mr: 1,
-                    borderRadius: "4px",
                     opacity: routeVisibility.desktopSurvey ? 1 : 0.3,
                   }}
                 />
@@ -2241,62 +2264,17 @@ const MapViewPage = () => {
                   fontWeight={500}
                   sx={{ opacity: routeVisibility.desktopSurvey ? 1 : 0.5 }}
                 >
-                  OFC Routes
+                  Desktop Survey Routes
                 </Typography>
               </Box>
               <Box sx={{ display: "flex", alignItems: "center" }}>
                 <Box
                   sx={{
-                    width: 18,
-                    height: 18,
-                    bgcolor: "#f44336",
-                    borderRadius: "50%",
-                    mr: 1,
-                    border: "2px solid #fff",
-                  }}
-                />
-                <Typography variant="body2" fontWeight={500}>
-                  BHQ (Block Head Quarter)
-                </Typography>
-              </Box>
-              <Box sx={{ display: "flex", alignItems: "center" }}>
-                <Box
-                  sx={{
-                    width: 18,
-                    height: 18,
-                    bgcolor: routeColor,
-                    borderRadius: "50%",
-                    mr: 1,
-                    border: "2px solid #fff",
-                  }}
-                />
-                <Typography variant="body2" fontWeight={500}>
-                  GP (Gram Panchayat)
-                </Typography>
-              </Box>
-              <Box sx={{ display: "flex", alignItems: "center" }}>
-                <Box
-                  sx={{
-                    width: 18,
-                    height: 18,
-                    bgcolor: "#f59e0b",
-                    borderRadius: "50%",
-                    mr: 1,
-                    border: "2px solid #fff",
-                  }}
-                />
-                <Typography variant="body2" fontWeight={500}>
-                  Survey Points
-                </Typography>
-              </Box>
-              <Box sx={{ display: "flex", alignItems: "center" }}>
-                <Box
-                  sx={{
-                    width: 24,
-                    height: 5,
+                    width: 20,
+                    height: 4,
                     bgcolor: surveyRouteColor,
+                    borderRadius: 1,
                     mr: 1,
-                    borderRadius: "4px",
                     opacity: routeVisibility.physicalSurvey ? 1 : 0.3,
                   }}
                 />
@@ -2306,6 +2284,51 @@ const MapViewPage = () => {
                   sx={{ opacity: routeVisibility.physicalSurvey ? 1 : 0.5 }}
                 >
                   Survey Routes (Status 5)
+                </Typography>
+              </Box>
+              <Box sx={{ display: "flex", alignItems: "center" }}>
+                <Box
+                  sx={{
+                    width: 20,
+                    height: 20,
+                    bgcolor: "#3498db",
+                    borderRadius: "50%",
+                    mr: 1,
+                    border: "2px solid #000",
+                  }}
+                />
+                <Typography variant="body2" fontWeight={500}>
+                  Block Surveys ({surveys.filter(s => s.surveyType === 'block').length})
+                </Typography>
+              </Box>
+              <Box sx={{ display: "flex", alignItems: "center" }}>
+                <Box
+                  sx={{
+                    width: 20,
+                    height: 20,
+                    bgcolor: "#e74c3c",
+                    borderRadius: "50%",
+                    mr: 1,
+                    border: "2px solid #000",
+                  }}
+                />
+                <Typography variant="body2" fontWeight={500}>
+                  GP Surveys ({surveys.filter(s => s.surveyType === 'gp').length})
+                </Typography>
+              </Box>
+              <Box sx={{ display: "flex", alignItems: "center" }}>
+                <Box
+                  sx={{
+                    width: 20,
+                    height: 20,
+                    bgcolor: "#27ae60",
+                    borderRadius: "50%",
+                    mr: 1,
+                    border: "2px solid #000",
+                  }}
+                />
+                <Typography variant="body2" fontWeight={500}>
+                  OFC Surveys ({surveys.filter(s => s.surveyType === 'ofc').length})
                 </Typography>
               </Box>
             </Box>
@@ -2542,6 +2565,25 @@ const MapViewPage = () => {
                                     .length
                                 }
                                 <Chip
+                                  label="View Location Details"
+                                  color="secondary"
+                                  size="small"
+                                  sx={{
+                                    fontWeight: 500,
+                                    ml: 1,
+                                    cursor: "pointer",
+                                    background: "linear-gradient(45deg, #667eea 30%, #764ba2 90%)",
+                                    color: "white",
+                                    "&:hover": {
+                                      background: "linear-gradient(45deg, #5a6fd8 30%, #6a4190 90%)",
+                                      transform: "translateY(-1px)",
+                                      boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
+                                    },
+                                    transition: "all 0.2s ease",
+                                  }}
+                                  onClick={() => handleLocationMarkerClick(location.location?._id)}
+                                />
+                                <Chip
                                   label="Hoto Information"
                                   color="primary"
                                   size="small"
@@ -2551,14 +2593,7 @@ const MapViewPage = () => {
                                     cursor: "pointer",
                                   }}
                                   onClick={() =>
-                                    navigate("/hoto", {
-                                      state: {
-                                        locationId: location.location?._id,
-                                        locationName: location.location?.block,
-                                        locationDistrict:
-                                          location.location?.district,
-                                      },
-                                    })
+                                    navigate(`/hoto-details/${location.location?._id}`)
                                   }
                                 />
                               </Typography>
@@ -2866,6 +2901,11 @@ const MapViewPage = () => {
                     sx={{ fontWeight: 500, cursor: "pointer" }}
                   />
                 </Box>
+                <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 1 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontStyle: "italic" }}>
+                    💡 Click on blue numbered markers or "View Location Details" buttons to explore location information
+                  </Typography>
+                </Box>
               </Box>
               <GoogleMap
                 mapContainerStyle={containerStyle}
@@ -2900,6 +2940,7 @@ const MapViewPage = () => {
                               key={`marker-${idx}-${pidx}`}
                               position={point}
                               label={`${pidx + 1}`}
+                              onClick={() => handleLocationMarkerClick(route.location._id)}
                               icon={{
                                 path:
                                   window.google && window.google.maps
@@ -2956,10 +2997,10 @@ const MapViewPage = () => {
                               <Marker
                                 key={`survey-${idx}-${sidx}`}
                                 position={{
-                                  lat: survey.latlong[0],
-                                  lng: survey.latlong[1],
+                                  lat: survey.lat || parseFloat(survey.latitude) || 0,
+                                  lng: survey.lng || parseFloat(survey.longitude) || 0,
                                 }}
-                                title={survey.title}
+                                title={survey.name || survey.title || 'Survey Point'}
                                 onClick={() =>
                                   handleSurveyMarkerClick(survey._id)
                                 }
@@ -2981,6 +3022,38 @@ const MapViewPage = () => {
                     );
                   }
                   return null;
+                })}
+
+                {/* Render all survey points as individual markers */}
+                {surveys.map((survey, surveyIdx) => {
+                  // Skip surveys without valid coordinates
+                  if (!survey.lat || !survey.lng || survey.lat === 0 || survey.lng === 0) {
+                    return null;
+                  }
+
+                  return (
+                    <Marker
+                      key={`all-survey-${surveyIdx}`}
+                      position={{
+                        lat: survey.lat,
+                        lng: survey.lng,
+                      }}
+                      title={survey.name || survey.title || 'Survey Point'}
+                      onClick={() => handleSurveyMarkerClick(survey._id)}
+                      icon={{
+                        path: window.google && window.google.maps
+                          ? window.google.maps.SymbolPath.CIRCLE
+                          : undefined,
+                        scale: 10,
+                        fillColor: survey.surveyType === 'block' ? '#3498db' : 
+                                   survey.surveyType === 'gp' ? '#e74c3c' : 
+                                   survey.surveyType === 'ofc' ? '#27ae60' : '#FFD700',
+                        fillOpacity: 1,
+                        strokeColor: "#000",
+                        strokeWeight: 2,
+                      }}
+                    />
+                  );
                 })}
 
                 {/* Render survey routes for locations with status 5 */}
@@ -3746,12 +3819,21 @@ const MapViewPage = () => {
       </Menu>
 
       {/* Survey Sidebar */}
+      {sidebarOpen && selectedSurvey ? (
       <SurveySidebar
         open={sidebarOpen}
         survey={selectedSurvey}
         loading={loadingSurvey}
         onClose={handleSidebarClose}
       />
+      ) : sidebarOpen ? (
+        <SurveySidebar
+          open={sidebarOpen}
+          survey={null}
+          loading={loadingSurvey}
+          onClose={handleSidebarClose}
+        />
+      ) : null}
     </Container>
   );
 };

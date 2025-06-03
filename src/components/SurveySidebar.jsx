@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Drawer, 
   Box, 
@@ -8,7 +8,8 @@ import {
   IconButton, 
   List, 
   ListItem, 
-  ListItemText, 
+  ListItemText,
+  ListItemIcon,
   Chip, 
   Grid, 
   Card, 
@@ -33,6 +34,7 @@ import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PublicIcon from '@mui/icons-material/Public';
+import AssignmentIcon from '@mui/icons-material/Assignment';
 import './SurveySidebar.css';
 
 // Helper function to format dates
@@ -200,20 +202,68 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
   const [mediaDialogOpen, setMediaDialogOpen] = useState(false);
 
   const handleMediaClick = (mediaFile) => {
-    if ((mediaFile.fileType === 'IMAGE' || mediaFile.fileType === 'VIDEO') && mediaFile.url) {
-      setSelectedMedia(mediaFile);
-      setMediaDialogOpen(true);
-    }
+    setSelectedMedia(mediaFile);
+    setMediaDialogOpen(true);
   };
 
   const handleCloseMediaDialog = () => {
     setMediaDialogOpen(false);
+    setSelectedMedia(null);
   };
 
-  if (!open) return null;
+  // Early return if drawer is not open
+  if (!open) {
+    return null;
+  }
+
+  // Debug logging to understand survey structure
+  useEffect(() => {
+    if (survey) {
+      console.log('Survey data structure:', survey);
+      console.log('Media files:', survey.mediaFiles);
+      console.log('Fields:', survey.fields);
+      if (survey.fields && survey.fields.length > 0) {
+        console.log('Sample field:', survey.fields[0]);
+        // Check if field has mediaFiles array
+        survey.fields.forEach((field, index) => {
+          if (field.mediaFiles && field.mediaFiles.length > 0) {
+            console.log(`Field ${index} has ${field.mediaFiles.length} media files:`, field.mediaFiles);
+          }
+        });
+      }
+    }
+  }, [survey]);
 
   // Check if survey has location coordinates
-  const hasCoordinates = survey && survey.latlong && survey.latlong.length >= 2;
+  const hasCoordinates = survey && survey.latitude && survey.longitude;
+
+  // Helper function to get all media files from survey and fields
+  const getAllMediaFiles = (survey) => {
+    const allMedia = [];
+    
+    // Get media files from survey level
+    if (survey.mediaFiles && Array.isArray(survey.mediaFiles)) {
+      allMedia.push(...survey.mediaFiles.map(file => ({ ...file, source: 'survey' })));
+    }
+    
+    // Get media files from fields
+    if (survey.fields && Array.isArray(survey.fields)) {
+      survey.fields.forEach((field, fieldIndex) => {
+        if (field.mediaFiles && Array.isArray(field.mediaFiles)) {
+          allMedia.push(...field.mediaFiles.map(file => ({ 
+            ...file, 
+            source: 'field', 
+            fieldKey: field.key,
+            fieldIndex 
+          })));
+        }
+      });
+    }
+    
+    return allMedia;
+  };
+
+  const allMediaFiles = survey ? getAllMediaFiles(survey) : [];
 
   return (
     <>
@@ -222,7 +272,13 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
       open={open}
       onClose={onClose}
       className="survey-sidebar-drawer"
-      PaperProps={{ className: "MuiDrawer-paper" }}
+      PaperProps={{ 
+        className: "MuiDrawer-paper",
+        sx: { 
+          width: { xs: '100%', sm: '400px', md: '450px' },
+          maxWidth: '90vw'
+        }
+      }}
     >
       <IconButton 
         onClick={onClose} 
@@ -243,7 +299,7 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
       ) : (
         <Box sx={{ padding: 1 }}>
           <Typography variant="h5" className="survey-title">
-            {survey.title}
+            {survey.name || survey.title}
           </Typography>
           
           <Divider />
@@ -260,200 +316,340 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
             </Box>
           )}
           
+          {/* Survey Type and Status */}
+          <Box className="sidebar-section">
+            <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+              <Chip 
+                label={survey.surveyType?.toUpperCase() || 'UNKNOWN'}
+                color={survey.surveyType === 'block' ? 'primary' : survey.surveyType === 'gp' ? 'secondary' : 'success'}
+                size="small"
+              />
+              <Chip 
+                label={survey.status === 1 ? 'Active' : survey.status === 2 ? 'In Progress' : survey.status === 3 ? 'Completed' : 'Unknown'}
+                color={survey.status === 1 ? 'success' : survey.status === 2 ? 'warning' : survey.status === 3 ? 'info' : 'default'}
+                size="small"
+              />
+            </Stack>
+          </Box>
+          
           {/* Location Info */}
           <Box className="sidebar-section">
             <Box className="info-row">
               <LocationOnIcon className="info-icon" />
-              <Typography variant="body2">
-                {survey.location ? 
-                  `${survey.location.district || ''}, ${survey.location.block || ''}` : 
-                  hasCoordinates ? `Lat: ${survey.latlong[0]}, Long: ${survey.latlong[1]}` : 'No location data'}
-              </Typography>
+              <Box>
+                <Typography variant="body2">
+                  {getLocationName(survey)}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {getDetailedAddress(survey)}
+                </Typography>
+                {hasCoordinates && (
+                  <Typography variant="caption" display="block" color="text.secondary">
+                    📍 {formatCoordinate(parseFloat(survey.latitude), 6)}°, {formatCoordinate(parseFloat(survey.longitude), 6)}°
+                  </Typography>
+                )}
+              </Box>
             </Box>
           </Box>
-          
-          {/* Terrain & ROW Authority */}
-          <Box className="sidebar-section">
-            {survey.terrainData?.type && (
+
+          {/* Contact Person Info */}
+          {survey.contactPerson && (
+            <Box className="sidebar-section">
+              <Typography variant="subtitle2" gutterBottom>
+                Contact Information
+              </Typography>
               <Box className="info-row">
-                <TerrainIcon className="info-icon" />
-                <Typography variant="body2">
-                  Terrain: {survey.terrainData.type}
-                </Typography>
+                <PersonIcon className="info-icon" />
+                <Box>
+                  <Typography variant="body2">
+                    SDE: {survey.contactPerson.sdeName || 'N/A'}
+                  </Typography>
+                  {survey.contactPerson.sdeMobile && (
+                    <Typography variant="caption" color="text.secondary">
+                      Mobile: {survey.contactPerson.sdeMobile}
+                    </Typography>
+                  )}
+                  {survey.contactPerson.engineerName && (
+                    <>
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        Engineer: {survey.contactPerson.engineerName}
+                      </Typography>
+                      {survey.contactPerson.engineerMobile && (
+                        <Typography variant="caption" color="text.secondary">
+                          Mobile: {survey.contactPerson.engineerMobile}
+                        </Typography>
+                      )}
+                    </>
+                  )}
+                  {survey.contactPerson.address && (
+                    <Typography variant="caption" display="block" color="text.secondary">
+                      Address: {survey.contactPerson.address}
+                    </Typography>
+                  )}
+                </Box>
               </Box>
-            )}
-            
-            {survey.rowAuthority && (
-              <Box className="info-row">
-                <Typography variant="body2">
-                  ROW Authority: {survey.rowAuthority}
-                </Typography>
-              </Box>
-            )}
-          </Box>
+            </Box>
+          )}
           
           {/* Created and Updated */}
           <Box className="sidebar-section">
             <Box className="info-row">
               <CalendarTodayIcon className="info-icon" />
               <Typography variant="body2">
-                Created: {formatDate(survey.created_on)}
+                Created: {formatDate(survey.createdOn || survey.created_on)}
               </Typography>
             </Box>
             
-            {survey.updated_on && (
+            {(survey.updatedOn || survey.updated_on) && (
               <Box className="info-row">
                 <CalendarTodayIcon className="info-icon" />
                 <Typography variant="body2">
-                  Updated: {formatDate(survey.updated_on)}
+                  Updated: {formatDate(survey.updatedOn || survey.updated_on)}
                 </Typography>
               </Box>
             )}
             
-            {survey.created_by && (
+            {survey.createdBy && (
               <Box className="info-row">
                 <PersonIcon className="info-icon" />
                 <Typography variant="body2">
-                  Created by: {survey.created_by.username || survey.created_by.email || ''}
+                  Created by: {survey.createdBy.email || survey.createdBy.name || survey.created_by?.username || survey.created_by?.email || 'Unknown'}
                 </Typography>
               </Box>
             )}
             
-            {survey.updated_by && (
+            {survey.updatedBy && (
               <Box className="info-row">
                 <PersonIcon className="info-icon" />
                 <Typography variant="body2">
-                  Updated by: {survey.updated_by.username || survey.updated_by.email || ''}
+                  Updated by: {survey.updatedBy.email || survey.updatedBy.name || survey.updated_by?.username || survey.updated_by?.email || 'Unknown'}
                 </Typography>
               </Box>
             )}
           </Box>
-          
-          {/* Media Files */}
-          {survey.mediaFiles && survey.mediaFiles.length > 0 && (
+
+          {/* Survey Fields */}
+          {survey.fields && survey.fields.length > 0 && (
             <Box className="sidebar-section">
               <Typography variant="subtitle1" className="media-section-title">
-                Media Files
+                Survey Fields ({survey.fields.length})
               </Typography>
               
-              <Grid container spacing={1} className="media-list">
-                {survey.mediaFiles.map((file, index) => {
-                  return (
-                  <Grid item xs={12} sm={(file.fileType === 'IMAGE' || file.fileType === 'VIDEO') ? 6 : 12} key={index}>
-                    <Card className="sidebar-media-card">
-                      {file.fileType === 'IMAGE' && file.url ? (
-                        <CardActionArea onClick={() => handleMediaClick(file)}>
-                          <Box sx={{ position: 'relative' }}>
-                            <CardMedia
-                              component="img"
-                              height="120"
-                              image={file.url}
-                              alt={file.description || `Image ${index + 1}`}
-                              sx={{ objectFit: 'cover' }}
-                            />
-                            {/* Geotag indicator */}
-                            {file.latitude && file.longitude && (
-                              <Box className="geotag-indicator">
-                                <LocationOnIcon fontSize="small" />
-                              </Box>
-                            )}
-                            {file.latitude && file.longitude && (
-                              <CompactGeotagOverlay mediaFile={file} />
-                            )}
+              <Box sx={{ 
+                maxHeight: '300px', 
+                overflowY: 'auto',
+                border: '1px solid rgba(0, 0, 0, 0.12)',
+                borderRadius: '4px',
+                backgroundColor: 'rgba(0, 0, 0, 0.02)'
+              }}>
+                <List dense>
+                  {survey.fields.map((field, index) => (
+                    <ListItem key={field._id || index} divider>
+                      <ListItemIcon>
+                        <AssignmentIcon fontSize="small" />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={
+                          <Typography variant="body2" fontWeight="500">
+                            {field.key}
+                          </Typography>
+                        }
+                        secondary={
+                          field.value ? (
+                            <Typography variant="body2" sx={{ mt: 0.5, color: 'text.primary' }}>
+                              {field.value}
+                            </Typography>
+                          ) : (
+                            <Typography variant="caption" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>
+                              No value
+                            </Typography>
+                          )
+                        }
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </Box>
+            </Box>
+          )}
+          
+          {/* Media Files */}
+          {allMediaFiles && allMediaFiles.length > 0 ? (
+            <Box className="sidebar-section">
+              <Typography variant="subtitle1" className="media-section-title">
+                Media Files ({allMediaFiles.length})
+                {survey.mediaFiles && survey.mediaFiles.length > 0 && (
+                  <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                    ({survey.mediaFiles.length} survey + {allMediaFiles.length - survey.mediaFiles.length} field media)
+                  </Typography>
+                )}
+              </Typography>
+              
+              <Box sx={{ 
+                maxHeight: '400px', 
+                overflowY: 'auto',
+                border: '1px solid rgba(0, 0, 0, 0.12)',
+                borderRadius: '4px',
+                p: 1
+              }}>
+                <Grid container spacing={1} className="media-list">
+                  {allMediaFiles.map((file, index) => {
+                    // Handle both string and number coordinates
+                    const latitude = file.latitude ? parseFloat(file.latitude) : null;
+                    const longitude = file.longitude ? parseFloat(file.longitude) : null;
+                    const hasGeotag = latitude && longitude && !isNaN(latitude) && !isNaN(longitude);
+                    
+                    return (
+                    <Grid item xs={12} sm={(file.fileType === 'IMAGE' || file.fileType === 'VIDEO') ? 6 : 12} key={`${file.source}-${index}`}>
+                      <Card className="sidebar-media-card" sx={{ position: 'relative' }}>
+                        {/* Source indicator */}
+                        <Box sx={{ 
+                          position: 'absolute', 
+                          top: 4, 
+                          left: 4, 
+                          zIndex: 2,
+                          backgroundColor: file.source === 'survey' ? 'rgba(33, 150, 243, 0.8)' : 'rgba(156, 39, 176, 0.8)',
+                          borderRadius: '4px',
+                          px: 0.5,
+                          py: 0.25
+                        }}>
+                          <Typography variant="caption" sx={{ color: 'white', fontSize: '0.65rem', fontWeight: 'bold' }}>
+                            {file.source === 'survey' ? 'S' : `F${file.fieldIndex + 1}`}
+                          </Typography>
+                        </Box>
+                        
+                        {hasGeotag && (
+                          <Box sx={{ 
+                            position: 'absolute', 
+                            top: 4, 
+                            right: 4, 
+                            zIndex: 2,
+                            backgroundColor: 'rgba(76, 175, 80, 0.8)',
+                            borderRadius: '50%',
+                            p: 0.5,
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}>
+                            <LocationOnIcon fontSize="small" sx={{ color: 'white' }} />
                           </Box>
-                          <CardContent sx={{ p: 1, pb: '8px !important' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        )}
+                        
+                        {file.fileType === 'IMAGE' && file.url ? (
+                          <CardActionArea onClick={() => handleMediaClick(file)}>
+                            <Box sx={{ position: 'relative' }}>
+                              <CardMedia
+                                component="img"
+                                height="120"
+                                image={file.url}
+                                alt={file.description || `Image ${index + 1}`}
+                                sx={{ objectFit: 'cover' }}
+                                onError={(e) => {
+                                  console.log('Image load error:', file.url);
+                                  e.target.style.display = 'none';
+                                }}
+                              />
+                              {hasGeotag && (
+                                <CompactGeotagOverlay mediaFile={{...file, latitude, longitude}} />
+                              )}
+                            </Box>
+                            <CardContent sx={{ p: 1, pb: '8px !important' }}>
                               <Typography variant="body2" className="media-name" noWrap>
                                 {file.description || `Image ${index + 1}`}
                               </Typography>
-                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                <ZoomInIcon fontSize="small" color="primary" />
-                              </Box>
-                            </Box>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', mt: 0.5 }}>
-                              <Typography variant="caption" color="text.secondary">
-                                Uploaded: {formatDate(file.uploaded_at)}
+                              {file.source === 'field' && (
+                                <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
+                                  Field: {file.fieldKey}
+                                </Typography>
+                              )}
+                              {hasGeotag && (
+                                <Typography variant="caption" className="media-coordinates" sx={{ display: 'block', mt: 0.5 }}>
+                                  📍 {formatCoordinate(latitude, 4)}°, {formatCoordinate(longitude, 4)}°
+                                </Typography>
+                              )}
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                {formatDate(file.uploadedAt || file.uploaded_at || new Date())}
                               </Typography>
-                              {file.latitude && file.longitude && (
-                                <>
-                                  <Typography variant="caption" className="media-coordinates">
-                                    <LocationOnIcon fontSize="inherit" />
-                                    {formatCoordinate(file.latitude, 6)}°, {formatCoordinate(file.longitude, 6)}°
-                                  </Typography>
-                                  <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-                                    Device: {file.deviceName}
-                                  </Typography>
-                                </>
+                            </CardContent>
+                          </CardActionArea>
+                        ) : file.fileType === 'VIDEO' && file.url ? (
+                          <CardActionArea onClick={() => handleMediaClick(file)}>
+                            <Box sx={{ position: 'relative' }}>
+                              <CardMedia
+                                component="div"
+                                height="120"
+                                className="video-thumbnail"
+                              >
+                                <OndemandVideoIcon sx={{ fontSize: 40, color: '#fff' }} />
+                                <PlayArrowIcon className="video-play-overlay" />
+                              </CardMedia>
+                              {hasGeotag && (
+                                <CompactGeotagOverlay mediaFile={{...file, latitude, longitude}} />
                               )}
                             </Box>
-                          </CardContent>
-                        </CardActionArea>
-                      ) : file.fileType === 'VIDEO' && file.url ? (
-                        <CardActionArea onClick={() => handleMediaClick(file)}>
-                          <Box sx={{ position: 'relative' }}>
-                            <CardMedia
-                              component="div"
-                              height="120"
-                              className="video-thumbnail"
-                            >
-                              <OndemandVideoIcon sx={{ fontSize: 40, color: '#fff' }} />
-                              <PlayArrowIcon className="video-play-overlay" />
-                            </CardMedia>
-                            {/* Geotag indicator for videos */}
-                            {file.latitude && file.longitude && (
-                              <Box className="geotag-indicator">
-                                <LocationOnIcon fontSize="small" />
-                              </Box>
-                            )}
-                            {file.latitude && file.longitude && (
-                              <CompactGeotagOverlay mediaFile={file} />
-                            )}
-                          </Box>
-                          <CardContent sx={{ p: 1, pb: '8px !important' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <CardContent sx={{ p: 1, pb: '8px !important' }}>
                               <Typography variant="body2" className="media-name" noWrap>
                                 {file.description || `Video ${index + 1}`}
                               </Typography>
-                              <PlayArrowIcon fontSize="small" color="primary" />
-                            </Box>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', mt: 0.5 }}>
-                              <Typography variant="caption" color="text.secondary">
-                                Uploaded: {formatDate(file.uploaded_at)}
-                              </Typography>
-                              {file.latitude && file.longitude && (
-                                <>
-                                  <Typography variant="caption" className="media-coordinates">
-                                    <LocationOnIcon fontSize="inherit" />
-                                    {formatCoordinate(file.latitude, 6)}°, {formatCoordinate(file.longitude, 6)}°
-                                  </Typography>
-                                  <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-                                    Device: {file.deviceName}
-                                  </Typography>
-                                </>
+                              {file.source === 'field' && (
+                                <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
+                                  Field: {file.fieldKey}
+                                </Typography>
                               )}
+                              {hasGeotag && (
+                                <Typography variant="caption" className="media-coordinates" sx={{ display: 'block', mt: 0.5 }}>
+                                  📍 {formatCoordinate(latitude, 4)}°, {formatCoordinate(longitude, 4)}°
+                                </Typography>
+                              )}
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                {formatDate(file.uploadedAt || file.uploaded_at || new Date())}
+                              </Typography>
+                            </CardContent>
+                          </CardActionArea>
+                        ) : (
+                          <CardContent sx={{ p: 1 }}>
+                            <Box className="media-item">
+                              {getFileTypeIcon(file.fileType)}
+                              <Box className="media-info">
+                                <Typography variant="body2" className="media-name">
+                                  {file.description || `File ${index + 1}`}
+                                </Typography>
+                                {file.source === 'field' && (
+                                  <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
+                                    Field: {file.fieldKey}
+                                  </Typography>
+                                )}
+                                {hasGeotag && (
+                                  <Typography variant="caption" className="media-coordinates" sx={{ display: 'block', mt: 0.5 }}>
+                                    📍 {formatCoordinate(latitude, 4)}°, {formatCoordinate(longitude, 4)}°
+                                  </Typography>
+                                )}
+                                <Typography variant="caption" className="media-date">
+                                  {formatDate(file.uploadedAt || file.uploaded_at || new Date())}
+                                </Typography>
+                              </Box>
                             </Box>
                           </CardContent>
-                        </CardActionArea>
-                      ) : (
-                        <CardContent sx={{ p: 1 }}>
-                          <Box className="media-item">
-                            {getFileTypeIcon(file.fileType)}
-                            <Box className="media-info">
-                              <Typography variant="body2" className="media-name">
-                                {file.description || `File ${index + 1}`}
-                              </Typography>
-                              <Typography variant="caption" className="media-date">
-                                {formatDate(file.uploaded_at)}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        </CardContent>
-                      )}
-                    </Card>
-                  </Grid>
-                  );
-                })}
-              </Grid>
+                        )}
+                      </Card>
+                    </Grid>
+                    );
+                  })}
+                </Grid>
+              </Box>
+            </Box>
+          ) : (
+            <Box className="sidebar-section">
+              <Typography variant="subtitle2" color="text.secondary">
+                No media files found
+              </Typography>
+              {survey && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                  Debug: Survey has {survey.mediaFiles ? survey.mediaFiles.length : 0} survey-level media files
+                  {survey.fields && (
+                    <span> and {survey.fields.reduce((acc, field) => acc + (field.mediaFiles ? field.mediaFiles.length : 0), 0)} field-level media files</span>
+                  )}
+                </Typography>
+              )}
             </Box>
           )}
           
@@ -517,8 +713,12 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
                     alt={selectedMedia.description || "Survey image"}
                     style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain' }}
                   />
-                  {hasCoordinates && (
-                    <MediaGeotagOverlay mediaFile={selectedMedia} />
+                  {selectedMedia.latitude && selectedMedia.longitude && (
+                    <MediaGeotagOverlay mediaFile={{
+                      ...selectedMedia,
+                      latitude: parseFloat(selectedMedia.latitude),
+                      longitude: parseFloat(selectedMedia.longitude)
+                    }} />
                   )}
                 </>
               ) : selectedMedia.fileType === 'VIDEO' && (
@@ -529,8 +729,12 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
                     autoPlay
                     style={{ maxWidth: '100%', maxHeight: '80vh' }}
                   />
-                  {hasCoordinates && (
-                    <MediaGeotagOverlay mediaFile={selectedMedia} />
+                  {selectedMedia.latitude && selectedMedia.longitude && (
+                    <MediaGeotagOverlay mediaFile={{
+                      ...selectedMedia,
+                      latitude: parseFloat(selectedMedia.latitude),
+                      longitude: parseFloat(selectedMedia.longitude)
+                    }} />
                   )}
                 </>
               )}
@@ -542,8 +746,11 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
                   {selectedMedia.description}
                 </Typography>
               )}
-              
-              
+              {selectedMedia.source === 'field' && (
+                <Typography variant="body2" color="primary" sx={{ mt: 1 }}>
+                  From Field: {selectedMedia.fieldKey}
+                </Typography>
+              )}
             </Box>
           </Box>
         )}

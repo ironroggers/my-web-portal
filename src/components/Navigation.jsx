@@ -29,6 +29,7 @@ import LoginIcon from "@mui/icons-material/Login";
 import PersonIcon from "@mui/icons-material/Person";
 import MenuIcon from "@mui/icons-material/Menu";
 import CloseIcon from "@mui/icons-material/Close";
+import AssignmentIcon from "@mui/icons-material/Assignment";
 import { useAuth } from "../context/AuthContext";
 import "./Navigation.css";
 
@@ -85,6 +86,7 @@ const Navigation = () => {
 
   const navigationItems = [
     { to: "/", label: "Dashboard", icon: <DashboardIcon />, showAlways: true },
+    { to: "/surveys", label: "Surveys", icon: <AssignmentIcon />, requireAuth: true },
     { to: "/users", label: "Users", icon: <PeopleIcon />, requireAuth: true },
     { to: "/attendance", label: "Attendance", icon: <CalendarTodayIcon />, requireAuth: true },
     { to: "/map", label: "Map View", icon: <MapIcon />, requireAuth: true },

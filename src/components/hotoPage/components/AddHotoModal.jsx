@@ -125,6 +125,8 @@ const AddHotoModal = ({
           fields={fields}
           setFields={setFields}
           scrollDialogContent={ScrollDialogContent}
+          location={location}
+          setLocation={setLocation}
         />
       </DialogContent>
 

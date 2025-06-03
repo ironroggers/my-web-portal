@@ -1,0 +1,260 @@
+/* LocationDetailsPage.css */
+
+.location-details-page {
+  padding: 24px;
+  min-height: 100vh;
+  background-color: #f5f5f5;
+}
+
+.location-header {
+  margin-bottom: 32px;
+}
+
+.location-stats-card {
+  transition: transform 0.2s ease-in-out;
+}
+
+.location-stats-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.survey-card {
+  transition: all 0.2s ease-in-out;
+  border: 1px solid #e0e0e0;
+}
+
+.survey-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.media-card {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+}
+
+.media-card:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.media-source-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: bold;
+  color: white;
+}
+
+.media-geotag-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  background-color: rgba(76, 175, 80, 0.9);
+  border-radius: 50%;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.analytics-chart {
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.analytics-progress-bar {
+  width: 100%;
+  height: 8px;
+  background-color: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.analytics-progress-fill {
+  height: 100%;
+  transition: width 0.3s ease-in-out;
+}
+
+.breadcrumb-nav {
+  margin-bottom: 16px;
+}
+
+.breadcrumb-nav a {
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+
+.breadcrumb-nav a:hover {
+  text-decoration: underline;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+.error-container {
+  padding: 24px;
+}
+
+.back-button {
+  margin-right: 16px;
+}
+
+.tab-content {
+  padding-top: 24px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 16px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.stat-number {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: #666;
+}
+
+.survey-fields-preview {
+  margin-top: 16px;
+}
+
+.field-item {
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.field-item:last-child {
+  border-bottom: none;
+}
+
+.field-key {
+  font-weight: 500;
+  color: #333;
+}
+
+.field-value {
+  color: #666;
+  margin-top: 2px;
+}
+
+.media-dialog {
+  max-width: 90vw;
+  max-height: 90vh;
+}
+
+.media-dialog-content {
+  position: relative;
+  padding: 24px;
+}
+
+.media-dialog-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+}
+
+.media-fullscreen {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+}
+
+.location-avatar {
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(45deg, #2196F3 30%, #21CBF3 90%);
+}
+
+.survey-type-chip {
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.accordion-summary {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.video-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(45deg, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.6));
+  color: white;
+  height: 200px;
+  position: relative;
+}
+
+.video-play-icon {
+  font-size: 3rem;
+  opacity: 0.8;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .location-details-page {
+    padding: 16px;
+  }
+  
+  .media-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+  }
+  
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  
+  .stat-number {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .media-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+} 

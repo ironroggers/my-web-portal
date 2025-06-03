@@ -26,6 +26,9 @@ import RegisterPage from "./components/auth/RegisterPage";
 import ProfilePage from "./components/ProfilePage";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import HotoPage from "./components/hotoPage/hotoPage";
+import SurveysPage from "./components/SurveysPage";
+import LocationDetailsPage from "./components/LocationDetailsPage";
+import HotoDetailsPage from "./components/HotoDetailsPage";
 
 // Auth Provider
 import { AuthProvider } from "./context/AuthContext";
@@ -82,6 +85,14 @@ function App() {
                   }
                 />
                 <Route
+                  path="/surveys"
+                  element={
+                    <ProtectedRoute>
+                      <SurveysPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/users"
                   element={
                     <ProtectedRoute>
@@ -118,6 +129,22 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <HotoPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/location/:locationId"
+                  element={
+                    <ProtectedRoute>
+                      <LocationDetailsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/hoto-details/:locationId"
+                  element={
+                    <ProtectedRoute>
+                      <HotoDetailsPage />
                     </ProtectedRoute>
                   }
                 />

@@ -128,3 +128,74 @@ export const createHoto = async (data) => {
     throw error;
   }
 };
+
+export const updateHoto = async (hotoId, data) => {
+  try {
+    const response = await fetch(`${HOTO_URL}/api/hotos/${hotoId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to update HOTO");
+    }
+
+    const responseData = await response.json();
+    return responseData.data;
+  } catch (error) {
+    console.error("Error updating HOTO:", error);
+    alert(
+      error.message || "Failed to update HOTO entry. Please try again later."
+    );
+    throw error;
+  }
+};
+
+export const deleteHoto = async (hotoId) => {
+  try {
+    const response = await fetch(`${HOTO_URL}/api/hotos/${hotoId}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to delete HOTO");
+    }
+
+    const responseData = await response.json();
+    return responseData;
+  } catch (error) {
+    console.error("Error deleting HOTO:", error);
+    alert(
+      error.message || "Failed to delete HOTO entry. Please try again later."
+    );
+    throw error;
+  }
+};
+
+export const fetchSingleHoto = async (hotoId) => {
+  try {
+    const response = await fetch(`${HOTO_URL}/api/hotos/${hotoId}`);
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to fetch HOTO details");
+    }
+
+    const responseData = await response.json();
+    return responseData.data;
+  } catch (error) {
+    console.error("Error fetching HOTO details:", error);
+    alert(
+      error.message || "Failed to fetch HOTO details. Please try again later."
+    );
+    throw error;
+  }
+};

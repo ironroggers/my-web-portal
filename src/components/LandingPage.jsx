@@ -54,8 +54,13 @@ import EditLocationIcon from '@mui/icons-material/EditLocation';
 import ThumbUpAltIcon from '@mui/icons-material/ThumbUpAlt';
 import ReplayIcon from '@mui/icons-material/Replay';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import BusinessIcon from '@mui/icons-material/Business';
+import RouteIcon from '@mui/icons-material/Route';
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import './LandingPage.css';
 import {ATTENDANCE_URL, AUTH_URL} from "../API/api-keys.jsx";
+import surveyService from '../services/surveyService';
 
 // Styled components
 const GlassCard = styled(Card)(({ theme }) => ({
@@ -203,6 +208,18 @@ const LandingPage = () => {
     loading: true
   });
 
+  // State for survey stats
+  const [surveyStats, setSurveyStats] = useState({
+    totalSurveys: 0,
+    activeSurveys: 0,
+    blockSurveys: 0,
+    gpSurveys: 0,
+    ofcSurveys: 0,
+    totalMediaFiles: 0,
+    totalFields: 0,
+    loading: true
+  });
+
   // State for location statistics
   const [locationStats, setLocationStats] = useState({
     released: 0,
@@ -224,8 +241,38 @@ const LandingPage = () => {
   // Fetch initial data on component mount
   useEffect(() => {
     fetchStats();
+    fetchSurveyStats();
     fetchRecentActivities();
   }, []);
+
+  // Fetch survey statistics
+  const fetchSurveyStats = async () => {
+    try {
+      setSurveyStats(prev => ({ ...prev, loading: true }));
+      const response = await surveyService.getSurveyStats();
+      
+      if (response.success) {
+        setSurveyStats({
+          ...response.data,
+          loading: false
+        });
+      } else {
+        throw new Error('Failed to fetch survey stats');
+      }
+    } catch (error) {
+      console.error('Error fetching survey stats:', error);
+      setSurveyStats({
+        totalSurveys: 0,
+        activeSurveys: 0,
+        blockSurveys: 0,
+        gpSurveys: 0,
+        ofcSurveys: 0,
+        totalMediaFiles: 0,
+        totalFields: 0,
+        loading: false
+      });
+    }
+  };
 
   // Fetch attendance and user stats
   const fetchStats = async () => {
