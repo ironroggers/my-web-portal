@@ -39,7 +39,7 @@ const Navigation = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -86,16 +86,29 @@ const Navigation = () => {
 
   const navigationItems = [
     { to: "/", label: "Dashboard", icon: <DashboardIcon />, showAlways: true },
-    { to: "/surveys", label: "Surveys", icon: <AssignmentIcon />, requireAuth: true },
+    {
+      to: "/surveys",
+      label: "Surveys",
+      icon: <AssignmentIcon />,
+      requireAuth: true,
+    },
     { to: "/users", label: "Users", icon: <PeopleIcon />, requireAuth: true },
-    { to: "/attendance", label: "Attendance", icon: <CalendarTodayIcon />, requireAuth: true },
-    { to: "/map", label: "Map View", icon: <MapIcon />, requireAuth: true },
+    {
+      to: "/attendance",
+      label: "Attendance",
+      icon: <CalendarTodayIcon />,
+      requireAuth: true,
+    },
+    { to: "/map", label: "Locations", icon: <MapIcon />, requireAuth: true },
     { to: "/help", label: "Help", icon: <HelpIcon />, showAlways: true },
   ];
 
   const renderNavigationItems = (mobile = false) => {
     return navigationItems.map((item) => {
-      if ((item.requireAuth && !isAuthenticated) || (!item.showAlways && !isAuthenticated)) {
+      if (
+        (item.requireAuth && !isAuthenticated) ||
+        (!item.showAlways && !isAuthenticated)
+      ) {
         return null;
       }
 
@@ -107,13 +120,13 @@ const Navigation = () => {
             to={item.to}
             onClick={() => setMobileMenuOpen(false)}
             sx={{
-              color: 'inherit',
-              '&.active': {
-                bgcolor: 'rgba(255, 255, 255, 0.2)',
+              color: "inherit",
+              "&.active": {
+                bgcolor: "rgba(255, 255, 255, 0.2)",
               },
             }}
           >
-            <ListItemIcon sx={{ color: 'inherit', minWidth: 40 }}>
+            <ListItemIcon sx={{ color: "inherit", minWidth: 40 }}>
               {item.icon}
             </ListItemIcon>
             <ListItemText primary={item.label} />
@@ -163,13 +176,9 @@ const Navigation = () => {
 
         {/* Mobile menu burger icon */}
         {isMobile ? (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             {isAuthenticated && (
-              <IconButton
-                onClick={handleMenu}
-                color="inherit"
-                size="small"
-              >
+              <IconButton onClick={handleMenu} color="inherit" size="small">
                 <Avatar
                   sx={{
                     width: 32,
@@ -194,7 +203,7 @@ const Navigation = () => {
           </Box>
         ) : (
           /* Desktop navigation */
-          <Box sx={{ display: "flex", gap: 2, alignItems: 'center' }}>
+          <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
             {renderNavigationItems()}
 
             {isAuthenticated ? (
@@ -293,13 +302,20 @@ const Navigation = () => {
           PaperProps={{
             sx: {
               width: 280,
-              bgcolor: 'primary.main',
-              color: 'white',
+              bgcolor: "primary.main",
+              color: "white",
             },
           }}
         >
           <Box sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 2,
+              }}
+            >
               <Typography variant="h6">Menu</Typography>
               <IconButton
                 color="inherit"
@@ -310,14 +326,14 @@ const Navigation = () => {
             </Box>
             {isAuthenticated && (
               <>
-                <Box sx={{ textAlign: 'center', mb: 2 }}>
+                <Box sx={{ textAlign: "center", mb: 2 }}>
                   <Avatar
                     sx={{
                       width: 60,
                       height: 60,
                       bgcolor: "secondary.main",
                       fontSize: "1.5rem",
-                      margin: '0 auto',
+                      margin: "0 auto",
                       mb: 1,
                     }}
                   >
@@ -326,11 +342,9 @@ const Navigation = () => {
                   <Typography variant="subtitle1" fontWeight="bold">
                     {user && user.username}
                   </Typography>
-                  <Typography variant="caption">
-                    {getRoleLabel()}
-                  </Typography>
+                  <Typography variant="caption">{getRoleLabel()}</Typography>
                 </Box>
-                <Divider sx={{ bgcolor: 'rgba(255, 255, 255, 0.12)', mb: 2 }} />
+                <Divider sx={{ bgcolor: "rgba(255, 255, 255, 0.12)", mb: 2 }} />
               </>
             )}
             <List>
@@ -341,13 +355,13 @@ const Navigation = () => {
                   to="/login"
                   onClick={() => setMobileMenuOpen(false)}
                   sx={{
-                    color: 'inherit',
-                    '&.active': {
-                      bgcolor: 'rgba(255, 255, 255, 0.2)',
+                    color: "inherit",
+                    "&.active": {
+                      bgcolor: "rgba(255, 255, 255, 0.2)",
                     },
                   }}
                 >
-                  <ListItemIcon sx={{ color: 'inherit', minWidth: 40 }}>
+                  <ListItemIcon sx={{ color: "inherit", minWidth: 40 }}>
                     <LoginIcon />
                   </ListItemIcon>
                   <ListItemText primary="Login" />

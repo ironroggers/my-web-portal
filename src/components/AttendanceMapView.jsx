@@ -221,6 +221,15 @@ const AttendanceMapView = () => {
                       <strong>Address:</strong> {attendance.location.address}
                     </div>
                   )}
+                  {
+                    attendance?.location?.latitude && attendance?.location?.longitude && (
+                      <div>
+                        <strong>Latitude:</strong> {attendance.location.latitude}
+                        <br />
+                        <strong>Longitude:</strong> {attendance.location.longitude}
+                      </div>
+                    )
+                  }
                   <div><strong>Status:</strong> {attendance.status}</div>
                   <div>
                     <strong>Check-in time:</strong> {
