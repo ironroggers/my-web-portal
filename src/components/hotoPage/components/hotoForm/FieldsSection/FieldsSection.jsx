@@ -1,10 +1,19 @@
 import { Box, Typography, Button, Stack, Divider } from "@mui/material";
 import { useState } from "react";
-import { Add as AddIcon, Assignment as TemplateIcon } from "@mui/icons-material";
+import {
+  Add as AddIcon,
+  Assignment as TemplateIcon,
+} from "@mui/icons-material";
 import { FieldForm } from "./components";
 import TemplateSelector from "../../TemplateSelector";
 
-const FieldsSection = ({ fields, setFields, scrollDialogContent, location, setLocation }) => {
+const FieldsSection = ({
+  fields,
+  setFields,
+  scrollDialogContent,
+  location,
+  setLocation,
+}) => {
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
 
   const handleAddField = () => {
@@ -16,9 +25,9 @@ const FieldsSection = ({ fields, setFields, scrollDialogContent, location, setLo
       },
     ]);
 
-    setTimeout(() => {
-      scrollDialogContent();
-    }, 100);
+    // setTimeout(() => {
+    //   scrollDialogContent();
+    // }, 100);
   };
 
   const handleFieldChange = (index, updatedField) => {
@@ -39,9 +48,9 @@ const FieldsSection = ({ fields, setFields, scrollDialogContent, location, setLo
   const handleTemplateSelect = (templateData) => {
     // Update HOTO type if provided and location setter is available
     if (templateData.hotoType && setLocation) {
-      setLocation(prev => ({
+      setLocation((prev) => ({
         ...prev,
-        hotoType: templateData.hotoType
+        hotoType: templateData.hotoType,
       }));
     }
 
@@ -52,9 +61,9 @@ const FieldsSection = ({ fields, setFields, scrollDialogContent, location, setLo
     setTemplateSelectorOpen(false);
 
     // Scroll to show the new fields
-    setTimeout(() => {
-      scrollDialogContent();
-    }, 100);
+    // setTimeout(() => {
+    //   scrollDialogContent();
+    // }, 100);
   };
 
   const handleOpenTemplateSelector = () => {
@@ -67,7 +76,14 @@ const FieldsSection = ({ fields, setFields, scrollDialogContent, location, setLo
 
   return (
     <Box>
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          mb: 2,
+        }}
+      >
         <Typography variant="h6">Fields</Typography>
         <Button
           variant="outlined"
@@ -80,7 +96,7 @@ const FieldsSection = ({ fields, setFields, scrollDialogContent, location, setLo
             "&:hover": {
               backgroundColor: "secondary.main",
               color: "white",
-            }
+            },
           }}
         >
           Use Template
@@ -88,16 +104,18 @@ const FieldsSection = ({ fields, setFields, scrollDialogContent, location, setLo
       </Box>
 
       {fields.length === 0 && (
-        <Box sx={{ 
-          p: 3, 
-          textAlign: 'center', 
-          bgcolor: 'grey.50', 
-          borderRadius: 2,
-          border: '2px dashed',
-          borderColor: 'grey.300',
-          mb: 2
-        }}>
-          <TemplateIcon sx={{ fontSize: 48, color: 'grey.400', mb: 1 }} />
+        <Box
+          sx={{
+            p: 3,
+            textAlign: "center",
+            bgcolor: "grey.50",
+            borderRadius: 2,
+            border: "2px dashed",
+            borderColor: "grey.300",
+            mb: 2,
+          }}
+        >
+          <TemplateIcon sx={{ fontSize: 48, color: "grey.400", mb: 1 }} />
           <Typography variant="h6" color="text.secondary" gutterBottom>
             No Fields Added Yet
           </Typography>
@@ -132,7 +150,7 @@ const FieldsSection = ({ fields, setFields, scrollDialogContent, location, setLo
           index={index}
           onChange={handleFieldChange}
           onDelete={handleDeleteField}
-          scrollDialogContent={scrollDialogContent}
+          // scrollDialogContent={scrollDialogContent}
         />
       ))}
 
@@ -140,20 +158,20 @@ const FieldsSection = ({ fields, setFields, scrollDialogContent, location, setLo
         <>
           <Divider sx={{ my: 2 }} />
           <Stack direction="row" spacing={2}>
-      <Button
-        variant="outlined"
-        color="primary"
+            <Button
+              variant="outlined"
+              color="primary"
               startIcon={<AddIcon />}
-        onClick={handleAddField}
-        sx={{
-          "&:hover": {
-            backgroundColor: "primary.main",
-            color: "white",
-                }
-        }}
-      >
-        Add Field
-      </Button>
+              onClick={handleAddField}
+              sx={{
+                "&:hover": {
+                  backgroundColor: "primary.main",
+                  color: "white",
+                },
+              }}
+            >
+              Add Field
+            </Button>
             <Button
               variant="outlined"
               color="secondary"
@@ -163,7 +181,7 @@ const FieldsSection = ({ fields, setFields, scrollDialogContent, location, setLo
                 "&:hover": {
                   backgroundColor: "secondary.main",
                   color: "white",
-                }
+                },
               }}
             >
               Load Template

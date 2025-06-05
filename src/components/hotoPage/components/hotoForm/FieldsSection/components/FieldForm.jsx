@@ -7,7 +7,7 @@ const FieldForm = ({
   onChange,
   onDelete,
   index,
-  scrollDialogContent,
+  // scrollDialogContent,
 }) => {
   const handleChange = (fieldName) => (event) => {
     onChange(index, {
@@ -30,9 +30,9 @@ const FieldForm = ({
       ...field,
       mediaFiles: newMediaFiles,
     });
-    setTimeout(() => {
-      scrollDialogContent();
-    }, 100);
+    // setTimeout(() => {
+    // scrollDialogContent();
+    // }, 100);
   };
 
   const handleAddMedia = () => {
@@ -43,9 +43,9 @@ const FieldForm = ({
         { source: "web" }, // Default values
       ],
     });
-    setTimeout(() => {
-      scrollDialogContent();
-    }, 100);
+    // setTimeout(() => {
+    //   scrollDialogContent();
+    // }, 100);
   };
 
   const handleDeleteMedia = (mediaIndex) => {
