@@ -60,7 +60,7 @@ export const uploadHotoMedia = async (data) => {
             const { data: uploadData } = await response.json();
 
             // Upload file to S3 using signed URL
-            const uploadResponse = fetch(uploadData.signedUrl, {
+            const uploadResponse = await fetch(uploadData.signedUrl, {
               method: "PUT",
               headers: {
                 "Content-Type": media.file.type,
