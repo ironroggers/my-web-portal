@@ -59,7 +59,7 @@ import BusinessIcon from '@mui/icons-material/Business';
 import RouteIcon from '@mui/icons-material/Route';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import './LandingPage.css';
-import {ATTENDANCE_URL, AUTH_URL} from "../API/api-keys.jsx";
+import {ATTENDANCE_URL, AUTH_URL, LOCATION_URL} from "../API/api-keys.jsx";
 import surveyService from '../services/surveyService';
 
 // Styled components
@@ -341,16 +341,33 @@ const LandingPage = () => {
         loading: false
       });
 
-      // Mock data for location statuses (in a real app, this would be fetched from the API)
-      const totalLocations = 120; // Example total
+      // Fetch location statistics from location API
+      const locationsResponse = await fetch(`${LOCATION_URL}/api/locations`);
+      if (!locationsResponse.ok) {
+        throw new Error('Failed to fetch locations data');
+      }
+
+      const locationsData = await locationsResponse.json();
+      if (!locationsData.success || !Array.isArray(locationsData.data)) {
+        throw new Error('Invalid data format received from Location API');
+      }
+
+      const locations = locationsData.data;
+      
+      // Count locations by status
+      // Status mapping: 1: Released, 2: Assigned, 3: Active, 4: Submitted, 5: Accepted, 6: Reverted
+      const locationCounts = {
+        released: locations.filter(loc => loc.status === 1).length,
+        assigned: locations.filter(loc => loc.status === 2).length,
+        active: locations.filter(loc => loc.status === 3).length,
+        submitted: locations.filter(loc => loc.status === 4).length,
+        accepted: locations.filter(loc => loc.status === 5).length,
+        reverted: locations.filter(loc => loc.status === 6).length,
+        total: locations.length
+      };
+
       setLocationStats({
-        released: Math.floor(totalLocations * 0.15),    // 15% of locations
-        assigned: Math.floor(totalLocations * 0.20),    // 20% of locations
-        active: Math.floor(totalLocations * 0.25),      // 25% of locations
-        submitted: Math.floor(totalLocations * 0.15),   // 15% of locations
-        accepted: Math.floor(totalLocations * 0.15),    // 15% of locations
-        reverted: Math.floor(totalLocations * 0.10),    // 10% of locations
-        total: totalLocations,
+        ...locationCounts,
         loading: false
       });
 

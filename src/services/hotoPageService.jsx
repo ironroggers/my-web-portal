@@ -31,6 +31,36 @@ export const fetchAllHotoList = async (locationId) => {
 
 export const uploadHotoMedia = async (data) => {
   try {
+    // Function to get current position
+    const getCurrentPosition = () => {
+      return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject(new Error('Geolocation is not supported'));
+          return;
+        }
+        
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000 // 5 minutes
+        });
+      });
+    };
+
+    // Function to get place name from coordinates
+    const getPlaceFromCoordinates = async (latitude, longitude) => {
+      try {
+        const response = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+        );
+        const data = await response.json();
+        return data.locality || data.city || data.principalSubdivision || 'Unknown Location';
+      } catch (error) {
+        console.error('Error getting place name:', error);
+        return 'Unknown Location';
+      }
+    };
+
     // Process each field's media files
     const updatedFields = await Promise.all(
       data.fields.map(async (field) => {
@@ -41,6 +71,11 @@ export const uploadHotoMedia = async (data) => {
         // Upload each media file in the field
         const updatedMediaFiles = await Promise.all(
           field.mediaFiles.map(async (media) => {
+            // Skip if this media doesn't have a file (already uploaded)
+            if (!media.file) {
+              return media;
+            }
+
             // Get signed URL for upload
             const response = await fetch(`${HOTO_URL}/api/media/upload-url`, {
               method: "POST",
@@ -68,16 +103,45 @@ export const uploadHotoMedia = async (data) => {
               body: media.file,
             });
 
-            // if (!uploadResponse.ok) {
-            //   throw new Error('Failed to upload file to S3');
-            // }
+            if (!uploadResponse.ok) {
+              throw new Error(`Failed to upload file to S3: ${uploadResponse.status}`);
+            }
 
-            // Return updated media object with the S3 URL
+            // Get location data
+            let latitude = "";
+            let longitude = "";
+            let place = "";
+            let accuracy = null;
+
+            try {
+              const position = await getCurrentPosition();
+              latitude = position.coords.latitude.toString();
+              longitude = position.coords.longitude.toString();
+              accuracy = position.coords.accuracy;
+              place = await getPlaceFromCoordinates(latitude, longitude);
+            } catch (error) {
+              console.log('Location not available for web upload:', error.message);
+              // Use existing location data from media if available
+              latitude = media.latitude || "";
+              longitude = media.longitude || "";
+              place = media.place || "";
+              accuracy = media.accuracy || null;
+            }
+
+            // Get device info
+            const deviceName = navigator.userAgent || 'Unknown Web Browser';
+
+            // Return updated media object with complete structure matching mobile app
             return {
-              ...media,
               url: uploadData.fileUrl,
-              fileName: uploadData.fileName,
               fileType: uploadData.fileType,
+              description: media.description || '',
+              latitude: latitude,
+              longitude: longitude,
+              deviceName: deviceName,
+              accuracy: accuracy,
+              place: place,
+              source: 'web'
             };
           })
         );
