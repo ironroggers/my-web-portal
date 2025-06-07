@@ -1,0 +1,869 @@
+[
+  {
+    "_id": "6843f283613f55eac9533b12",
+    "name": "Residential Complex",
+    "description": "Near bazaar",
+    "locationId": {
+      "_id": "68408db1a7e8ea346110f85e",
+      "district": "Hyderabad",
+      "block": "Parvath nagar",
+      "route": [
+        {
+          "place": "Home",
+          "latitude": 17.454138,
+          "longitude": 78.398463,
+          "type": "BHQ"
+        },
+        {
+          "place": "Main road",
+          "latitude": 17.454366,
+          "longitude": 78.397742,
+          "type": "GP"
+        },
+        {
+          "place": "Crossing",
+          "latitude": 17.451584,
+          "longitude": 78.396734,
+          "type": "GP"
+        },
+        {
+          "place": "Rd number 44",
+          "latitude": 17.452698,
+          "longitude": 78.39538,
+          "type": "GP"
+        },
+        {
+          "place": "Rd number 33",
+          "latitude": 17.453583,
+          "longitude": 78.394544,
+          "type": "GP"
+        },
+        {
+          "place": "Happening",
+          "latitude": 17.455346,
+          "longitude": 78.394719,
+          "type": "GP"
+        }
+      ],
+      "status": 5,
+      "updated_on": "2025-06-07T08:05:02.927Z",
+      "createdAt": "2025-05-07T09:50:44.992Z",
+      "updatedAt": "2025-06-07T08:05:02.928Z",
+      "__v": 0,
+      "assigned_to": "67fe0a4f28e60b5de6d20a8c",
+      "due_date": "2025-05-07T00:00:00.000Z",
+      "surveyor": "68406f755561319a3d5a1ae6",
+      "supervisor": "68406f025561319a3d5a1adf",
+      "comments": "Fhcnchj"
+    },
+    "stateName": "Telangana",
+    "stateCode": "Ts",
+    "districtName": "Hyderabad",
+    "districtCode": "HY",
+    "blockName": "Parvat Nagar",
+    "blockCode": "PN",
+    "latitude": "17.454316666666667",
+    "longitude": "78.398105",
+    "blockAddress": "",
+    "contactPerson": {
+      "sdeName": "Bb",
+      "sdeMobile": "777",
+      "engineerName": "Hbsb",
+      "engineerMobile": "677",
+      "address": "Bbb"
+    },
+    "surveyType": "ofc",
+    "fields": [
+      {
+        "sequence": 1,
+        "key": "Segment ID",
+        "value": "1",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b13",
+        "mediaFiles": []
+      },
+      {
+        "sequence": 2,
+        "key": "From Location",
+        "value": "17.888888",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b14"
+      },
+      {
+        "sequence": 3,
+        "key": "To Location",
+        "value": "17.889999",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b15"
+      },
+      {
+        "sequence": 4,
+        "key": "Route Type",
+        "value": "Existing",
+        "fieldType": "dropdown",
+        "dropdownOptions": ["New", "Existing", "Shared"],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b16"
+      },
+      {
+        "sequence": 5,
+        "key": "Digging Type Required",
+        "value": "HDD",
+        "fieldType": "dropdown",
+        "dropdownOptions": ["Open Trench", "HDD"],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b17"
+      },
+      {
+        "sequence": 6,
+        "key": "Estimated Average Dig Depth (m)",
+        "value": "56",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b18"
+      },
+      {
+        "sequence": 7,
+        "key": "Crossing Structures",
+        "value": "Yes",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b19"
+      },
+      {
+        "sequence": 8,
+        "key": "Total Length (km)",
+        "value": "2.8",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b1a",
+        "mediaFiles": []
+      },
+      {
+        "sequence": 9,
+        "key": "No. of Intermediate Points",
+        "value": "7",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b1b",
+        "mediaFiles": []
+      },
+      {
+        "sequence": 10,
+        "key": "Coordinates at Key Points",
+        "value": "6",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b1c"
+      },
+      {
+        "sequence": 11,
+        "key": "Terrain Type",
+        "value": "Hilly",
+        "fieldType": "dropdown",
+        "dropdownOptions": ["Plain", "Hilly", "Forest", "Rocky", "Marshy"],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b1d"
+      },
+      {
+        "sequence": 12,
+        "key": "Soil Type where OFC is proposed to be laid",
+        "value": "Sandy",
+        "fieldType": "dropdown",
+        "dropdownOptions": ["Sandy", "Clay", "Rocky", "Mixed"],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b1e"
+      },
+      {
+        "sequence": 13,
+        "key": "Environmental Sensitivity",
+        "value": "No",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b1f"
+      },
+      {
+        "sequence": 14,
+        "key": "Road Width in mtr",
+        "value": "2.8",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b20"
+      },
+      {
+        "sequence": 15,
+        "key": "Proposed OFC Alignment",
+        "value": "LHS",
+        "fieldType": "dropdown",
+        "dropdownOptions": ["LHS", "RHS"],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b21"
+      },
+      {
+        "sequence": 16,
+        "key": "Type of Path",
+        "value": "Roadside",
+        "fieldType": "dropdown",
+        "dropdownOptions": ["Roadside", "Railway", "Canal", "Off-road"],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b22"
+      },
+      {
+        "sequence": 17,
+        "key": "RoadType",
+        "value": "NH",
+        "fieldType": "dropdown",
+        "dropdownOptions": ["NH", "SH", "MDR", "Rural Road", "Kuccha"],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b23"
+      },
+      {
+        "sequence": 18,
+        "key": "Ownership of Land",
+        "value": "Govt.",
+        "fieldType": "dropdown",
+        "dropdownOptions": ["Govt.", "Panchayat", "Private", "Forest"],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b24"
+      },
+      {
+        "sequence": 19,
+        "key": "ROW Authority Category",
+        "value": "NHAI",
+        "fieldType": "dropdown",
+        "dropdownOptions": [
+          "NHAI",
+          "State PWD",
+          "Railway",
+          "Gas Pipeline",
+          "Forest",
+          "Municipality",
+          "Corporation"
+        ],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b25",
+        "mediaFiles": []
+      },
+      {
+        "sequence": 20,
+        "key": "ROW Authority Name",
+        "value": "State",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b26",
+        "mediaFiles": []
+      },
+      {
+        "sequence": 21,
+        "key": "ROW Authority Address with Phone Number",
+        "value": "888888",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b27",
+        "mediaFiles": []
+      },
+      {
+        "sequence": 22,
+        "key": "RoW Feasibility",
+        "value": "Easy",
+        "fieldType": "dropdown",
+        "dropdownOptions": ["Easy", "Moderate", "Difficult"],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b28"
+      },
+      {
+        "sequence": 23,
+        "key": "Obstacles Along Route",
+        "value": "Bbb",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b29"
+      },
+      {
+        "sequence": 24,
+        "key": "Date of Survey",
+        "value": "6.6.2025",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b2a",
+        "mediaFiles": []
+      },
+      {
+        "sequence": 25,
+        "key": "Existing Duct Availability",
+        "value": "Yes",
+        "fieldType": "dropdown",
+        "dropdownOptions": ["Yes", "No"],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b2b"
+      },
+      {
+        "sequence": 26,
+        "key": "Duct Owner (if existing)",
+        "value": "State",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b2c",
+        "mediaFiles": []
+      },
+      {
+        "sequence": 27,
+        "key": "Available Manholes or Chambers",
+        "value": "2",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b2d"
+      },
+      {
+        "sequence": 28,
+        "key": "Nearby Power Source",
+        "value": "Yes",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [
+          {
+            "url": "https://annuprojects.s3.ap-south-1.amazonaws.com/1749283445494-280a0d5f8896604f2ed59454f64eabd2.png",
+            "fileType": "IMAGE",
+            "description": "photo captured on 07/06/2025, 13:34:05",
+            "latitude": "17.454315",
+            "longitude": "78.39811666666667",
+            "deviceName": "Nothing Phone (2a) Plus",
+            "accuracy": 2,
+            "uploadedAt": "2025-06-07T08:04:05.490Z",
+            "_id": "6843f283613f55eac9533b2f"
+          }
+        ],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b2e"
+      },
+      {
+        "sequence": 29,
+        "key": "Planned Cable Type",
+        "value": "ADSS",
+        "fieldType": "dropdown",
+        "dropdownOptions": ["ADSS", "Armored", "Unarmored", "Aerial"],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b30",
+        "mediaFiles": []
+      },
+      {
+        "sequence": 30,
+        "key": "No. of Fiber Pairs",
+        "value": "67",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b31",
+        "mediaFiles": []
+      },
+      {
+        "sequence": 31,
+        "key": "Expected Attenuation",
+        "value": "",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b32",
+        "mediaFiles": []
+      },
+      {
+        "sequence": 32,
+        "key": "Splice Joint Locations",
+        "value": "",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b33"
+      },
+      {
+        "sequence": 33,
+        "key": "Slack Locations Proposed",
+        "value": "",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b34"
+      },
+      {
+        "sequence": 34,
+        "key": "Route Map / Sketch",
+        "value": "",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b35"
+      },
+      {
+        "sequence": 35,
+        "key": "Photos Along Route",
+        "value": "",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b36"
+      },
+      {
+        "sequence": 36,
+        "key": "Geotagged Images & Videos",
+        "value": "",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b37"
+      },
+      {
+        "sequence": 37,
+        "key": "Any Local Challenges",
+        "value": "",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b38",
+        "mediaFiles": []
+      },
+      {
+        "sequence": 38,
+        "key": "Estimated Cost Factors",
+        "value": "High",
+        "fieldType": "dropdown",
+        "dropdownOptions": ["High", "Medium", "Low"],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b39",
+        "mediaFiles": []
+      },
+      {
+        "sequence": 39,
+        "key": "Local Support",
+        "value": "High",
+        "fieldType": "dropdown",
+        "dropdownOptions": ["High", "Moderate", "Low"],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b3a",
+        "mediaFiles": []
+      },
+      {
+        "sequence": 40,
+        "key": "Final Feasibility Rating",
+        "value": "Feasible",
+        "fieldType": "dropdown",
+        "dropdownOptions": [
+          "Feasible",
+          "Feasible with Modifications",
+          "Not Feasible"
+        ],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b3b",
+        "mediaFiles": []
+      },
+      {
+        "sequence": 41,
+        "key": "Remarks",
+        "value": "",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "status": 1,
+        "_id": "6843f283613f55eac9533b3c",
+        "mediaFiles": []
+      }
+    ],
+    "status": 1,
+    "createdOn": "2025-06-07T08:04:19.727Z",
+    "createdBy": {
+      "_id": "68406f755561319a3d5a1ae6",
+      "email": "surveyor1@gmail.com"
+    },
+    "updatedOn": "2025-06-07T08:04:19.759Z",
+    "updatedBy": {
+      "_id": "68406f755561319a3d5a1ae6",
+      "email": "surveyor1@gmail.com"
+    },
+    "mediaFiles": [],
+    "createdAt": "2025-06-07T08:04:19.759Z",
+    "updatedAt": "2025-06-07T08:04:19.759Z",
+    "__v": 0,
+    "lat": 17.454316666666667,
+    "lng": 78.398105,
+    "position": {
+      "lat": 17.454316666666667,
+      "lng": 78.398105
+    }
+  },
+  {
+    "_id": "6843f19d613f55eac9533ac2",
+    "name": "Electricity Pole",
+    "description": "Pole near home",
+    "locationId": {
+      "_id": "68408db1a7e8ea346110f85e",
+      "district": "Hyderabad",
+      "block": "Parvath nagar",
+      "route": [
+        {
+          "place": "Home",
+          "latitude": 17.454138,
+          "longitude": 78.398463,
+          "type": "BHQ"
+        },
+        {
+          "place": "Main road",
+          "latitude": 17.454366,
+          "longitude": 78.397742,
+          "type": "GP"
+        },
+        {
+          "place": "Crossing",
+          "latitude": 17.451584,
+          "longitude": 78.396734,
+          "type": "GP"
+        },
+        {
+          "place": "Rd number 44",
+          "latitude": 17.452698,
+          "longitude": 78.39538,
+          "type": "GP"
+        },
+        {
+          "place": "Rd number 33",
+          "latitude": 17.453583,
+          "longitude": 78.394544,
+          "type": "GP"
+        },
+        {
+          "place": "Happening",
+          "latitude": 17.455346,
+          "longitude": 78.394719,
+          "type": "GP"
+        }
+      ],
+      "status": 5,
+      "updated_on": "2025-06-07T08:05:02.927Z",
+      "createdAt": "2025-05-07T09:50:44.992Z",
+      "updatedAt": "2025-06-07T08:05:02.928Z",
+      "__v": 0,
+      "assigned_to": "67fe0a4f28e60b5de6d20a8c",
+      "due_date": "2025-05-07T00:00:00.000Z",
+      "surveyor": "68406f755561319a3d5a1ae6",
+      "supervisor": "68406f025561319a3d5a1adf",
+      "comments": "Fhcnchj"
+    },
+    "stateName": "Telangana",
+    "stateCode": "Ts",
+    "districtName": "Hyderabad",
+    "districtCode": "Hy",
+    "blockName": "Parvath Nagar",
+    "blockCode": "Block1",
+    "latitude": "17.4544",
+    "longitude": "78.39854",
+    "blockAddress": "Bbb",
+    "contactPerson": {
+      "sdeName": "Atul",
+      "sdeMobile": "7020551870",
+      "engineerName": "Atul",
+      "engineerMobile": "7020551870",
+      "address": "Home"
+    },
+    "surveyType": "block",
+    "fields": [
+      {
+        "sequence": 1,
+        "key": "Exchange Floor",
+        "value": "Ground",
+        "fieldType": "dropdown",
+        "dropdownOptions": ["Ground", "1st", "2nd", "3rd", "Other"],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f19d613f55eac9533ac3"
+      },
+      {
+        "sequence": 2,
+        "key": "Length from Entry Gate/0 Manhole to Floor in mtr",
+        "value": "25m",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [
+          {
+            "url": "https://annuprojects.s3.ap-south-1.amazonaws.com/1749283122037-65738ca8a4cec2048f63981601f164da.jpg",
+            "fileType": "IMAGE",
+            "description": "photo captured on 07/06/2025, 13:28:42",
+            "latitude": "17.454256666666666",
+            "longitude": "78.39834833333333",
+            "deviceName": "Nothing Phone (2a) Plus",
+            "accuracy": 2.5999999046325684,
+            "uploadedAt": "2025-06-07T07:58:42.104Z",
+            "_id": "6843f19d613f55eac9533ac5"
+          }
+        ],
+        "status": 1,
+        "_id": "6843f19d613f55eac9533ac4"
+      },
+      {
+        "sequence": 3,
+        "key": "Building Condition",
+        "value": "Average",
+        "fieldType": "dropdown",
+        "dropdownOptions": ["Good", "Average", "Poor"],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f19d613f55eac9533ac6"
+      },
+      {
+        "sequence": 4,
+        "key": "Power Source",
+        "value": "AC",
+        "fieldType": "dropdown",
+        "dropdownOptions": ["AC", "DC"],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f19d613f55eac9533ac7"
+      },
+      {
+        "sequence": 5,
+        "key": "Battery Available",
+        "value": "Yes",
+        "fieldType": "dropdown",
+        "dropdownOptions": ["Yes", "No"],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f19d613f55eac9533ac8"
+      },
+      {
+        "sequence": 6,
+        "key": "No of Battery",
+        "value": "5",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f19d613f55eac9533ac9"
+      },
+      {
+        "sequence": 7,
+        "key": "Battery Capacity",
+        "value": "120",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f19d613f55eac9533aca"
+      },
+      {
+        "sequence": 8,
+        "key": "Battery Make",
+        "value": "Eveready",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f19d613f55eac9533acb"
+      },
+      {
+        "sequence": 9,
+        "key": "Battery Model",
+        "value": "1.0",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f19d613f55eac9533acc"
+      },
+      {
+        "sequence": 10,
+        "key": "Battery SI No.",
+        "value": "166267",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f19d613f55eac9533acd"
+      },
+      {
+        "sequence": 11,
+        "key": "Cooling System",
+        "value": "Not Installed",
+        "fieldType": "dropdown",
+        "dropdownOptions": ["Installed", "Not Installed"],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f19d613f55eac9533ace"
+      },
+      {
+        "sequence": 12,
+        "key": "Surge Protection",
+        "value": "Installed",
+        "fieldType": "dropdown",
+        "dropdownOptions": ["Installed", "Not Installed"],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f19d613f55eac9533acf"
+      },
+      {
+        "sequence": 13,
+        "key": "Earthing Type",
+        "value": "Ab",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [
+          {
+            "url": "https://annuprojects.s3.ap-south-1.amazonaws.com/1749283169639-41b0a891eaf989c6b00852eed4176e7e.jpg",
+            "fileType": "IMAGE",
+            "description": "photo captured on 07/06/2025, 13:29:29",
+            "latitude": "17.454261666666664",
+            "longitude": "78.39838333333334",
+            "deviceName": "Nothing Phone (2a) Plus",
+            "accuracy": 2.5,
+            "uploadedAt": "2025-06-07T07:59:29.543Z",
+            "_id": "6843f19d613f55eac9533ad1"
+          }
+        ],
+        "status": 1,
+        "_id": "6843f19d613f55eac9533ad0"
+      },
+      {
+        "sequence": 14,
+        "key": "Earthing Capacity in Ohm",
+        "value": "67",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f19d613f55eac9533ad2"
+      },
+      {
+        "sequence": 15,
+        "key": "Earthing Installation Date",
+        "value": "25.6.2012",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f19d613f55eac9533ad3"
+      },
+      {
+        "sequence": 16,
+        "key": "Rack Space Available",
+        "value": "No",
+        "fieldType": "dropdown",
+        "dropdownOptions": ["Yes", "No"],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f19d613f55eac9533ad4"
+      },
+      {
+        "sequence": 17,
+        "key": "Rack Space Remarks",
+        "value": "Not available",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f19d613f55eac9533ad5"
+      },
+      {
+        "sequence": 18,
+        "key": "FDMS Space Available",
+        "value": "Yes",
+        "fieldType": "dropdown",
+        "dropdownOptions": ["Yes", "No"],
+        "mediaFiles": [],
+        "status": 1,
+        "_id": "6843f19d613f55eac9533ad6"
+      },
+      {
+        "sequence": 19,
+        "key": "FDMS Space Remarks",
+        "value": "Yes",
+        "fieldType": "text",
+        "dropdownOptions": [],
+        "mediaFiles": [
+          {
+            "url": "https://annuprojects.s3.ap-south-1.amazonaws.com/1749283207105-197bab5984e7f0a2f19e4691a73b7d38.jpg",
+            "fileType": "IMAGE",
+            "description": "photo captured on 07/06/2025, 13:30:07",
+            "latitude": "17.454156666666666",
+            "longitude": "78.39841333333334",
+            "deviceName": "Nothing Phone (2a) Plus",
+            "accuracy": 2.5,
+            "uploadedAt": "2025-06-07T08:00:07.012Z",
+            "_id": "6843f19d613f55eac9533ad8"
+          },
+          {
+            "url": "https://annuprojects.s3.ap-south-1.amazonaws.com/1749283219232-c5868a48aa2ded81198ea1978899e861.mp4",
+            "fileType": "VIDEO",
+            "description": "video captured on 07/06/2025, 13:30:19",
+            "latitude": "17.454133333333335",
+            "longitude": "78.39842",
+            "deviceName": "Nothing Phone (2a) Plus",
+            "accuracy": 2.9000000953674316,
+            "uploadedAt": "2025-06-07T08:00:19.138Z",
+            "_id": "6843f19d613f55eac9533ad9"
+          }
+        ],
+        "status": 1,
+        "_id": "6843f19d613f55eac9533ad7"
+      }
+    ],
+    "status": 1,
+    "createdOn": "2025-06-07T08:00:29.081Z",
+    "createdBy": {
+      "_id": "68406f755561319a3d5a1ae6",
+      "email": "surveyor1@gmail.com"
+    },
+    "updatedOn": "2025-06-07T08:00:29.104Z",
+    "updatedBy": {
+      "_id": "68406f755561319a3d5a1ae6",
+      "email": "surveyor1@gmail.com"
+    },
+    "mediaFiles": [],
+    "createdAt": "2025-06-07T08:00:29.104Z",
+    "updatedAt": "2025-06-07T08:00:29.104Z",
+    "__v": 0,
+    "lat": 17.4544,
+    "lng": 78.39854,
+    "position": {
+      "lat": 17.4544,
+      "lng": 78.39854
+    }
+  }
+]

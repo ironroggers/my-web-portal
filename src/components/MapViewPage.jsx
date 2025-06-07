@@ -46,6 +46,7 @@ import SurveySidebar from "./SurveySidebar";
 import * as XLSX from "xlsx";
 import { LOCATION_URL, SURVEY_URL } from "../API/api-keys.jsx";
 import surveyService from "../services/surveyService";
+import physicalSurveyExport from "../utils/physicalSurveyExport.util.jsx";
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyC2pds2TL5_lGUM-7Y1CFiGq8Wrn0oULr0";
 
@@ -205,7 +206,7 @@ const MapViewPage = () => {
   useEffect(() => {
     if (surveys.length > 0 && isLoaded) {
       getSurveyRoutes();
-      console.log('Survey routes updated for', surveys.length, 'surveys');
+      console.log("Survey routes updated for", surveys.length, "surveys");
     }
   }, [surveys, isLoaded]);
 
@@ -270,29 +271,38 @@ const MapViewPage = () => {
       const response = await surveyService.getSurveys();
       if (!response.success || !Array.isArray(response.data))
         throw new Error("Invalid survey data format received");
-      
+
       // Process surveys to ensure proper data format for map rendering
-      const processedSurveys = response.data.map(survey => ({
-        ...survey,
-        // Convert string coordinates to numbers for map rendering
-        lat: parseFloat(survey.latitude) || 0,
-        lng: parseFloat(survey.longitude) || 0,
-        // Keep original fields for backward compatibility
-        latitude: survey.latitude,
-        longitude: survey.longitude,
-        // Ensure proper position object for Google Maps
-        position: {
+      const processedSurveys = response.data
+        .map((survey) => ({
+          ...survey,
+          // Convert string coordinates to numbers for map rendering
           lat: parseFloat(survey.latitude) || 0,
-          lng: parseFloat(survey.longitude) || 0
-        }
-      })).filter(survey => 
-        // Only include surveys with valid coordinates
-        survey.lat !== 0 && survey.lng !== 0 && 
-        !isNaN(survey.lat) && !isNaN(survey.lng)
-      );
-      
+          lng: parseFloat(survey.longitude) || 0,
+          // Keep original fields for backward compatibility
+          latitude: survey.latitude,
+          longitude: survey.longitude,
+          // Ensure proper position object for Google Maps
+          position: {
+            lat: parseFloat(survey.latitude) || 0,
+            lng: parseFloat(survey.longitude) || 0,
+          },
+        }))
+        .filter(
+          (survey) =>
+            // Only include surveys with valid coordinates
+            survey.lat !== 0 &&
+            survey.lng !== 0 &&
+            !isNaN(survey.lat) &&
+            !isNaN(survey.lng)
+        );
+
       setSurveys(processedSurveys);
-      console.log('Processed surveys for map:', processedSurveys.length, 'valid surveys');
+      console.log(
+        "Processed surveys for map:",
+        processedSurveys.length,
+        "valid surveys"
+      );
     } catch (err) {
       setError((prevError) =>
         prevError
@@ -580,7 +590,10 @@ const MapViewPage = () => {
 
       // Create points from survey coordinates using the processed lat/lng values
       const points = locationSurveys
-        .filter(survey => survey.lat && survey.lng && survey.lat !== 0 && survey.lng !== 0)
+        .filter(
+          (survey) =>
+            survey.lat && survey.lng && survey.lat !== 0 && survey.lng !== 0
+        )
         .map((survey) => ({ lat: survey.lat, lng: survey.lng }));
 
       if (points.length < 2) continue;
@@ -786,13 +799,16 @@ const MapViewPage = () => {
       // Handle the new backend structure where surveys have locationId
       if (survey.locationId) {
         // locationId can be a string ID or populated object
-        if (typeof survey.locationId === 'string') {
+        if (typeof survey.locationId === "string") {
           return survey.locationId === locationId;
-        } else if (typeof survey.locationId === 'object' && survey.locationId._id) {
+        } else if (
+          typeof survey.locationId === "object" &&
+          survey.locationId._id
+        ) {
           return survey.locationId._id === locationId;
         }
       }
-      
+
       // Fallback to old structure for backward compatibility
       if (survey.location) {
         if (typeof survey.location === "string") {
@@ -801,7 +817,7 @@ const MapViewPage = () => {
           return survey.location._id === locationId;
         }
       }
-      
+
       return false;
     });
   };
@@ -1775,6 +1791,10 @@ const MapViewPage = () => {
     });
   };
 
+  const handlePhysicalSurveyExport = () => {
+    physicalSurveyExport(surveys);
+  };
+
   // Export to KML
   const handleExportToKML = (type = "desktop") => {
     if (!selectedLocations || selectedLocations.length === 0) {
@@ -1937,7 +1957,10 @@ const MapViewPage = () => {
 
       // Use survey points as waypoints
       waypoints = locationSurveys
-        .filter(survey => survey.lat && survey.lng && survey.lat !== 0 && survey.lng !== 0)
+        .filter(
+          (survey) =>
+            survey.lat && survey.lng && survey.lat !== 0 && survey.lng !== 0
+        )
         .map((survey) => ({
           name: survey.name || survey.title || "Survey Point",
           type: "Survey",
@@ -2226,7 +2249,7 @@ const MapViewPage = () => {
             {error}
           </Alert>
         )}
-        
+
         {loading || !isLoaded ? (
           <Box sx={{ textAlign: "center", py: 6 }}>
             <CircularProgress size={60} thickness={4} />
@@ -2298,7 +2321,8 @@ const MapViewPage = () => {
                   }}
                 />
                 <Typography variant="body2" fontWeight={500}>
-                  Block Surveys ({surveys.filter(s => s.surveyType === 'block').length})
+                  Block Surveys (
+                  {surveys.filter((s) => s.surveyType === "block").length})
                 </Typography>
               </Box>
               <Box sx={{ display: "flex", alignItems: "center" }}>
@@ -2313,7 +2337,8 @@ const MapViewPage = () => {
                   }}
                 />
                 <Typography variant="body2" fontWeight={500}>
-                  GP Surveys ({surveys.filter(s => s.surveyType === 'gp').length})
+                  GP Surveys (
+                  {surveys.filter((s) => s.surveyType === "gp").length})
                 </Typography>
               </Box>
               <Box sx={{ display: "flex", alignItems: "center" }}>
@@ -2328,7 +2353,8 @@ const MapViewPage = () => {
                   }}
                 />
                 <Typography variant="body2" fontWeight={500}>
-                  OFC Surveys ({surveys.filter(s => s.surveyType === 'ofc').length})
+                  OFC Surveys (
+                  {surveys.filter((s) => s.surveyType === "ofc").length})
                 </Typography>
               </Box>
             </Box>
@@ -2572,16 +2598,22 @@ const MapViewPage = () => {
                                     fontWeight: 500,
                                     ml: 1,
                                     cursor: "pointer",
-                                    background: "linear-gradient(45deg, #667eea 30%, #764ba2 90%)",
+                                    background:
+                                      "linear-gradient(45deg, #667eea 30%, #764ba2 90%)",
                                     color: "white",
                                     "&:hover": {
-                                      background: "linear-gradient(45deg, #5a6fd8 30%, #6a4190 90%)",
+                                      background:
+                                        "linear-gradient(45deg, #5a6fd8 30%, #6a4190 90%)",
                                       transform: "translateY(-1px)",
                                       boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
                                     },
                                     transition: "all 0.2s ease",
                                   }}
-                                  onClick={() => handleLocationMarkerClick(location.location?._id)}
+                                  onClick={() =>
+                                    handleLocationMarkerClick(
+                                      location.location?._id
+                                    )
+                                  }
                                 />
                                 <Chip
                                   label="Hoto Information"
@@ -2593,7 +2625,9 @@ const MapViewPage = () => {
                                     cursor: "pointer",
                                   }}
                                   onClick={() =>
-                                    navigate(`/hoto-details/${location.location?._id}`)
+                                    navigate(
+                                      `/hoto-details/${location.location?._id}`
+                                    )
                                   }
                                 />
                               </Typography>
@@ -2901,9 +2935,21 @@ const MapViewPage = () => {
                     sx={{ fontWeight: 500, cursor: "pointer" }}
                   />
                 </Box>
-                <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 1 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontStyle: "italic" }}>
-                    💡 Click on blue numbered markers or "View Location Details" buttons to explore location information
+                <Box
+                  sx={{
+                    ml: "auto",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ fontStyle: "italic" }}
+                  >
+                    💡 Click on blue numbered markers or "View Location Details"
+                    buttons to explore location information
                   </Typography>
                 </Box>
               </Box>
@@ -2940,7 +2986,9 @@ const MapViewPage = () => {
                               key={`marker-${idx}-${pidx}`}
                               position={point}
                               label={`${pidx + 1}`}
-                              onClick={() => handleLocationMarkerClick(route.location._id)}
+                              onClick={() =>
+                                handleLocationMarkerClick(route.location._id)
+                              }
                               icon={{
                                 path:
                                   window.google && window.google.maps
@@ -2997,10 +3045,18 @@ const MapViewPage = () => {
                               <Marker
                                 key={`survey-${idx}-${sidx}`}
                                 position={{
-                                  lat: survey.lat || parseFloat(survey.latitude) || 0,
-                                  lng: survey.lng || parseFloat(survey.longitude) || 0,
+                                  lat:
+                                    survey.lat ||
+                                    parseFloat(survey.latitude) ||
+                                    0,
+                                  lng:
+                                    survey.lng ||
+                                    parseFloat(survey.longitude) ||
+                                    0,
                                 }}
-                                title={survey.name || survey.title || 'Survey Point'}
+                                title={
+                                  survey.name || survey.title || "Survey Point"
+                                }
                                 onClick={() =>
                                   handleSurveyMarkerClick(survey._id)
                                 }
@@ -3027,7 +3083,12 @@ const MapViewPage = () => {
                 {/* Render all survey points as individual markers */}
                 {surveys.map((survey, surveyIdx) => {
                   // Skip surveys without valid coordinates
-                  if (!survey.lat || !survey.lng || survey.lat === 0 || survey.lng === 0) {
+                  if (
+                    !survey.lat ||
+                    !survey.lng ||
+                    survey.lat === 0 ||
+                    survey.lng === 0
+                  ) {
                     return null;
                   }
 
@@ -3038,16 +3099,22 @@ const MapViewPage = () => {
                         lat: survey.lat,
                         lng: survey.lng,
                       }}
-                      title={survey.name || survey.title || 'Survey Point'}
+                      title={survey.name || survey.title || "Survey Point"}
                       onClick={() => handleSurveyMarkerClick(survey._id)}
                       icon={{
-                        path: window.google && window.google.maps
-                          ? window.google.maps.SymbolPath.CIRCLE
-                          : undefined,
+                        path:
+                          window.google && window.google.maps
+                            ? window.google.maps.SymbolPath.CIRCLE
+                            : undefined,
                         scale: 10,
-                        fillColor: survey.surveyType === 'block' ? '#3498db' : 
-                                   survey.surveyType === 'gp' ? '#e74c3c' : 
-                                   survey.surveyType === 'ofc' ? '#27ae60' : '#FFD700',
+                        fillColor:
+                          survey.surveyType === "block"
+                            ? "#3498db"
+                            : survey.surveyType === "gp"
+                            ? "#e74c3c"
+                            : survey.surveyType === "ofc"
+                            ? "#27ae60"
+                            : "#FFD700",
                         fillOpacity: 1,
                         strokeColor: "#000",
                         strokeWeight: 2,
@@ -3799,7 +3866,7 @@ const MapViewPage = () => {
           </Typography>
         </Box>
         <MenuItem
-          onClick={() => handleExportToExcel("physical")}
+          onClick={() => handlePhysicalSurveyExport()}
           sx={{ py: 1.5, px: 3 }}
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
@@ -3820,12 +3887,12 @@ const MapViewPage = () => {
 
       {/* Survey Sidebar */}
       {sidebarOpen && selectedSurvey ? (
-      <SurveySidebar
-        open={sidebarOpen}
-        survey={selectedSurvey}
-        loading={loadingSurvey}
-        onClose={handleSidebarClose}
-      />
+        <SurveySidebar
+          open={sidebarOpen}
+          survey={selectedSurvey}
+          loading={loadingSurvey}
+          onClose={handleSidebarClose}
+        />
       ) : sidebarOpen ? (
         <SurveySidebar
           open={sidebarOpen}
