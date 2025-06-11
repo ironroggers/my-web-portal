@@ -122,10 +122,14 @@ const physicalSurveyExport = (jsonData) => {
     ];
 
     // Add the worksheet to the workbook
+    const sheetName = document.name 
+      ? `S${index + 1}-${document.name}`.substring(0, 30) 
+      : `Survey-${index + 1}`;
+    
     XLSX.utils.book_append_sheet(
       workbook,
       worksheet,
-      `Survey ${index + 1} - ${document.name || "Unnamed"}`
+      sheetName
     );
   });
 
