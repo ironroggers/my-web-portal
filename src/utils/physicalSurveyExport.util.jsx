@@ -68,11 +68,18 @@ const flattenObject = (obj, prefix = "") => {
   return flattened;
 };
 
-const physicalSurveyExport = (jsonData) => {
-  // Create a new workbook
+const physicalSurveyExport = (jsonData, selectedLocations) => {
+  const selectedIds = Array.isArray(selectedLocations)
+    ? selectedLocations.map((item) => item?.location?._id).filter(Boolean)
+    : [];
+
+  const dataToExport = selectedIds.length
+    ? jsonData.filter((doc) => selectedIds.includes(doc?.locationId?._id))
+    : jsonData;
+
   const workbook = XLSX.utils.book_new();
 
-  jsonData.forEach((document, index) => {
+  dataToExport.forEach((document, index) => {
     // Create a copy of the document without the fields array
     const documentWithoutFields = { ...document };
     delete documentWithoutFields.fields;
@@ -122,15 +129,11 @@ const physicalSurveyExport = (jsonData) => {
     ];
 
     // Add the worksheet to the workbook
-    const sheetName = document.name 
-      ? `S${index + 1}-${document.name}`.substring(0, 30) 
+    const sheetName = document.name
+      ? `S${index + 1}-${document.name}`.substring(0, 30)
       : `Survey-${index + 1}`;
-    
-    XLSX.utils.book_append_sheet(
-      workbook,
-      worksheet,
-      sheetName
-    );
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
   });
 
   // Generate Excel file

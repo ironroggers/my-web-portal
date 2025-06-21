@@ -1793,7 +1793,7 @@ const MapViewPage = () => {
   };
 
   const handlePhysicalSurveyExport = () => {
-    physicalSurveyExport(surveys);
+    physicalSurveyExport(surveys, selectedLocations);
   };
 
   // Export to KML
