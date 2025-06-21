@@ -89,6 +89,7 @@ import {
 // Import the existing form components
 import AddHotoModal from "./hotoPage/components/AddHotoModal";
 import EditHotoModal from "./hotoPage/components/EditHotoModal";
+import ExportButton from "./hotoPage/components/ExportButton";
 
 const HotoDetailsPage = () => {
   const { locationId } = useParams();
@@ -583,143 +584,169 @@ const HotoDetailsPage = () => {
             borderBottom: "1px solid #dee2e6",
           }}
         >
-          <Grid container spacing={3} alignItems="center">
-            <Grid xs={12} md={6}>
-              <Box display="flex" alignItems="center" gap={2}>
-                <Avatar sx={{ bgcolor: "success.main", width: 56, height: 56 }}>
-                  <BusinessIcon fontSize="large" />
-                </Avatar>
-                <Box>
-                  <Typography
-                    variant="h6"
-                    fontWeight="bold"
-                    color="success.main"
+          <Grid
+            container
+            spacing={3}
+            alignItems="center"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <Grid
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <Grid xs={12} md={6}>
+                <Box display="flex" alignItems="center" gap={2}>
+                  <Avatar
+                    sx={{ bgcolor: "success.main", width: 56, height: 56 }}
                   >
-                    {location?.district}, {location?.block}
-                  </Typography>
-                  <Stack direction="row" spacing={1} mt={1}>
-                    <Chip
-                      icon={<PublicIcon />}
-                      label={location?.district}
-                      size="small"
-                      variant="outlined"
-                      color="primary"
-                    />
-                    <Chip
-                      icon={<BusinessIcon />}
-                      label={location?.block}
-                      size="small"
-                      variant="outlined"
-                      color="secondary"
-                    />
-                  </Stack>
-                </Box>
-              </Box>
-            </Grid>
-
-            <Grid xs={12} md={6}>
-              <Grid container spacing={2}>
-                <Grid xs={6} sm={3}>
-                  <Paper
-                    elevation={1}
-                    sx={{
-                      p: 2,
-                      textAlign: "center",
-                      bgcolor: "primary.50",
-                      border: "1px solid",
-                      borderColor: "primary.200",
-                      minHeight: "80px",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "center",
-                    }}
-                  >
+                    <BusinessIcon fontSize="large" />
+                  </Avatar>
+                  <Box>
                     <Typography
-                      variant="h5"
-                      color="primary.main"
+                      variant="h6"
                       fontWeight="bold"
-                    >
-                      {stats.blockHotos}
-                    </Typography>
-                    <Typography variant="caption">Block</Typography>
-                  </Paper>
-                </Grid>
-                <Grid xs={6} sm={3}>
-                  <Paper
-                    elevation={1}
-                    sx={{
-                      p: 2,
-                      textAlign: "center",
-                      bgcolor: "secondary.50",
-                      border: "1px solid",
-                      borderColor: "secondary.200",
-                      minHeight: "80px",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Typography
-                      variant="h5"
-                      color="secondary.main"
-                      fontWeight="bold"
-                    >
-                      {stats.gpHotos}
-                    </Typography>
-                    <Typography variant="caption">GP</Typography>
-                  </Paper>
-                </Grid>
-                <Grid xs={6} sm={3}>
-                  <Paper
-                    elevation={1}
-                    sx={{
-                      p: 2,
-                      textAlign: "center",
-                      bgcolor: "success.50",
-                      border: "1px solid",
-                      borderColor: "success.200",
-                      minHeight: "80px",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Typography
-                      variant="h5"
                       color="success.main"
-                      fontWeight="bold"
                     >
-                      {stats.ofcHotos}
+                      {location?.district}, {location?.block}
                     </Typography>
-                    <Typography variant="caption">OFC</Typography>
-                  </Paper>
-                </Grid>
-                <Grid xs={6} sm={3}>
-                  <Paper
-                    elevation={1}
-                    sx={{
-                      p: 2,
-                      textAlign: "center",
-                      bgcolor: "info.50",
-                      border: "1px solid",
-                      borderColor: "info.200",
-                      minHeight: "80px",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Typography
-                      variant="h5"
-                      color="info.main"
-                      fontWeight="bold"
+                    <Stack direction="row" spacing={1} mt={1}>
+                      <Chip
+                        icon={<PublicIcon />}
+                        label={location?.district}
+                        size="small"
+                        variant="outlined"
+                        color="primary"
+                      />
+                      <Chip
+                        icon={<BusinessIcon />}
+                        label={location?.block}
+                        size="small"
+                        variant="outlined"
+                        color="secondary"
+                      />
+                    </Stack>
+                  </Box>
+                </Box>
+              </Grid>
+
+              <Grid xs={12} md={6} ml={2}>
+                <Grid container spacing={2}>
+                  <Grid xs={6} sm={3}>
+                    <Paper
+                      elevation={1}
+                      sx={{
+                        p: 2,
+                        textAlign: "center",
+                        bgcolor: "primary.50",
+                        border: "1px solid",
+                        borderColor: "primary.200",
+                        minHeight: "80px",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "center",
+                      }}
                     >
-                      {stats.totalMedia}
-                    </Typography>
-                    <Typography variant="caption">Media</Typography>
-                  </Paper>
+                      <Typography
+                        variant="h5"
+                        color="primary.main"
+                        fontWeight="bold"
+                      >
+                        {stats.blockHotos}
+                      </Typography>
+                      <Typography variant="caption">Block</Typography>
+                    </Paper>
+                  </Grid>
+                  <Grid xs={6} sm={3}>
+                    <Paper
+                      elevation={1}
+                      sx={{
+                        p: 2,
+                        textAlign: "center",
+                        bgcolor: "secondary.50",
+                        border: "1px solid",
+                        borderColor: "secondary.200",
+                        minHeight: "80px",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Typography
+                        variant="h5"
+                        color="secondary.main"
+                        fontWeight="bold"
+                      >
+                        {stats.gpHotos}
+                      </Typography>
+                      <Typography variant="caption">GP</Typography>
+                    </Paper>
+                  </Grid>
+                  <Grid xs={6} sm={3}>
+                    <Paper
+                      elevation={1}
+                      sx={{
+                        p: 2,
+                        textAlign: "center",
+                        bgcolor: "success.50",
+                        border: "1px solid",
+                        borderColor: "success.200",
+                        minHeight: "80px",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Typography
+                        variant="h5"
+                        color="success.main"
+                        fontWeight="bold"
+                      >
+                        {stats.ofcHotos}
+                      </Typography>
+                      <Typography variant="caption">OFC</Typography>
+                    </Paper>
+                  </Grid>
+                  <Grid xs={6} sm={3}>
+                    <Paper
+                      elevation={1}
+                      sx={{
+                        p: 2,
+                        textAlign: "center",
+                        bgcolor: "info.50",
+                        border: "1px solid",
+                        borderColor: "info.200",
+                        minHeight: "80px",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Typography
+                        variant="h5"
+                        color="info.main"
+                        fontWeight="bold"
+                      >
+                        {stats.totalMedia}
+                      </Typography>
+                      <Typography variant="caption">Media</Typography>
+                    </Paper>
+                  </Grid>
                 </Grid>
               </Grid>
+            </Grid>
+            <Grid
+              xs={12}
+              md={6}
+              style={{ display: "flex", justifyContent: "flex-end" }}
+            >
+              <ExportButton hotos={hotos} />
             </Grid>
           </Grid>
         </CardContent>
@@ -989,6 +1016,7 @@ const HotoDetailsPage = () => {
                             {/* Action Buttons */}
                             <Tooltip title="Edit HOTO">
                               <IconButton
+                                component="span"
                                 size="small"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1010,6 +1038,7 @@ const HotoDetailsPage = () => {
 
                             <Tooltip title="Delete HOTO">
                               <IconButton
+                                component="span"
                                 size="small"
                                 onClick={(e) => {
                                   e.stopPropagation();
