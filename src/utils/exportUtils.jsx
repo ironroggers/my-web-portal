@@ -54,7 +54,8 @@ const createRoutePathFromPoints = (routePoints) => {
 const processDesktopRoute = (selectedLocations, setSnackbar) => {
   const routePoints = selectedLocations
     .map((loc) => loc.location.route || [])
-    .flat();
+    .flat()
+    .filter(point => !point.isTemporary && point.type !== "others");
 
   if (!selectedLocations[0].directions) {
     setSnackbar({

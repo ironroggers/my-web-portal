@@ -143,6 +143,14 @@ const MapViewPage = () => {
   const [recentlySelectedLocation, setRecentlySelectedLocation] =
     useState(null);
 
+  // Add new state variables for map click functionality
+  const [mapClickDialog, setMapClickDialog] = useState({
+    open: false,
+    coordinates: null,
+    locationData: null,
+  });
+  const [addingPoint, setAddingPoint] = useState(false);
+
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
     libraries: GOOGLE_MAPS_LIBRARIES,
@@ -319,6 +327,24 @@ const MapViewPage = () => {
     if (location?.route?.length > 0) {
       location.route.forEach((point) => {
         points.push({ lat: point.latitude, lng: point.longitude });
+      });
+    }
+    // Remove duplicates
+    const uniquePoints = points.filter(
+      (p, idx, arr) =>
+        arr.findIndex((q) => q.lat === p.lat && q.lng === p.lng) === idx
+    );
+    return uniquePoints;
+  };
+
+  // Extract points for export (excluding temporary points)
+  const getPointsForLocationExport = (location) => {
+    const points = [];
+    if (location?.route?.length > 0) {
+      location.route.forEach((point) => {
+        if (!point.isTemporary && point.type !== "others") { // Exclude temporary points and "others" type points from exports
+          points.push({ lat: point.latitude, lng: point.longitude });
+        }
       });
     }
     // Remove duplicates
@@ -1226,6 +1252,8 @@ const MapViewPage = () => {
       // API endpoint
       const apiEndpoint = `${LOCATION_URL}/api/locations/${editLocation._id}`;
 
+
+
       // Format data for API
       const formattedData = {
         status: editLocation.status,
@@ -1236,6 +1264,9 @@ const MapViewPage = () => {
           longitude: Number(point.longitude),
         })),
       };
+
+      console.log("Update Location API URL",apiEndpoint);
+      console.log("Update Location API Body",formattedData);
 
       try {
         const response = await fetch(apiEndpoint, {
@@ -1349,7 +1380,8 @@ const MapViewPage = () => {
     // Create data in the format shown in the image
     const routePoints = selectedLocations
       .map((loc) => loc.location.route || [])
-      .flat();
+      .flat()
+      .filter(point => !point.isTemporary && point.type !== "others"); // Exclude temporary points and "others" type points from exports
 
     // Format data to match the table in the image
     const excelData = [];
@@ -1864,6 +1896,194 @@ const MapViewPage = () => {
     }));
   };
 
+  // Add map click handler
+  const handleMapClick = (event) => {
+    // Only allow adding points if exactly one location is selected
+    if (selectedLocations.length !== 1) {
+      setSnackbar({
+        open: true,
+        message: "Please select exactly one location to add points to its route",
+        severity: "warning",
+      });
+      return;
+    }
+
+    const clickedCoordinates = {
+      lat: event.latLng.lat(),
+      lng: event.latLng.lng(),
+    };
+
+    setMapClickDialog({
+      open: true,
+      coordinates: clickedCoordinates,
+      locationData: selectedLocations[0].location,
+    });
+  };
+
+  const handleMapClickDialogClose = () => {
+    setMapClickDialog({
+      open: false,
+      coordinates: null,
+      locationData: null,
+    });
+  };
+
+  const handleAddPointToRoute = async () => {
+    try {
+      setAddingPoint(true);
+      
+      const { coordinates, locationData } = mapClickDialog;
+      
+      // Create new route point
+      const newPoint = {
+        place: `Added Point ${Date.now()}`, // Temporary name
+        latitude: coordinates.lat,
+        longitude: coordinates.lng,
+        type: "others",
+        isTemporary: true, // Mark as temporary for export exclusion
+      };
+
+      // Update the location's route
+      const updatedRoute = [...locationData.route, newPoint];
+
+      const apiEndpoint = `${LOCATION_URL}/api/locations/${locationData._id}`;
+      
+      const response = await fetch(apiEndpoint, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          route: updatedRoute.map((point) => ({
+            ...point,
+            latitude: Number(point.latitude),
+            longitude: Number(point.longitude),
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update location: ${response.status}`);
+      }
+
+      setSnackbar({
+        open: true,
+        message: "Point added to route successfully!",
+        severity: "success",
+      });
+
+      // Refresh locations to get updated data
+      fetchLocations();
+      
+      handleMapClickDialogClose();
+    } catch (err) {
+      console.error("Error adding point to route:", err);
+      setSnackbar({
+        open: true,
+        message: err.message || "Error adding point to route",
+        severity: "error",
+      });
+    } finally {
+      setAddingPoint(false);
+    }
+  };
+
+  const handleRemoveTemporaryPoint = async (locationId, pointIndex) => {
+    try {
+      const location = locations.find(loc => loc._id === locationId);
+      if (!location) return;
+
+      // Remove the point from route
+      const updatedRoute = location.route.filter((_, index) => index !== pointIndex);
+
+      const apiEndpoint = `${LOCATION_URL}/api/locations/${locationId}`;
+      
+      const response = await fetch(apiEndpoint, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          route: updatedRoute.map((point) => ({
+            ...point,
+            latitude: Number(point.latitude),
+            longitude: Number(point.longitude),
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update location: ${response.status}`);
+      }
+
+      setSnackbar({
+        open: true,
+        message: "Point removed from route successfully!",
+        severity: "success",
+      });
+
+      // Refresh locations to get updated data
+      fetchLocations();
+    } catch (err) {
+      console.error("Error removing point from route:", err);
+      setSnackbar({
+        open: true,
+        message: err.message || "Error removing point from route",
+        severity: "error",
+      });
+    }
+  };
+
+  // Handle removing "others" type points
+  const handleRemoveOthersPoint = async (locationId, pointIndex) => {
+    try {
+      const location = locations.find(loc => loc._id === locationId);
+      if (!location) return;
+
+      // Remove the point from route
+      const updatedRoute = location.route.filter((_, index) => index !== pointIndex);
+
+      const apiEndpoint = `${LOCATION_URL}/api/locations/${locationId}`;
+      
+      const response = await fetch(apiEndpoint, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          route: updatedRoute.map((point) => ({
+            ...point,
+            latitude: Number(point.latitude),
+            longitude: Number(point.longitude),
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update location: ${response.status}`);
+      }
+
+      setSnackbar({
+        open: true,
+        message: "Point removed from route successfully!",
+        severity: "success",
+      });
+
+      // Refresh locations to get updated data
+      fetchLocations();
+    } catch (err) {
+      console.error("Error removing point from route:", err);
+      setSnackbar({
+        open: true,
+        message: err.message || "Error removing point from route",
+        severity: "error",
+      });
+    }
+  };
+
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 6 }}>
       <Paper
@@ -2040,6 +2260,36 @@ const MapViewPage = () => {
                   sx={{ opacity: routeVisibility.physicalSurvey ? 1 : 0.5 }}
                 >
                   Survey Routes (Status 5)
+                </Typography>
+              </Box>
+              <Box sx={{ display: "flex", alignItems: "center" }}>
+                <Box
+                  sx={{
+                    width: 20,
+                    height: 20,
+                    bgcolor: "#ff9800",
+                    borderRadius: "50%",
+                    mr: 1,
+                    border: "2px solid #000",
+                  }}
+                />
+                <Typography variant="body2" fontWeight={500}>
+                  Temporary Points (Click map to add, click marker to remove)
+                </Typography>
+              </Box>
+              <Box sx={{ display: "flex", alignItems: "center" }}>
+                <Box
+                  sx={{
+                    width: 20,
+                    height: 20,
+                    bgcolor: "#ffffff",
+                    borderRadius: "50%",
+                    mr: 1,
+                    border: "2px solid #000",
+                  }}
+                />
+                <Typography variant="body2" fontWeight={500}>
+                  Others Points (Click marker to remove, excluded from exports)
                 </Typography>
               </Box>
               <Box sx={{ display: "flex", alignItems: "center" }}>
@@ -2681,8 +2931,9 @@ const MapViewPage = () => {
                     color="text.secondary"
                     sx={{ fontStyle: "italic" }}
                   >
-                    💡 Click on blue numbered markers or "View Location Details"
-                    buttons to explore location information
+                    💡 Click on blue numbered markers or "View Location Details" buttons to explore location information.
+                    <br />
+                    🗺️ Select exactly one location and click anywhere on the map to add temporary route points.
                   </Typography>
                 </Box>
               </Box>
@@ -2691,6 +2942,7 @@ const MapViewPage = () => {
                 center={mapCenter}
                 zoom={mapZoom}
                 onLoad={onMapLoad}
+                onClick={handleMapClick}
               >
                 {/* Render markers and routes for selected locations only */}
                 {(selectedLocations.length > 0
@@ -2713,26 +2965,53 @@ const MapViewPage = () => {
                           // Determine if this point corresponds to a BHQ type
                           const routePoint = route.location?.route[pidx];
                           const isBHQ = routePoint && routePoint.type === "BHQ";
+                          const isTemporary = routePoint && routePoint.isTemporary;
+                          const isOthers = routePoint && routePoint.type === "others";
 
                           return (
                             <Marker
                               key={`marker-${idx}-${pidx}`}
                               position={point}
-                              label={`${pidx + 1}`}
-                              onClick={() =>
-                                handleLocationMarkerClick(route.location._id)
-                              }
+                              label={isTemporary ? "+" : `${pidx + 1}`}
+                              onClick={() => {
+                                if (isTemporary) {
+                                  // Show confirmation dialog for removing temporary point
+                                  if (window.confirm("Remove this temporary point from the route?")) {
+                                    handleRemoveTemporaryPoint(route.location._id, pidx);
+                                  }
+                                } else if (isOthers) {
+                                  // Show confirmation dialog for removing "others" type point
+                                  if (window.confirm("Remove this point from the route?")) {
+                                    handleRemoveOthersPoint(route.location._id, pidx);
+                                  }
+                                } else {
+                                  handleLocationMarkerClick(route.location._id);
+                                }
+                              }}
                               icon={{
                                 path:
                                   window.google && window.google.maps
                                     ? window.google.maps.SymbolPath.CIRCLE
                                     : undefined,
-                                scale: isSelected ? 11 : 7,
-                                fillColor: isBHQ ? "#f44336" : routeColor, // Red color for BHQ points
+                                scale: isSelected ? (isOthers ? 8 : 11) : (isOthers ? 5 : 7), // Smaller size for "others" type points
+                                fillColor: isTemporary 
+                                  ? "#ff9800" // Orange color for temporary points
+                                  : isOthers
+                                  ? "#ffffff" // White color for "others" type points
+                                  : isBHQ 
+                                  ? "#f44336" // Red color for BHQ points
+                                  : routeColor, // Blue color for regular points
                                 fillOpacity: 1,
-                                strokeColor: isSelected ? "#000" : "#fff",
+                                strokeColor: isSelected ? "#000" : (isOthers ? "#000" : "#fff"), // Black stroke for white "others" points
                                 strokeWeight: isSelected ? 4 : 2,
                               }}
+                              title={
+                                isTemporary 
+                                  ? "Click to remove this temporary point" 
+                                  : isOthers 
+                                  ? "Click to remove this point from route"
+                                  : undefined
+                              }
                             />
                           );
                         })}
@@ -3634,6 +3913,89 @@ const MapViewPage = () => {
           onClose={handleSidebarClose}
         />
       ) : null}
+
+      {/* Map Click Dialog */}
+      <Dialog
+        open={mapClickDialog.open}
+        onClose={handleMapClickDialogClose}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{
+          sx: {
+            borderRadius: "12px",
+            overflow: "hidden",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            bgcolor: "primary.main",
+            color: "white",
+            fontSize: "1.3rem",
+            fontWeight: 600,
+            py: 2,
+          }}
+        >
+          Add Point to Route
+          <IconButton
+            aria-label="close"
+            onClick={handleMapClickDialogClose}
+            sx={{
+              position: "absolute",
+              right: 16,
+              top: 12,
+              color: "white",
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+            Do you want to add this point to the desktop survey route?
+          </Typography>
+          {mapClickDialog.coordinates && (
+            <Box sx={{ 
+              p: 2, 
+              bgcolor: "rgba(0,0,0,0.04)", 
+              borderRadius: "8px",
+              mb: 2 
+            }}>
+              <Typography variant="subtitle2" fontWeight={600}>
+                Point Coordinates:
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Latitude: {mapClickDialog.coordinates.lat.toFixed(6)}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Longitude: {mapClickDialog.coordinates.lng.toFixed(6)}
+              </Typography>
+            </Box>
+          )}
+          <Typography variant="caption" color="warning.main" sx={{ 
+            display: "block", 
+            mt: 1,
+            p: 1,
+            bgcolor: "warning.light",
+            borderRadius: "4px",
+            color: "warning.dark"
+          }}>
+            Note: This point will be added to the route but excluded from all exports (Excel and KML). 
+            It's only for visual reference and route planning.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleMapClickDialogClose}>Cancel</Button>
+          <Button
+            onClick={handleAddPointToRoute}
+            variant="contained"
+            color="primary"
+            disabled={addingPoint}
+          >
+            {addingPoint ? "Adding..." : "Add Point"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };
