@@ -874,63 +874,25 @@ const MapViewPage = () => {
       : locationRoutes.find((r) => r.points && r.points.length > 0)
           ?.points[0] || defaultCenter;
 
-  // Update handleLocationSelect to handle transitions better
-  const handleLocationSelect = (event, values) => {
-    if (!values || values.length === 0) {
+  // Update handleLocationSelect for single selection
+  const handleLocationSelect = (event, value) => {
+    if (!value) {
       setSelectedLocations([]);
       setRecentlySelectedLocation(null);
       setMapZoom(11); // Zoom out for overview
       return;
     }
 
-    // Get previous selection for comparison
-    const prevSelectedIds = selectedLocations
-      .map((loc) => loc.location?._id)
-      .filter(Boolean);
-
-    // Find the selected routes
-    const selectedRoutes = values
-      .map((value) =>
-        locationRoutes.find(
-          (r) =>
-            r.location &&
-            `${r.location.block} (${r.location.district})` === value
-        )
-      )
-      .filter(Boolean);
-
-    // Find which location was just added (if any)
-    const newSelectedIds = selectedRoutes
-      .map((loc) => loc.location?._id)
-      .filter(Boolean);
-    const addedIds = newSelectedIds.filter(
-      (id) => !prevSelectedIds.includes(id)
-    );
-
-    setSelectedLocations(selectedRoutes);
-
-    // If a new location was added, use that as the recently selected location
-    if (addedIds.length > 0) {
-      const mostRecentlyAdded = selectedRoutes.find(
-        (route) => route.location?._id === addedIds[addedIds.length - 1]
-      );
-      if (mostRecentlyAdded) {
-        setRecentlySelectedLocation(mostRecentlyAdded);
-        setMapZoom(15);
-        return;
-      }
-    }
-
-    // Otherwise use the last selected location (as before)
-    const mostRecentValue = values[values.length - 1];
-    const mostRecentRoute = locationRoutes.find(
+    // Find the selected route
+    const selectedRoute = locationRoutes.find(
       (r) =>
         r.location &&
-        `${r.location.block} (${r.location.district})` === mostRecentValue
+        `${r.location.block} (${r.location.district})` === value
     );
 
-    if (mostRecentRoute) {
-      setRecentlySelectedLocation(mostRecentRoute);
+    if (selectedRoute) {
+      setSelectedLocations([selectedRoute]);
+      setRecentlySelectedLocation(selectedRoute);
       setMapZoom(15);
     }
   };
@@ -1126,10 +1088,10 @@ const MapViewPage = () => {
 
   // Handle open/close of edit dialog
   const handleOpenEditDialog = () => {
-    if (!selectedLocations || selectedLocations.length !== 1) {
+    if (!selectedLocations || selectedLocations.length === 0) {
       setSnackbar({
         open: true,
-        message: "Please select exactly one location to edit",
+        message: "Please select a location to edit",
         severity: "warning",
       });
       return;
@@ -1898,11 +1860,11 @@ const MapViewPage = () => {
 
   // Add map click handler
   const handleMapClick = (event) => {
-    // Only allow adding points if exactly one location is selected
-    if (selectedLocations.length !== 1) {
+    // Only allow adding points if a location is selected
+    if (selectedLocations.length === 0) {
       setSnackbar({
         open: true,
-        message: "Please select exactly one location to add points to its route",
+        message: "Please select a location to add points to its route",
         severity: "warning",
       });
       return;
@@ -2132,16 +2094,17 @@ const MapViewPage = () => {
         <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mb: 4 }}>
           <Box sx={{ width: { xs: "100%", sm: "50%" } }}>
             <Autocomplete
-              multiple // Enable multiple selection
+              // Remove multiple prop for single selection
               options={locationOptions}
-              value={selectedLocations.map(
-                (loc) => `${loc.location.block} (${loc.location.district})`
-              )}
+              value={selectedLocations.length > 0 
+                ? `${selectedLocations[0].location.block} (${selectedLocations[0].location.district})`
+                : null
+              }
               onChange={handleLocationSelect}
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  label="Select Locations"
+                  label="Select Location"
                   variant="outlined"
                   fullWidth
                   InputProps={{
@@ -2178,7 +2141,6 @@ const MapViewPage = () => {
                 color="primary"
                 startIcon={<EditIcon />}
                 onClick={handleOpenEditDialog}
-                disabled={selectedLocations.length !== 1}
                 sx={{ borderRadius: "8px", fontWeight: 500, flex: 1 }}
               >
                 Edit
@@ -2188,7 +2150,6 @@ const MapViewPage = () => {
                 color="success"
                 startIcon={<FileDownloadIcon />}
                 onClick={handleExportClick}
-                disabled={selectedLocations.length !== 1}
                 sx={{ borderRadius: "8px", fontWeight: 500, flex: 1 }}
               >
                 Export
@@ -2343,421 +2304,394 @@ const MapViewPage = () => {
             </Box>
 
             {/* Info cards for selected locations */}
-            <Grid container spacing={3} sx={{ mb: 3 }}>
-              {selectedLocations.length > 0
-                ? selectedLocations.map((location, index) => (
-                    <Grid item xs={12} md={6} lg={4} key={index}>
-                      <Card
-                        sx={{
-                          boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-                          borderRadius: "12px",
-                          overflow: "hidden",
-                          border: `1px solid ${routeColor}20`,
-                        }}
-                      >
-                        <CardContent sx={{ p: 3 }}>
-                          <Box
+            <Grid container spacing={3} sx={{ mb: 5 }}>
+              {/* Always show Total for All Locations card */}
+              <Grid item xs={12} md={selectedLocations.length > 0 ? 12 : 24}>
+                <Card
+                  sx={{
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+                    borderRadius: "12px",
+                    overflow: "hidden",
+                  }}
+                >
+                  <CardContent sx={{ p: 3 }}>
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        fontWeight: "bold",
+                        color: "primary.main",
+                        mb: 2,
+                      }}
+                    >
+                      Total for All Locations
+                    </Typography>
+                    <Grid container spacing={2} sx={{ mb: 2 }}>
+                      <Grid item xs={6}>
+                        <Typography
+                          variant="subtitle2"
+                          color="text.secondary"
+                        >
+                          Total Desktop Distance:
+                        </Typography>
+                        <Typography
+                          variant="body1"
+                          color="primary"
+                          sx={{
+                            fontWeight: "bold",
+                            fontSize: "1.2rem",
+                          }}
+                        >
+                          {formatDistance(locationRoutes.reduce(
+                            (acc, route) => {
+                              if (route.routeInfo) {
+                                acc += route.routeInfo.distance || 0;
+                              }
+                              return acc;
+                            },
+                            0
+                          ))}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography
+                          variant="subtitle2"
+                          color="text.secondary"
+                        >
+                          Est. Travel Time:
+                        </Typography>
+                        <Typography
+                          variant="body1"
+                          color="primary"
+                          sx={{
+                            fontWeight: "bold",
+                            fontSize: "1.2rem",
+                          }}
+                        >
+                          {formatTime(locationRoutes.reduce(
+                            (acc, route) => {
+                              if (route.routeInfo) {
+                                acc += route.routeInfo.time || 0;
+                              }
+                              return acc;
+                            },
+                            0
+                          ))}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+
+                    {/* Calculate total physical survey distance */}
+                    {(() => {
+                      // Calculate total physical distance across all survey routes
+                      let totalPhysicalDistance = 0;
+                      let validSurveyRoutes = 0;
+
+                      surveyRoutes.forEach((route) => {
+                        // Use pre-calculated totalDistance when available
+                        if (route.totalDistance) {
+                          totalPhysicalDistance += route.totalDistance;
+                          validSurveyRoutes++;
+                        } else if (
+                          route.directions &&
+                          route.directions.routes &&
+                          route.directions.routes[0] &&
+                          route.directions.routes[0].legs
+                        ) {
+                          let routeDistance = 0;
+                          route.directions.routes[0].legs.forEach(
+                            (leg) => {
+                              routeDistance += leg.distance.value;
+                            }
+                          );
+                          totalPhysicalDistance += routeDistance;
+                          validSurveyRoutes++;
+                        }
+                      });
+
+                      const totalDesktopDistance = locationRoutes.reduce(
+                        (acc, route) => {
+                          if (route.routeInfo) {
+                            acc += route.routeInfo.distance || 0;
+                          }
+                          return acc;
+                        },
+                        0
+                      );
+
+                      if (validSurveyRoutes > 0) {
+                        // Calculate overall difference
+                        return (
+                          <Grid
+                            container
+                            spacing={2}
                             sx={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "flex-start",
                               mb: 2,
+                              mt: 1,
+                              pt: 2,
+                              borderTop: "1px dashed rgba(0,0,0,0.1)",
                             }}
                           >
-                            <Typography
-                              variant="h6"
-                              sx={{ fontWeight: "bold", color: routeColor }}
-                            >
-                              {location.location?.block} (
-                              {location.location?.district})
-                            </Typography>
-                          </Box>
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              mb: 2,
-                              p: 1.5,
-                              bgcolor: "rgba(0,0,0,0.03)",
-                              borderRadius: "8px",
-                            }}
-                          >
-                            <Typography variant="subtitle2" sx={{ mr: 1 }}>
-                              Status:{" "}
-                              {STATUS_MAPPING[location.location?.status] ||
-                                "Unknown"}
-                            </Typography>
-                            {location.location?.status === 5 && (
-                              <Chip
-                                label="Survey Route Enabled"
-                                color="warning"
-                                size="small"
-                                sx={{ fontWeight: 500 }}
-                              />
-                            )}
-                          </Box>
-                          {location.error && (
-                            <Alert
-                              severity="warning"
-                              sx={{ my: 2, borderRadius: "8px" }}
-                            >
-                              {location.error}
-                            </Alert>
-                          )}
-                          {location.routeInfo && (
-                            <>
-                              <Grid container spacing={2} sx={{ mb: 2 }}>
-                                <Grid item xs={6}>
-                                  <Typography
-                                    variant="subtitle2"
-                                    color="text.secondary"
-                                  >
-                                    Desktop Survey Distance:
-                                  </Typography>
-                                  <Typography
-                                    variant="body1"
-                                    color="primary"
-                                    sx={{
-                                      fontWeight: "bold",
-                                      fontSize: "1.2rem",
-                                    }}
-                                  >
-                                    {formatDistance(
-                                      location.routeInfo.distance
-                                    )}
-                                  </Typography>
-                                </Grid>
-                                <Grid item xs={6}>
-                                  <Typography
-                                    variant="subtitle2"
-                                    color="text.secondary"
-                                  >
-                                    Est. Survey Time:
-                                  </Typography>
-                                  <Typography
-                                    variant="body1"
-                                    color="primary"
-                                    sx={{
-                                      fontWeight: "bold",
-                                      fontSize: "1.2rem",
-                                    }}
-                                  >
-                                    {formatTime(location.routeInfo.time)}
-                                  </Typography>
-                                </Grid>
-                              </Grid>
-
-                              {/* Add Physical Survey Distance and Difference */}
-                              {location.location &&
-                                location.location.status === 5 &&
-                                (() => {
-                                  // Find survey route for this location
-                                  const surveyRoute = surveyRoutes.find(
-                                    (route) =>
-                                      route.locationId === location.location._id
-                                  );
-
-                                  if (surveyRoute) {
-                                    // Get physical survey distance from the pre-calculated totalDistance when available
-                                    let physicalDistance = 0;
-
-                                    if (surveyRoute.totalDistance) {
-                                      // Use the pre-calculated totalDistance
-                                      physicalDistance =
-                                        surveyRoute.totalDistance;
-                                    } else if (
-                                      surveyRoute.directions &&
-                                      surveyRoute.directions.routes &&
-                                      surveyRoute.directions.routes[0] &&
-                                      surveyRoute.directions.routes[0].legs
-                                    ) {
-                                      // Fallback to calculating again if needed
-                                      surveyRoute.directions.routes[0].legs.forEach(
-                                        (leg) => {
-                                          physicalDistance +=
-                                            leg.distance.value;
-                                        }
-                                      );
-                                    }
-
-                                    // Only proceed if we have a valid physical distance
-                                    if (physicalDistance > 0) {
-                                      // Calculate difference
-                                      const difference =
-                                        physicalDistance -
-                                        location.routeInfo.distance;
-                                      const percentDiff = (
-                                        (difference /
-                                          location.routeInfo.distance) *
-                                        100
-                                      ).toFixed(1);
-
-                                      return (
-                                        <Grid
-                                          container
-                                          spacing={2}
-                                          sx={{
-                                            mb: 2,
-                                            mt: 0.5,
-                                            pt: 2,
-                                            borderTop:
-                                              "1px dashed rgba(0,0,0,0.1)",
-                                          }}
-                                        >
-                                          <Grid item xs={6}>
-                                            <Typography
-                                              variant="subtitle2"
-                                              color="text.secondary"
-                                            >
-                                              Physical Survey Distance:
-                                            </Typography>
-                                            <Typography
-                                              variant="body1"
-                                              color="warning.dark"
-                                              sx={{
-                                                fontWeight: "bold",
-                                                fontSize: "1.2rem",
-                                              }}
-                                            >
-                                              {formatDistance(physicalDistance)}
-                                            </Typography>
-                                          </Grid>
-                                          <Grid item xs={6}>
-                                            <Typography
-                                              variant="subtitle2"
-                                              color="text.secondary"
-                                            >
-                                              Difference:
-                                            </Typography>
-                                            <Typography
-                                              variant="body1"
-                                              color={
-                                                difference > 0
-                                                  ? "error.main"
-                                                  : "success.main"
-                                              }
-                                              sx={{
-                                                fontWeight: "bold",
-                                                fontSize: "1.2rem",
-                                              }}
-                                            >
-                                              {formatDistance(
-                                                Math.abs(difference)
-                                              )}{" "}
-                                              ({difference > 0 ? "+" : "-"}
-                                              {Math.abs(percentDiff)}%)
-                                            </Typography>
-                                            <Typography
-                                              variant="caption"
-                                              color="text.secondary"
-                                            >
-                                              {difference > 0
-                                                ? "Physical survey is longer"
-                                                : "Physical survey is shorter"}
-                                            </Typography>
-                                          </Grid>
-                                        </Grid>
-                                      );
-                                    }
-                                  }
-                                  return null;
-                                })()}
-
+                            <Grid item xs={6}>
                               <Typography
                                 variant="subtitle2"
                                 color="text.secondary"
-                                sx={{ mt: 1 }}
                               >
-                                Survey Points:{" "}
-                                {
-                                  getSurveysForLocation(location.location?._id)
-                                    .length
-                                }
-                                <Chip
-                                  label="View Location Details"
-                                  color="secondary"
-                                  size="small"
-                                  sx={{
-                                    fontWeight: 500,
-                                    ml: 1,
-                                    cursor: "pointer",
-                                    background:
-                                      "linear-gradient(45deg, #667eea 30%, #764ba2 90%)",
-                                    color: "white",
-                                    "&:hover": {
-                                      background:
-                                        "linear-gradient(45deg, #5a6fd8 30%, #6a4190 90%)",
-                                      transform: "translateY(-1px)",
-                                      boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
-                                    },
-                                    transition: "all 0.2s ease",
-                                  }}
-                                  onClick={() =>
-                                    handleLocationMarkerClick(
-                                      location.location?._id
-                                    )
-                                  }
-                                />
-                                <Chip
-                                  label="Hoto Information"
-                                  color="primary"
-                                  size="small"
-                                  sx={{
-                                    fontWeight: 500,
-                                    ml: 1,
-                                    cursor: "pointer",
-                                  }}
-                                  onClick={() =>
-                                    navigate(
-                                      `/hoto-details/${location.location?._id}`
-                                    )
-                                  }
-                                />
+                                Total Physical Distance:
                               </Typography>
-                              <Box
+                              <Typography
+                                variant="body1"
+                                color="warning.dark"
                                 sx={{
-                                  mt: 2,
-                                  display: "flex",
-                                  flexWrap: "wrap",
-                                  gap: 1,
+                                  fontWeight: "bold",
+                                  fontSize: "1.2rem",
                                 }}
                               >
-                                <Chip
-                                  label="Optimized OFC Route"
-                                  color="success"
-                                  size="small"
-                                  sx={{ fontWeight: 500 }}
-                                />
-                                <Chip
-                                  label="Complete Loop"
-                                  color="primary"
-                                  size="small"
-                                  sx={{ fontWeight: 500 }}
-                                />
-                                <Chip
-                                  label={`${location.routeInfo.legs} Segments`}
-                                  color="info"
-                                  size="small"
-                                  sx={{ fontWeight: 500 }}
-                                />
-                              </Box>
-                            </>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                  ))
-                : (() => {
-                    // Calculate total distance and time for all locations
-                    const total = locationRoutes.reduce(
-                      (acc, route) => {
-                        if (route.routeInfo) {
-                          acc.distance += route.routeInfo.distance || 0;
-                          acc.time += route.routeInfo.time || 0;
-                        }
-                        return acc;
-                      },
-                      { distance: 0, time: 0 }
-                    );
-                    return (
-                      <Grid item xs={12} md={6} lg={4}>
-                        <Card
-                          sx={{
-                            boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-                            borderRadius: "12px",
-                            overflow: "hidden",
-                          }}
-                        >
-                          <CardContent sx={{ p: 3 }}>
-                            <Typography
-                              variant="h6"
-                              sx={{
-                                fontWeight: "bold",
-                                color: "primary.main",
-                                mb: 2,
-                              }}
-                            >
-                              Total for All Locations
-                            </Typography>
-                            <Grid container spacing={2} sx={{ mb: 2 }}>
-                              <Grid item xs={6}>
-                                <Typography
-                                  variant="subtitle2"
-                                  color="text.secondary"
-                                >
-                                  Total Desktop Distance:
-                                </Typography>
-                                <Typography
-                                  variant="body1"
-                                  color="primary"
-                                  sx={{
-                                    fontWeight: "bold",
-                                    fontSize: "1.2rem",
-                                  }}
-                                >
-                                  {formatDistance(total.distance)}
-                                </Typography>
-                              </Grid>
-                              <Grid item xs={6}>
-                                <Typography
-                                  variant="subtitle2"
-                                  color="text.secondary"
-                                >
-                                  Est. Travel Time:
-                                </Typography>
-                                <Typography
-                                  variant="body1"
-                                  color="primary"
-                                  sx={{
-                                    fontWeight: "bold",
-                                    fontSize: "1.2rem",
-                                  }}
-                                >
-                                  {formatTime(total.time)}
-                                </Typography>
-                              </Grid>
+                                {formatDistance(totalPhysicalDistance)}
+                              </Typography>
                             </Grid>
+                            <Grid item xs={6}>
+                              <Typography
+                                variant="subtitle2"
+                                color="text.secondary"
+                              >
+                                Avg. Difference:
+                              </Typography>
+                              {(() => {
+                                // Only calculate if we have desktop distance
+                                if (totalDesktopDistance > 0) {
+                                  const difference =
+                                    totalPhysicalDistance - totalDesktopDistance;
+                                  const percentDiff = (
+                                    (difference / totalDesktopDistance) * 100
+                                  ).toFixed(1);
 
-                            {/* Calculate total physical survey distance */}
-                            {(() => {
-                              // Calculate total physical distance across all survey routes
-                              let totalPhysicalDistance = 0;
-                              let validSurveyRoutes = 0;
+                                  return (
+                                    <>
+                                      <Typography
+                                        variant="body1"
+                                        color={
+                                          difference > 0
+                                            ? "error.main"
+                                            : "success.main"
+                                        }
+                                        sx={{
+                                          fontWeight: "bold",
+                                          fontSize: "1.2rem",
+                                        }}
+                                      >
+                                        {difference > 0 ? "+" : "-"}
+                                        {Math.abs(percentDiff)}%
+                                      </Typography>
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                      >
+                                        {difference > 0
+                                          ? "Physical surveys are longer on average"
+                                          : "Physical surveys are shorter on average"}
+                                      </Typography>
+                                    </>
+                                  );
+                                }
+                                return (
+                                  <Typography variant="body2">
+                                    Not available
+                                  </Typography>
+                                );
+                              })()}
+                            </Grid>
+                          </Grid>
+                        );
+                      }
 
-                              surveyRoutes.forEach((route) => {
-                                // Use pre-calculated totalDistance when available
-                                if (route.totalDistance) {
-                                  totalPhysicalDistance += route.totalDistance;
-                                  validSurveyRoutes++;
+                      return null;
+                    })()}
+
+                    <Box
+                      sx={{
+                        mt: 2,
+                        p: 1.5,
+                        bgcolor: "rgba(0,0,0,0.03)",
+                        borderRadius: "8px",
+                      }}
+                    >
+                      <Typography
+                        variant="subtitle2"
+                        color="text.secondary"
+                      >
+                        Total Survey Points:{" "}
+                        <strong>{surveys.length}</strong>
+                      </Typography>
+                      <Typography
+                        variant="subtitle2"
+                        color="text.secondary"
+                      >
+                        Locations with Survey Routes:{" "}
+                        <strong>{surveyRoutes.length}</strong>
+                      </Typography>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* Show selected location card if a location is selected */}
+              {selectedLocations.length > 0 && selectedLocations.map((location, index) => (
+                <Grid item xs={12} md={6} key={index}>
+                  <Card
+                    sx={{
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+                      borderRadius: "12px",
+                      overflow: "hidden",
+                      border: `1px solid ${routeColor}20`,
+                    }}
+                  >
+                    <CardContent sx={{ p: 3 }}>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "flex-start",
+                          mb: 2,
+                        }}
+                      >
+                        <Typography
+                          variant="h6"
+                          sx={{ fontWeight: "bold", color: routeColor }}
+                        >
+                          {location.location?.block} (
+                          {location.location?.district})
+                        </Typography>
+                      </Box>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          mb: 2,
+                          p: 1.5,
+                          bgcolor: "rgba(0,0,0,0.03)",
+                          borderRadius: "8px",
+                        }}
+                      >
+                        <Typography variant="subtitle2" sx={{ mr: 1 }}>
+                          Status:{" "}
+                          {STATUS_MAPPING[location.location?.status] ||
+                            "Unknown"}
+                        </Typography>
+                        {location.location?.status === 5 && (
+                          <Chip
+                            label="Survey Route Enabled"
+                            color="warning"
+                            size="small"
+                            sx={{ fontWeight: 500 }}
+                          />
+                        )}
+                      </Box>
+                      {location.error && (
+                        <Alert
+                          severity="warning"
+                          sx={{ my: 2, borderRadius: "8px" }}
+                        >
+                          {location.error}
+                        </Alert>
+                      )}
+                      {location.routeInfo && (
+                        <>
+                          <Grid container spacing={2} sx={{ mb: 2 }}>
+                            <Grid item xs={6}>
+                              <Typography
+                                variant="subtitle2"
+                                color="text.secondary"
+                              >
+                                Desktop Survey Distance:
+                              </Typography>
+                              <Typography
+                                variant="body1"
+                                color="primary"
+                                sx={{
+                                  fontWeight: "bold",
+                                  fontSize: "1.2rem",
+                                }}
+                              >
+                                {formatDistance(
+                                  location.routeInfo.distance
+                                )}
+                              </Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography
+                                variant="subtitle2"
+                                color="text.secondary"
+                              >
+                                Est. Survey Time:
+                              </Typography>
+                              <Typography
+                                variant="body1"
+                                color="primary"
+                                sx={{
+                                  fontWeight: "bold",
+                                  fontSize: "1.2rem",
+                                }}
+                              >
+                                {formatTime(location.routeInfo.time)}
+                              </Typography>
+                            </Grid>
+                          </Grid>
+
+                          {/* Add Physical Survey Distance and Difference */}
+                          {location.location &&
+                            location.location.status === 5 &&
+                            (() => {
+                              // Find survey route for this location
+                              const surveyRoute = surveyRoutes.find(
+                                (route) =>
+                                  route.locationId === location.location._id
+                              );
+
+                              if (surveyRoute) {
+                                // Get physical survey distance from the pre-calculated totalDistance when available
+                                let physicalDistance = 0;
+
+                                if (surveyRoute.totalDistance) {
+                                  // Use the pre-calculated totalDistance
+                                  physicalDistance =
+                                    surveyRoute.totalDistance;
                                 } else if (
-                                  route.directions &&
-                                  route.directions.routes &&
-                                  route.directions.routes[0] &&
-                                  route.directions.routes[0].legs
+                                  surveyRoute.directions &&
+                                  surveyRoute.directions.routes &&
+                                  surveyRoute.directions.routes[0] &&
+                                  surveyRoute.directions.routes[0].legs
                                 ) {
-                                  let routeDistance = 0;
-                                  route.directions.routes[0].legs.forEach(
+                                  // Fallback to calculating again if needed
+                                  surveyRoute.directions.routes[0].legs.forEach(
                                     (leg) => {
-                                      routeDistance += leg.distance.value;
+                                      physicalDistance +=
+                                        leg.distance.value;
                                     }
                                   );
-                                  totalPhysicalDistance += routeDistance;
-                                  validSurveyRoutes++;
                                 }
-                              });
 
-                              if (validSurveyRoutes > 0) {
-                                // Calculate overall difference
-                                const physicalSurveyTotal =
-                                  surveyRoutes.length > 0 ? (
+                                // Only proceed if we have a valid physical distance
+                                if (physicalDistance > 0) {
+                                  // Calculate difference
+                                  const difference =
+                                    physicalDistance -
+                                    location.routeInfo.distance;
+                                  const percentDiff = (
+                                    (difference /
+                                      location.routeInfo.distance) *
+                                    100
+                                  ).toFixed(1);
+
+                                  return (
                                     <Grid
                                       container
                                       spacing={2}
                                       sx={{
                                         mb: 2,
-                                        mt: 1,
+                                        mt: 0.5,
                                         pt: 2,
-                                        borderTop: "1px dashed rgba(0,0,0,0.1)",
+                                        borderTop:
+                                          "1px dashed rgba(0,0,0,0.1)",
                                       }}
                                     >
                                       <Grid item xs={6}>
@@ -2765,7 +2699,7 @@ const MapViewPage = () => {
                                           variant="subtitle2"
                                           color="text.secondary"
                                         >
-                                          Total Physical Distance:
+                                          Physical Survey Distance:
                                         </Typography>
                                         <Typography
                                           variant="body1"
@@ -2775,9 +2709,7 @@ const MapViewPage = () => {
                                             fontSize: "1.2rem",
                                           }}
                                         >
-                                          {formatDistance(
-                                            totalPhysicalDistance
-                                          )}
+                                          {formatDistance(physicalDistance)}
                                         </Typography>
                                       </Grid>
                                       <Grid item xs={6}>
@@ -2785,91 +2717,99 @@ const MapViewPage = () => {
                                           variant="subtitle2"
                                           color="text.secondary"
                                         >
-                                          Avg. Difference:
+                                          Difference:
                                         </Typography>
-                                        {(() => {
-                                          // Only calculate if we have desktop distance
-                                          if (total.distance > 0) {
-                                            const difference =
-                                              totalPhysicalDistance -
-                                              total.distance;
-                                            const percentDiff = (
-                                              (difference / total.distance) *
-                                              100
-                                            ).toFixed(1);
-
-                                            return (
-                                              <>
-                                                <Typography
-                                                  variant="body1"
-                                                  color={
-                                                    difference > 0
-                                                      ? "error.main"
-                                                      : "success.main"
-                                                  }
-                                                  sx={{
-                                                    fontWeight: "bold",
-                                                    fontSize: "1.2rem",
-                                                  }}
-                                                >
-                                                  {difference > 0 ? "+" : "-"}
-                                                  {Math.abs(percentDiff)}%
-                                                </Typography>
-                                                <Typography
-                                                  variant="caption"
-                                                  color="text.secondary"
-                                                >
-                                                  {difference > 0
-                                                    ? "Physical surveys are longer on average"
-                                                    : "Physical surveys are shorter on average"}
-                                                </Typography>
-                                              </>
-                                            );
+                                        <Typography
+                                          variant="body1"
+                                          color={
+                                            difference > 0
+                                              ? "error.main"
+                                              : "success.main"
                                           }
-                                          return (
-                                            <Typography variant="body2">
-                                              Not available
-                                            </Typography>
-                                          );
-                                        })()}
+                                          sx={{
+                                            fontWeight: "bold",
+                                            fontSize: "1.2rem",
+                                          }}
+                                        >
+                                          {formatDistance(
+                                            Math.abs(difference)
+                                          )}{" "}
+                                          ({difference > 0 ? "+" : "-"}
+                                          {Math.abs(percentDiff)}%)
+                                        </Typography>
+                                        <Typography
+                                          variant="caption"
+                                          color="text.secondary"
+                                        >
+                                          {difference > 0
+                                            ? "Physical survey is longer"
+                                            : "Physical survey is shorter"}
+                                        </Typography>
                                       </Grid>
                                     </Grid>
-                                  ) : null;
-
-                                return physicalSurveyTotal;
+                                  );
+                                }
                               }
-
                               return null;
                             })()}
 
-                            <Box
+                          <Typography
+                            variant="subtitle2"
+                            color="text.secondary"
+                            sx={{ mt: 1 }}
+                          >
+                            Survey Points:{" "}
+                            {
+                              getSurveysForLocation(location.location?._id)
+                                .length
+                            }
+                            <Chip
+                              label="View Location Details"
+                              color="secondary"
+                              size="small"
                               sx={{
-                                mt: 2,
-                                p: 1.5,
-                                bgcolor: "rgba(0,0,0,0.03)",
-                                borderRadius: "8px",
+                                fontWeight: 500,
+                                ml: 1,
+                                cursor: "pointer",
+                                background:
+                                  "linear-gradient(45deg, #667eea 30%, #764ba2 90%)",
+                                color: "white",
+                                "&:hover": {
+                                  background:
+                                    "linear-gradient(45deg, #5a6fd8 30%, #6a4190 90%)",
+                                  transform: "translateY(-1px)",
+                                  boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
+                                },
+                                transition: "all 0.2s ease",
                               }}
-                            >
-                              <Typography
-                                variant="subtitle2"
-                                color="text.secondary"
-                              >
-                                Total Survey Points:{" "}
-                                <strong>{surveys.length}</strong>
-                              </Typography>
-                              <Typography
-                                variant="subtitle2"
-                                color="text.secondary"
-                              >
-                                Locations with Survey Routes:{" "}
-                                <strong>{surveyRoutes.length}</strong>
-                              </Typography>
-                            </Box>
-                          </CardContent>
-                        </Card>
-                      </Grid>
-                    );
-                  })()}
+                              onClick={() =>
+                                handleLocationMarkerClick(
+                                  location.location?._id
+                                )
+                              }
+                            />
+                            <Chip
+                              label="Hoto Information"
+                              color="primary"
+                              size="small"
+                              sx={{
+                                fontWeight: 500,
+                                ml: 1,
+                                cursor: "pointer",
+                              }}
+                              onClick={() =>
+                                navigate(
+                                  `/hoto-details/${location.location?._id}`
+                                )
+                              }
+                            />
+                          </Typography>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
             </Grid>
 
             {/* Single map for all locations */}
