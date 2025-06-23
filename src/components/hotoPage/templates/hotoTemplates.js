@@ -9,7 +9,6 @@ export const HOTO_TEMPLATES = {
         sequence: 1,
         key: "Asset Type",
         value: "",
-        confirmation: false,
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -18,7 +17,6 @@ export const HOTO_TEMPLATES = {
         sequence: 2,
         key: "Item Description",
         value: "",
-        confirmation: false,
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -27,7 +25,6 @@ export const HOTO_TEMPLATES = {
         sequence: 3,
         key: "Asset make",
         value: "",
-        confirmation: false,
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -36,7 +33,6 @@ export const HOTO_TEMPLATES = {
         sequence: 4,
         key: "Asset Model",
         value: "",
-        confirmation: false,
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -45,7 +41,7 @@ export const HOTO_TEMPLATES = {
         sequence: 5,
         key: "Serial Number",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -54,7 +50,7 @@ export const HOTO_TEMPLATES = {
         sequence: 6,
         key: "MAC Address",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -63,7 +59,7 @@ export const HOTO_TEMPLATES = {
         sequence: 7,
         key: "IP Address",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -72,7 +68,7 @@ export const HOTO_TEMPLATES = {
         sequence: 8,
         key: "Subnet",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -81,7 +77,7 @@ export const HOTO_TEMPLATES = {
         sequence: 9,
         key: "Firm ware",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -90,7 +86,7 @@ export const HOTO_TEMPLATES = {
         sequence: 10,
         key: "No of PON Ports",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -99,7 +95,7 @@ export const HOTO_TEMPLATES = {
         sequence: 11,
         key: "Uplink Ports",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -108,7 +104,7 @@ export const HOTO_TEMPLATES = {
         sequence: 12,
         key: "Power Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -117,7 +113,7 @@ export const HOTO_TEMPLATES = {
         sequence: 13,
         key: "No Of WAN Ports",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -126,7 +122,7 @@ export const HOTO_TEMPLATES = {
         sequence: 14,
         key: "No Of LANPorts",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -135,7 +131,7 @@ export const HOTO_TEMPLATES = {
         sequence: 15,
         key: "Switch Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -144,7 +140,7 @@ export const HOTO_TEMPLATES = {
         sequence: 16,
         key: "No Of Ports",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -153,7 +149,7 @@ export const HOTO_TEMPLATES = {
         sequence: 17,
         key: "VLAN Support",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "dropdown"
@@ -162,7 +158,7 @@ export const HOTO_TEMPLATES = {
         sequence: 18,
         key: "PoE Support",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "dropdown"
@@ -171,7 +167,7 @@ export const HOTO_TEMPLATES = {
         sequence: 19,
         key: "ONT Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -180,7 +176,7 @@ export const HOTO_TEMPLATES = {
         sequence: 20,
         key: "No of Ethernet Ports",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -189,7 +185,7 @@ export const HOTO_TEMPLATES = {
         sequence: 21,
         key: "WiFi Capability",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "dropdown"
@@ -198,7 +194,7 @@ export const HOTO_TEMPLATES = {
         sequence: 22,
         key: "Rack Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -207,7 +203,7 @@ export const HOTO_TEMPLATES = {
         sequence: 23,
         key: "SizeU",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -216,7 +212,7 @@ export const HOTO_TEMPLATES = {
         sequence: 24,
         key: "Manufacture",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -225,7 +221,7 @@ export const HOTO_TEMPLATES = {
         sequence: 25,
         key: "Power Source",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -234,7 +230,7 @@ export const HOTO_TEMPLATES = {
         sequence: 26,
         key: "Battery Backup",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -243,7 +239,7 @@ export const HOTO_TEMPLATES = {
         sequence: 27,
         key: "Cooling System",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -252,7 +248,7 @@ export const HOTO_TEMPLATES = {
         sequence: 28,
         key: "Capacity kVA",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -261,7 +257,7 @@ export const HOTO_TEMPLATES = {
         sequence: 29,
         key: "Input Voltage",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -270,7 +266,7 @@ export const HOTO_TEMPLATES = {
         sequence: 30,
         key: "Output Voltage",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -279,7 +275,7 @@ export const HOTO_TEMPLATES = {
         sequence: 31,
         key: "Capacity Ah",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -288,7 +284,7 @@ export const HOTO_TEMPLATES = {
         sequence: 32,
         key: "Voltage",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -297,7 +293,7 @@ export const HOTO_TEMPLATES = {
         sequence: 33,
         key: "Battery Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -306,7 +302,7 @@ export const HOTO_TEMPLATES = {
         sequence: 34,
         key: "Fuel Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -315,7 +311,7 @@ export const HOTO_TEMPLATES = {
         sequence: 35,
         key: "Power Rating W",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -324,7 +320,7 @@ export const HOTO_TEMPLATES = {
         sequence: 36,
         key: "Surge Protection",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "dropdown"
@@ -333,7 +329,7 @@ export const HOTO_TEMPLATES = {
         sequence: 37,
         key: "Panel Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -342,7 +338,7 @@ export const HOTO_TEMPLATES = {
         sequence: 38,
         key: "Battery Integration",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "dropdown"
@@ -351,7 +347,7 @@ export const HOTO_TEMPLATES = {
         sequence: 39,
         key: "Capacity FiberPortsSplices",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -360,7 +356,7 @@ export const HOTO_TEMPLATES = {
         sequence: 40,
         key: "No Of Input Output Ports",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -369,7 +365,7 @@ export const HOTO_TEMPLATES = {
         sequence: 41,
         key: "FDMS Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -378,7 +374,7 @@ export const HOTO_TEMPLATES = {
         sequence: 42,
         key: "Rack Mount",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "dropdown"
@@ -387,7 +383,7 @@ export const HOTO_TEMPLATES = {
         sequence: 43,
         key: "Enclosure Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -396,7 +392,7 @@ export const HOTO_TEMPLATES = {
         sequence: 44,
         key: "Ingress Protection",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -405,7 +401,7 @@ export const HOTO_TEMPLATES = {
         sequence: 45,
         key: "No Of Adapter Panels",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -414,7 +410,7 @@ export const HOTO_TEMPLATES = {
         sequence: 46,
         key: "No Of Splice Trays",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -423,7 +419,7 @@ export const HOTO_TEMPLATES = {
         sequence: 47,
         key: "Cable Entry Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -432,7 +428,7 @@ export const HOTO_TEMPLATES = {
         sequence: 48,
         key: "Patch Cord Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -441,7 +437,7 @@ export const HOTO_TEMPLATES = {
         sequence: 49,
         key: "No Of Patch Cords Installed",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -450,7 +446,7 @@ export const HOTO_TEMPLATES = {
         sequence: 50,
         key: "Fiber Core Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -459,7 +455,7 @@ export const HOTO_TEMPLATES = {
         sequence: 51,
         key: "Connector Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -468,7 +464,7 @@ export const HOTO_TEMPLATES = {
         sequence: 52,
         key: "Fiber Termination Method",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -477,7 +473,7 @@ export const HOTO_TEMPLATES = {
         sequence: 53,
         key: "Remarks",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -493,7 +489,7 @@ export const HOTO_TEMPLATES = {
         sequence: 1,
         key: "Optical Power in dB",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "media"
@@ -502,7 +498,7 @@ export const HOTO_TEMPLATES = {
         sequence: 2,
         key: "Ring Code",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -511,7 +507,7 @@ export const HOTO_TEMPLATES = {
         sequence: 3,
         key: "Route Code",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -520,7 +516,7 @@ export const HOTO_TEMPLATES = {
         sequence: 4,
         key: "LGD Code",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -529,7 +525,7 @@ export const HOTO_TEMPLATES = {
         sequence: 5,
         key: "Contact Person",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -538,7 +534,7 @@ export const HOTO_TEMPLATES = {
         sequence: 6,
         key: "Email",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "email"
@@ -547,7 +543,7 @@ export const HOTO_TEMPLATES = {
         sequence: 7,
         key: "Mobile",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "phone"
@@ -556,7 +552,7 @@ export const HOTO_TEMPLATES = {
         sequence: 8,
         key: "ONTs Installed",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "dropdown"
@@ -565,7 +561,7 @@ export const HOTO_TEMPLATES = {
         sequence: 9,
         key: "litup Yes No",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "dropdown"
@@ -574,7 +570,7 @@ export const HOTO_TEMPLATES = {
         sequence: 10,
         key: "Phase 1 or 2",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "dropdown"
@@ -583,7 +579,7 @@ export const HOTO_TEMPLATES = {
         sequence: 11,
         key: "OTDR status",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "dropdown"
@@ -592,7 +588,7 @@ export const HOTO_TEMPLATES = {
         sequence: 12,
         key: "OTDR status date",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "date"
@@ -601,7 +597,7 @@ export const HOTO_TEMPLATES = {
         sequence: 13,
         key: "Ring topology",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "dropdown"
@@ -610,7 +606,7 @@ export const HOTO_TEMPLATES = {
         sequence: 14,
         key: "LPSM status",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "media"
@@ -619,7 +615,7 @@ export const HOTO_TEMPLATES = {
         sequence: 15,
         key: "Fiber core 12 24 48 96",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "dropdown"
@@ -628,7 +624,7 @@ export const HOTO_TEMPLATES = {
         sequence: 16,
         key: "op received GP date",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "media"
@@ -637,7 +633,7 @@ export const HOTO_TEMPLATES = {
         sequence: 17,
         key: "op transmitted from block dB",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "media"
@@ -646,7 +642,7 @@ export const HOTO_TEMPLATES = {
         sequence: 18,
         key: "op transmitted from block date",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "media"
@@ -655,7 +651,7 @@ export const HOTO_TEMPLATES = {
         sequence: 19,
         key: "splice loss dB",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "media"
@@ -664,7 +660,7 @@ export const HOTO_TEMPLATES = {
         sequence: 20,
         key: "remarks",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -673,7 +669,7 @@ export const HOTO_TEMPLATES = {
         sequence: 21,
         key: "Asset make",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -682,7 +678,7 @@ export const HOTO_TEMPLATES = {
         sequence: 22,
         key: "Asset Model",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -691,7 +687,7 @@ export const HOTO_TEMPLATES = {
         sequence: 23,
         key: "Serial Number",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -700,7 +696,7 @@ export const HOTO_TEMPLATES = {
         sequence: 24,
         key: "MAC Address",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -709,7 +705,7 @@ export const HOTO_TEMPLATES = {
         sequence: 25,
         key: "IP Address",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -718,7 +714,7 @@ export const HOTO_TEMPLATES = {
         sequence: 26,
         key: "Subnet",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -727,7 +723,7 @@ export const HOTO_TEMPLATES = {
         sequence: 27,
         key: "Firm ware",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -736,7 +732,7 @@ export const HOTO_TEMPLATES = {
         sequence: 28,
         key: "No of PON Ports",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -745,7 +741,7 @@ export const HOTO_TEMPLATES = {
         sequence: 29,
         key: "Uplink Ports",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -754,7 +750,7 @@ export const HOTO_TEMPLATES = {
         sequence: 30,
         key: "Power Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -763,7 +759,7 @@ export const HOTO_TEMPLATES = {
         sequence: 31,
         key: "No Of WAN Ports",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -772,7 +768,7 @@ export const HOTO_TEMPLATES = {
         sequence: 32,
         key: "No Of LANPorts",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -781,7 +777,7 @@ export const HOTO_TEMPLATES = {
         sequence: 33,
         key: "Switch Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -790,7 +786,7 @@ export const HOTO_TEMPLATES = {
         sequence: 34,
         key: "No Of Ports",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -799,7 +795,7 @@ export const HOTO_TEMPLATES = {
         sequence: 35,
         key: "VLAN Support",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "dropdown"
@@ -808,7 +804,7 @@ export const HOTO_TEMPLATES = {
         sequence: 36,
         key: "PoE Support",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "dropdown"
@@ -817,7 +813,7 @@ export const HOTO_TEMPLATES = {
         sequence: 37,
         key: "ONT Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -826,7 +822,7 @@ export const HOTO_TEMPLATES = {
         sequence: 38,
         key: "No of Ethernet Ports",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -835,7 +831,7 @@ export const HOTO_TEMPLATES = {
         sequence: 39,
         key: "WiFi Capability",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "dropdown"
@@ -844,7 +840,7 @@ export const HOTO_TEMPLATES = {
         sequence: 40,
         key: "Rack Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -853,7 +849,7 @@ export const HOTO_TEMPLATES = {
         sequence: 41,
         key: "SizeU",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -862,7 +858,7 @@ export const HOTO_TEMPLATES = {
         sequence: 42,
         key: "Manufacture",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -871,7 +867,7 @@ export const HOTO_TEMPLATES = {
         sequence: 43,
         key: "Power Source",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -880,7 +876,7 @@ export const HOTO_TEMPLATES = {
         sequence: 44,
         key: "Battery Backup",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -889,7 +885,7 @@ export const HOTO_TEMPLATES = {
         sequence: 45,
         key: "Cooling System",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -898,7 +894,7 @@ export const HOTO_TEMPLATES = {
         sequence: 46,
         key: "Capacity kVA",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -907,7 +903,7 @@ export const HOTO_TEMPLATES = {
         sequence: 47,
         key: "Input Voltage",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -916,7 +912,7 @@ export const HOTO_TEMPLATES = {
         sequence: 48,
         key: "Output Voltage",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -925,7 +921,7 @@ export const HOTO_TEMPLATES = {
         sequence: 49,
         key: "Capacity Ah",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -934,7 +930,7 @@ export const HOTO_TEMPLATES = {
         sequence: 50,
         key: "Voltage",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -943,7 +939,7 @@ export const HOTO_TEMPLATES = {
         sequence: 51,
         key: "Battery Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -952,7 +948,7 @@ export const HOTO_TEMPLATES = {
         sequence: 52,
         key: "Fuel Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -961,7 +957,7 @@ export const HOTO_TEMPLATES = {
         sequence: 53,
         key: "Power Rating W",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -970,7 +966,7 @@ export const HOTO_TEMPLATES = {
         sequence: 54,
         key: "Surge Protection",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "dropdown"
@@ -979,7 +975,7 @@ export const HOTO_TEMPLATES = {
         sequence: 55,
         key: "Panel Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -988,7 +984,7 @@ export const HOTO_TEMPLATES = {
         sequence: 56,
         key: "Battery Integration",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "dropdown"
@@ -997,7 +993,7 @@ export const HOTO_TEMPLATES = {
         sequence: 57,
         key: "Capacity FiberPortsSplices",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -1006,7 +1002,7 @@ export const HOTO_TEMPLATES = {
         sequence: 58,
         key: "No Of Input Output Ports",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -1015,7 +1011,7 @@ export const HOTO_TEMPLATES = {
         sequence: 59,
         key: "FDMS Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -1024,7 +1020,7 @@ export const HOTO_TEMPLATES = {
         sequence: 60,
         key: "Rack Mount",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "dropdown"
@@ -1033,7 +1029,7 @@ export const HOTO_TEMPLATES = {
         sequence: 61,
         key: "Enclosure Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -1042,7 +1038,7 @@ export const HOTO_TEMPLATES = {
         sequence: 62,
         key: "Ingress Protection",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -1051,7 +1047,7 @@ export const HOTO_TEMPLATES = {
         sequence: 63,
         key: "No Of Adapter Panels",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -1060,7 +1056,7 @@ export const HOTO_TEMPLATES = {
         sequence: 64,
         key: "No Of Splice Trays",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -1069,7 +1065,7 @@ export const HOTO_TEMPLATES = {
         sequence: 65,
         key: "Cable Entry Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -1078,7 +1074,7 @@ export const HOTO_TEMPLATES = {
         sequence: 66,
         key: "Patch Cord Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -1087,7 +1083,7 @@ export const HOTO_TEMPLATES = {
         sequence: 67,
         key: "No Of Patch Cords Installed",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -1096,7 +1092,7 @@ export const HOTO_TEMPLATES = {
         sequence: 68,
         key: "Fiber Core Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -1105,7 +1101,7 @@ export const HOTO_TEMPLATES = {
         sequence: 69,
         key: "Connector Type",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -1114,7 +1110,7 @@ export const HOTO_TEMPLATES = {
         sequence: 70,
         key: "Fiber Termination Method",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -1123,7 +1119,7 @@ export const HOTO_TEMPLATES = {
         sequence: 71,
         key: "Remarks",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -1139,7 +1135,7 @@ export const HOTO_TEMPLATES = {
         sequence: 1,
         key: "FPOI",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "text"
@@ -1148,7 +1144,7 @@ export const HOTO_TEMPLATES = {
         sequence: 2,
         key: "FPOI Closure Available",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "dropdown"
@@ -1157,7 +1153,7 @@ export const HOTO_TEMPLATES = {
         sequence: 3,
         key: "FPOI Photo",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "media"
@@ -1166,7 +1162,7 @@ export const HOTO_TEMPLATES = {
         sequence: 4,
         key: "OTDR Length FPOI to GP Mtr",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -1175,7 +1171,7 @@ export const HOTO_TEMPLATES = {
         sequence: 5,
         key: "OTDR Trace FPOI to GP",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "media"
@@ -1184,7 +1180,7 @@ export const HOTO_TEMPLATES = {
         sequence: 6,
         key: "No of Overhead Section Segment",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -1193,7 +1189,7 @@ export const HOTO_TEMPLATES = {
         sequence: 7,
         key: "Overhead Section Stretch Mtr",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -1202,7 +1198,7 @@ export const HOTO_TEMPLATES = {
         sequence: 8,
         key: "Overhead Details From",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "media"
@@ -1211,7 +1207,7 @@ export const HOTO_TEMPLATES = {
         sequence: 9,
         key: "Overhead Details To",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "media"
@@ -1220,7 +1216,7 @@ export const HOTO_TEMPLATES = {
         sequence: 10,
         key: "L14 Diagram",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "media"
@@ -1229,7 +1225,7 @@ export const HOTO_TEMPLATES = {
         sequence: 11,
         key: "ROW Details Documents",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "media"
@@ -1238,7 +1234,7 @@ export const HOTO_TEMPLATES = {
         sequence: 12,
         key: "No of Joints Section",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -1247,7 +1243,7 @@ export const HOTO_TEMPLATES = {
         sequence: 13,
         key: "Chamber Count",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "number"
@@ -1256,7 +1252,7 @@ export const HOTO_TEMPLATES = {
         sequence: 14,
         key: "Chamber Coordinates Photos",
         value: "",
-        confirmation: false,
+        
         remarks: "",
         status: 1,
         fieldType: "media"

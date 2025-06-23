@@ -276,7 +276,7 @@ const LocationDetailsPage = () => {
   };
 
   const formatCoordinate = (coordinate) => {
-    if (coordinate === null || coordinate === undefined) return 'N/A';
+    if (coordinate === null || coordinate === undefined || coordinate === '') return 'N/A';
     const num = typeof coordinate === 'string' ? parseFloat(coordinate) : coordinate;
     return isNaN(num) ? 'N/A' : num.toFixed(6);
   };
@@ -763,7 +763,7 @@ const LocationDetailsPage = () => {
                                                   <Box position="relative">
                                                     <video
                                                       width="100%"
-                                                      height="60"
+                                                      height="120"
                                                       style={{ 
                                                         objectFit: 'cover', 
                                                         borderRadius: 4,
@@ -782,11 +782,26 @@ const LocationDetailsPage = () => {
                                                         transform: 'translate(-50%, -50%)',
                                                         bgcolor: 'rgba(0,0,0,0.6)',
                                                         borderRadius: '50%',
-                                                        p: 0.5
+                                                        p: 1
                                                       }}
                                                     >
-                                                      <VideoIcon sx={{ color: 'white', fontSize: 16 }} />
+                                                      <VideoIcon sx={{ color: 'white', fontSize: 20 }} />
                                                     </Box>
+                                                    {(media.latitude && media.longitude) && (
+                                                      <Chip
+                                                        icon={<GPSIcon />}
+                                                        label="GPS"
+                                                        size="small"
+                                                        color="success"
+                                                        sx={{
+                                                          position: 'absolute',
+                                                          top: 4,
+                                                          right: 4,
+                                                          height: 20,
+                                                          fontSize: '0.7rem'
+                                                        }}
+                                                      />
+                                                    )}
                                                   </Box>
                                                 ) : (
                                                   <Box 
@@ -879,8 +894,8 @@ const LocationDetailsPage = () => {
           {selectedMedia && (
             <Grid container spacing={3}>
               {/* Media Preview */}
-              <Grid xs={12} md={6}>
-                <Paper elevation={2} sx={{ p: 2, textAlign: 'center' }}>
+              <Grid xs={12} md={8}>
+                <Paper elevation={2} sx={{ p: 2 }}>
                   {selectedMedia.url && (selectedMedia.fileType === 'IMAGE' || selectedMedia.fileType === 'image') ? (
                     <CardMedia
                       component="img"
@@ -888,7 +903,7 @@ const LocationDetailsPage = () => {
                       alt={selectedMedia.description || 'Media'}
                       sx={{ 
                         width: '100%',
-                        maxHeight: 400,
+                        maxHeight: 500,
                         objectFit: 'contain',
                         borderRadius: 2,
                         mb: 2
@@ -897,176 +912,220 @@ const LocationDetailsPage = () => {
                   ) : selectedMedia.url && (selectedMedia.fileType === 'VIDEO' || selectedMedia.fileType === 'video' || 
                           selectedMedia.fileType === 'mp4' || selectedMedia.fileType === 'avi' || selectedMedia.fileType === 'mov') ? (
                     <Box sx={{ mb: 2 }}>
-                      <video
-                        controls
-                        style={{
-                          width: '100%',
-                          maxHeight: 400,
-                          borderRadius: 8,
-                          backgroundColor: '#f5f5f5'
-                        }}
-                      >
-                        <source src={selectedMedia.url} type={`video/${selectedMedia.fileType?.toLowerCase()}`} />
-                        Your browser does not support the video tag.
-                      </video>
+                      <Box position="relative" sx={{ mb: 2 }}>
+                        <video
+                          controls
+                          style={{
+                            width: '100%',
+                            height: '400px',
+                            borderRadius: 8,
+                            backgroundColor: '#f5f5f5'
+                          }}
+                        >
+                          <source src={selectedMedia.url} type={`video/${selectedMedia.fileType?.toLowerCase()}`} />
+                          Your browser does not support the video tag.
+                        </video>
+                        {/* GPS Overlay on Video */}
+                        {(selectedMedia.latitude && selectedMedia.longitude) && (
+                          <Box
+                            sx={{
+                              position: 'absolute',
+                              top: 12,
+                              right: 12,
+                              bgcolor: 'rgba(0,0,0,0.8)',
+                              borderRadius: 2,
+                              px: 2,
+                              py: 1,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1
+                            }}
+                          >
+                            <GPSIcon sx={{ color: '#4caf50', fontSize: 18 }} />
+                            <Typography variant="body2" sx={{ color: 'white', fontWeight: 'bold' }}>
+                              {formatCoordinate(selectedMedia.latitude)}, {formatCoordinate(selectedMedia.longitude)}
+                            </Typography>
+                          </Box>
+                        )}
+                      </Box>
+                      
+                      {/* Video Description */}
+                      <Typography variant="body1" sx={{ mb: 1, color: 'text.primary' }}>
+                        {selectedMedia.description || `video captured on ${formatDate(selectedMedia.timestamp || selectedMedia.createdOn || selectedMedia.created_on)}`}
+                      </Typography>
+                      
+                      {/* File Type Info */}
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        {selectedMedia.fileType?.toUpperCase() || 'VIDEO'} • {selectedMedia.deviceInfo || 'N/A'}
+                      </Typography>
+                      
+                      {/* Action Buttons */}
+                      <Stack direction="row" spacing={2}>
+                        {selectedMedia.url && (
+                          <Button
+                            startIcon={<OpenInNewIcon />}
+                            onClick={() => window.open(selectedMedia.url, '_blank')}
+                            variant="outlined"
+                            sx={{ px: 3 }}
+                          >
+                            Open
+                          </Button>
+                        )}
+                        {(selectedMedia.latitude && selectedMedia.longitude) && (
+                          <Button
+                            startIcon={<LocationOnIcon />}
+                            variant="contained"
+                            color="success"
+                            onClick={() => {
+                              const lat = selectedMedia.latitude;
+                              const lng = selectedMedia.longitude;
+                              if (lat && lng) {
+                                window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
+                              }
+                            }}
+                            sx={{ px: 3 }}
+                          >
+                            Maps
+                          </Button>
+                        )}
+                      </Stack>
                     </Box>
                   ) : (
-                    <Box 
-                      sx={{ 
-                        height: 200, 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        bgcolor: 'grey.100',
-                        borderRadius: 2,
-                        mb: 2
-                      }}
-                    >
-                      {getMediaIcon(selectedMedia.fileType)}
-                      <Typography variant="h6" sx={{ ml: 1 }}>
-                        {selectedMedia.fileType || 'File'}
+                    <Box>
+                      <Box 
+                        sx={{ 
+                          height: 300, 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          bgcolor: 'grey.100',
+                          borderRadius: 2,
+                          mb: 2
+                        }}
+                      >
+                        {getMediaIcon(selectedMedia.fileType)}
+                        <Typography variant="h6" sx={{ ml: 1 }}>
+                          {selectedMedia.fileType || 'File'}
+                        </Typography>
+                      </Box>
+                      
+                      {/* File info and actions */}
+                      <Typography variant="body1" sx={{ mb: 1 }}>
+                        {selectedMedia.description || 'No description'}
                       </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        {selectedMedia.fileType} • {formatDate(selectedMedia.createdOn || selectedMedia.created_on)}
+                      </Typography>
+                      
+                      <Stack direction="row" spacing={2}>
+                        {selectedMedia.url && (
+                          <Button
+                            startIcon={<OpenInNewIcon />}
+                            onClick={() => window.open(selectedMedia.url, '_blank')}
+                            variant="outlined"
+                          >
+                            Open
+                          </Button>
+                        )}
+                      </Stack>
                     </Box>
-                  )}
-                  
-                  {selectedMedia.url && (
-                    <Button
-                      startIcon={<OpenInNewIcon />}
-                      onClick={() => window.open(selectedMedia.url, '_blank')}
-                      variant="outlined"
-                      size="small"
-                      fullWidth
-                    >
-                      Open Original
-                    </Button>
                   )}
                 </Paper>
               </Grid>
 
-              {/* Media Information */}
-              <Grid xs={12} md={6}>
-                <Typography variant="h6" color="primary" gutterBottom>
-                  📋 File Information
-                </Typography>
-                <List dense>
-                  <ListItem sx={{ px: 0 }}>
-                    <ListItemIcon><DescriptionIcon fontSize="small" /></ListItemIcon>
-                    <ListItemText 
-                      primary="Description" 
-                      secondary={selectedMedia.description || 'No description available'} 
-                    />
-                  </ListItem>
-                  <ListItem sx={{ px: 0 }}>
-                    <ListItemIcon><FileIcon fontSize="small" /></ListItemIcon>
-                    <ListItemText 
-                      primary="File Type" 
-                      secondary={selectedMedia.fileType || 'Unknown'} 
-                    />
-                  </ListItem>
-                  <ListItem sx={{ px: 0 }}>
-                    <ListItemIcon><CalendarTodayIcon fontSize="small" /></ListItemIcon>
-                    <ListItemText 
-                      primary="Upload Date" 
-                      secondary={formatDate(selectedMedia.createdOn || selectedMedia.created_on)} 
-                    />
-                  </ListItem>
-                </List>
-
-                <Divider sx={{ my: 2 }} />
-
-                <Typography variant="h6" color="primary" gutterBottom>
-                  🌍 Geotagged Information
-                </Typography>
-                <List dense>
-                  {(selectedMedia.latitude || selectedMedia.longitude) ? (
-                    <>
-                      <ListItem sx={{ px: 0 }}>
-                        <ListItemIcon><GPSIcon fontSize="small" color="success" /></ListItemIcon>
-                        <ListItemText 
-                          primary="GPS Coordinates" 
-                          secondary={`${formatCoordinate(selectedMedia.latitude)}, ${formatCoordinate(selectedMedia.longitude)}`}
-                        />
-                      </ListItem>
+              {/* Compact Side Panel */}
+              <Grid xs={12} md={4}>
+                <Stack spacing={2}>
+                  {/* GPS Location Card */}
+                  {(selectedMedia.latitude && selectedMedia.longitude) && (
+                    <Paper 
+                      elevation={1} 
+                      sx={{ 
+                        p: 2, 
+                        bgcolor: 'white',
+                        border: '2px solid #4caf50',
+                        borderRadius: 3
+                      }}
+                    >
+                      <Box display="flex" alignItems="center" gap={1} mb={1}>
+                        <GPSIcon sx={{ color: '#4caf50', fontSize: 20 }} />
+                        <Typography variant="subtitle1" fontWeight="600" sx={{ color: '#4caf50' }}>
+                          GPS Location
+                        </Typography>
+                      </Box>
+                      <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>
+                        {formatCoordinate(selectedMedia.latitude)}, {formatCoordinate(selectedMedia.longitude)}
+                      </Typography>
                       {selectedMedia.accuracy && (
-                        <ListItem sx={{ px: 0 }}>
-                          <ListItemIcon><LocationOnIcon fontSize="small" /></ListItemIcon>
-                          <ListItemText 
-                            primary="GPS Accuracy" 
-                            secondary={`±${selectedMedia.accuracy}m`} 
-                          />
-                        </ListItem>
+                        <Typography variant="body2" color="text.secondary">
+                          Accuracy: ±{selectedMedia.accuracy}m
+                        </Typography>
                       )}
                       {selectedMedia.altitude && (
-                        <ListItem sx={{ px: 0 }}>
-                          <ListItemIcon><TerrainIcon fontSize="small" /></ListItemIcon>
-                          <ListItemText 
-                            primary="Altitude" 
-                            secondary={`${selectedMedia.altitude}m above sea level`} 
-                          />
-                        </ListItem>
+                        <Typography variant="body2" color="text.secondary">
+                          Altitude: {selectedMedia.altitude}m
+                        </Typography>
                       )}
+                    </Paper>
+                  )}
+
+                  {/* Capture Details Card */}
+                  <Paper elevation={1} sx={{ p: 2, bgcolor: 'white', borderRadius: 3 }}>
+                    <Box display="flex" alignItems="center" gap={1} mb={2}>
+                      <PhoneAndroidIcon sx={{ color: '#1976d2', fontSize: 20 }} />
+                      <Typography variant="subtitle1" fontWeight="600" color="primary">
+                        Capture Details
+                      </Typography>
+                    </Box>
+                    <Stack spacing={1.5}>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <FileIcon fontSize="small" color="action" />
+                        <Typography variant="body2">{selectedMedia.fileType?.toUpperCase() || 'Unknown'}</Typography>
+                      </Box>
                       {selectedMedia.deviceInfo && (
-                        <ListItem sx={{ px: 0 }}>
-                          <ListItemIcon><PhoneAndroidIcon fontSize="small" /></ListItemIcon>
-                          <ListItemText 
-                            primary="Device" 
-                            secondary={selectedMedia.deviceInfo} 
-                          />
-                        </ListItem>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <PhoneAndroidIcon fontSize="small" color="action" />
+                          <Typography variant="body2">{selectedMedia.deviceInfo}</Typography>
+                        </Box>
                       )}
                       {selectedMedia.timestamp && (
-                        <ListItem sx={{ px: 0 }}>
-                          <ListItemIcon><AccessTimeIcon fontSize="small" /></ListItemIcon>
-                          <ListItemText 
-                            primary="Capture Time" 
-                            secondary={formatDate(selectedMedia.timestamp)} 
-                          />
-                        </ListItem>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <AccessTimeIcon fontSize="small" color="action" />
+                          <Typography variant="body2">{formatDate(selectedMedia.timestamp)}</Typography>
+                        </Box>
                       )}
-                      
-                      {/* Google Maps Link */}
-                      <ListItem sx={{ px: 0 }}>
-                        <Button
-                          startIcon={<LocationOnIcon />}
-                          variant="contained"
-                          size="small"
-                          onClick={() => {
-                            const lat = selectedMedia.latitude;
-                            const lng = selectedMedia.longitude;
-                            if (lat && lng) {
-                              window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
-                            }
-                          }}
-                          disabled={!selectedMedia.latitude || !selectedMedia.longitude}
-                          fullWidth
-                        >
-                          View on Google Maps
-                        </Button>
-                      </ListItem>
-                    </>
-                  ) : (
-                    <ListItem sx={{ px: 0 }}>
-                      <Alert severity="info" sx={{ width: '100%' }}>
-                        No GPS coordinates available for this media file.
-                      </Alert>
-                    </ListItem>
-                  )}
-                </List>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <CalendarTodayIcon fontSize="small" color="action" />
+                        <Typography variant="body2">{formatDate(selectedMedia.createdOn || selectedMedia.created_on)}</Typography>
+                      </Box>
+                    </Stack>
+                  </Paper>
 
-                {/* Additional Metadata */}
-                {(selectedMedia.metadata || selectedMedia.exifData) && (
-                  <>
-                    <Divider sx={{ my: 2 }} />
-                    <Typography variant="h6" color="primary" gutterBottom>
-                      🔧 Additional Metadata
-                    </Typography>
-                    <Paper elevation={1} sx={{ p: 2, bgcolor: 'grey.50', maxHeight: 150, overflow: 'auto' }}>
-                      <Typography variant="body2" component="pre" sx={{ fontSize: '0.75rem' }}>
-                        {JSON.stringify(selectedMedia.metadata || selectedMedia.exifData, null, 2)}
+                  {/* Technical Data - Collapsible */}
+                  {(selectedMedia.metadata || selectedMedia.exifData) && (
+                    <Accordion sx={{ borderRadius: 3, '&:before': { display: 'none' } }}>
+                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                        <Typography variant="subtitle2">🔧 Technical Data</Typography>
+                      </AccordionSummary>
+                      <AccordionDetails>
+                        <Paper elevation={0} sx={{ p: 1, bgcolor: 'grey.100', maxHeight: 200, overflow: 'auto' }}>
+                          <Typography variant="body2" component="pre" sx={{ fontSize: '0.7rem', whiteSpace: 'pre-wrap' }}>
+                            {JSON.stringify(selectedMedia.metadata || selectedMedia.exifData, null, 2)}
+                          </Typography>
+                        </Paper>
+                      </AccordionDetails>
+                    </Accordion>
+                  )}
+
+                  {/* No GPS Alert */}
+                  {!(selectedMedia.latitude && selectedMedia.longitude) && (
+                    <Alert severity="info" sx={{ fontSize: '0.875rem' }}>
+                      <Typography variant="caption">
+                        No GPS coordinates available for this media file.
                       </Typography>
-                    </Paper>
-                  </>
-                )}
+                    </Alert>
+                  )}
+                </Stack>
               </Grid>
             </Grid>
           )}

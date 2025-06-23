@@ -21,6 +21,9 @@ import {
   CardActionArea,
   Tooltip,
   Paper,
+  DialogTitle,
+  Button,
+  Alert,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
@@ -35,6 +38,12 @@ import ZoomInIcon from "@mui/icons-material/ZoomIn";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import PublicIcon from "@mui/icons-material/Public";
 import AssignmentIcon from "@mui/icons-material/Assignment";
+import GpsFixedIcon from "@mui/icons-material/GpsFixed";
+import CameraAltIcon from "@mui/icons-material/CameraAlt";
+import FileIcon from "@mui/icons-material/FileCopy";
+import BusinessIcon from "@mui/icons-material/Business";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import "./SurveySidebar.css";
 import { useJsApiLoader } from "@react-google-maps/api";
 const GOOGLE_MAPS_API_KEY = "AIzaSyC2pds2TL5_lGUM-7Y1CFiGq8Wrn0oULr0";
@@ -66,7 +75,12 @@ const formatDateDMY = (dateString) => {
 };
 
 const formatCoordinate = (coordinate, precision = 6) => {
-  return typeof coordinate === "number" ? coordinate.toFixed(precision) : "N/A";
+  if (coordinate === null || coordinate === undefined || coordinate === '') {
+    return "N/A";
+  }
+  
+  const num = typeof coordinate === "string" ? parseFloat(coordinate) : coordinate;
+  return !isNaN(num) && typeof num === "number" ? num.toFixed(precision) : "N/A";
 };
 
 const useReverseGeocode = (latitude, longitude) => {
@@ -142,34 +156,45 @@ const CompactGeotagOverlay = ({ mediaFile }) => {
     return null;
   }
 
-  const { latitude, longitude } = mediaFile;
+  const { latitude, longitude, accuracy } = mediaFile;
   const locationName =
     mediaFile.place || useReverseGeocode(latitude, longitude);
 
   return (
-    <Box className="media-geotag-overlay" sx={{ padding: "4px 8px" }}>
+    <Box 
+      sx={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        background: 'linear-gradient(to top, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.5) 60%, transparent)',
+        color: 'white',
+        padding: '8px',
+        zIndex: 2,
+      }}
+    >
       <Typography
         variant="caption"
-        sx={{ lineHeight: 1.2, fontSize: "0.7rem", fontWeight: "500" }}
+        sx={{ lineHeight: 1.2, fontSize: "0.7rem", fontWeight: "500", display: 'block' }}
       >
-        {locationName}
+        📍 {locationName || 'Unknown Location'}
       </Typography>
       <Box
         sx={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
+          marginTop: '2px',
         }}
       >
-        <Typography variant="caption" sx={{ fontSize: "0.65rem" }}>
+        <Typography variant="caption" sx={{ fontSize: "0.65rem", fontFamily: 'monospace' }}>
           {formatCoordinate(latitude, 6)}°, {formatCoordinate(longitude, 6)}°
         </Typography>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+        {accuracy && (
           <Typography variant="caption" sx={{ fontSize: "0.65rem" }}>
-            ±{mediaFile.accuracy}m
+            ±{Math.round(parseFloat(accuracy))}m
           </Typography>
-          <PublicIcon sx={{ fontSize: "0.8rem", opacity: 0.8 }} />
-        </Box>
+        )}
       </Box>
     </Box>
   );
@@ -186,7 +211,7 @@ const MediaGeotagOverlay = ({ mediaFile }) => {
   const captureTime = mediaFile.uploaded_at;
 
   const mapEnabled = true;
-  const apiKey = "";
+  const apiKey = "AIzaSyC2pds2TL5_lGUM-7Y1CFiGq8Wrn0oULr0";
   const mapImageUrl =
     mapEnabled &&
     `https://maps.googleapis.com/maps/api/staticmap?center=${latitude},${longitude}&zoom=14&size=100x100&markers=color:red%7C${latitude},${longitude}${
@@ -194,45 +219,134 @@ const MediaGeotagOverlay = ({ mediaFile }) => {
     }`;
 
   return (
-    <Box className="media-geotag-overlay">
+    <Box 
+      sx={{
+        position: 'absolute',
+        bottom: 20,
+        left: 20,
+        right: 20,
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        borderRadius: '12px',
+        padding: '12px',
+        borderWidth: '1px',
+        borderStyle: 'solid',
+        borderColor: 'rgba(255, 255, 255, 0.2)',
+        color: 'white',
+        zIndex: 2,
+      }}
+    >
       <Box sx={{ display: "flex", alignItems: "flex-start" }}>
+        {/* Map View */}
         {mapEnabled && mapImageUrl && (
           <Box
-            className="geotag-map-thumbnail"
             sx={{
+              width: '100px',
+              height: '100px',
+              borderRadius: '8px',
+              overflow: 'hidden',
+              marginRight: '12px',
+              borderWidth: '1px',
+              borderStyle: 'solid',
+              borderColor: 'rgba(255, 255, 255, 0.3)',
               backgroundImage: `url(${mapImageUrl})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              display: { xs: "none", sm: "block" },
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              position: 'relative',
+              flexShrink: 0,
             }}
-          />
+          >
+            {/* Custom marker */}
+            <Box
+              sx={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                backgroundColor: '#F44336',
+                borderRadius: '12px',
+                width: '24px',
+                height: '24px',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                borderWidth: '2px',
+                borderStyle: 'solid',
+                borderColor: '#fff',
+              }}
+            >
+              <LocationOnIcon sx={{ fontSize: '16px', color: 'white' }} />
+            </Box>
+          </Box>
         )}
-        <Box
-          className="media-geotag-details"
-          sx={{ ml: mapEnabled && mapImageUrl ? { sm: 2 } : 0 }}
-        >
-          <Typography className="geotag-location-title">
-            {locationName}
+        
+        {/* Location Info */}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography 
+            sx={{ 
+              fontSize: '14px', 
+              fontWeight: 'bold', 
+              color: '#fff', 
+              marginBottom: '4px',
+              lineHeight: 1.2,
+            }}
+          >
+            {locationName || 'Sector 5 Bidhannagar West\nBengal 700091 India'}
           </Typography>
-          <Typography className="geotag-coordinates">
-            Long {formatCoordinate(longitude, 6)}°
+          <Typography 
+            sx={{ 
+              fontSize: '12px', 
+              fontFamily: 'monospace', 
+              color: 'rgba(255, 255, 255, 0.9)',
+              lineHeight: 1.3,
+              marginBottom: '2px',
+            }}
+          >
+            Latitude:    {formatCoordinate(latitude, 14)}
           </Typography>
-          <Typography className="geotag-coordinates">
-            Lat {formatCoordinate(latitude, 6)}°
+          <Typography 
+            sx={{ 
+              fontSize: '12px', 
+              fontFamily: 'monospace', 
+              color: 'rgba(255, 255, 255, 0.9)',
+              lineHeight: 1.3,
+              marginBottom: '2px',
+            }}
+          >
+            Longitude:  {formatCoordinate(longitude, 14)}
           </Typography>
-          <Typography className="geotag-coordinates">
-            Accuracy: ±{accuracy}m
-          </Typography>
-          <Typography className="geotag-timestamp">
+          {accuracy && (
+            <Typography 
+              sx={{ 
+                fontSize: '12px', 
+                fontFamily: 'monospace', 
+                color: 'rgba(255, 255, 255, 0.9)',
+                lineHeight: 1.3,
+                marginBottom: '2px',
+              }}
+            >
+              Accuracy:    ±{Math.round(parseFloat(accuracy))}m
+            </Typography>
+          )}
+          <Typography 
+            sx={{ 
+              fontSize: '11px', 
+              color: 'rgba(255, 255, 255, 0.8)',
+              marginTop: '4px',
+            }}
+          >
             {formatDateDMY(captureTime)}
           </Typography>
-          <Typography className="geotag-device">
-            Device: {deviceName}
-          </Typography>
+          {deviceName && (
+            <Typography 
+              sx={{ 
+                fontSize: '11px', 
+                color: 'rgba(255, 255, 255, 0.8)',
+              }}
+            >
+              Device: {deviceName}
+            </Typography>
+          )}
         </Box>
-      </Box>
-      <Box className="geotag-gps-badge">
-        <PublicIcon fontSize="small" /> GPS Map Camera
       </Box>
     </Box>
   );
@@ -959,84 +1073,280 @@ const SurveySidebar = ({ open, survey, loading, onClose }) => {
         maxWidth="lg"
         fullWidth
       >
-        <DialogContent className="media-dialog-content">
-          <IconButton
-            onClick={handleCloseMediaDialog}
-            aria-label="close"
-            className="media-dialog-close"
-          >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h6">📷 Media Details & Geotagged Information</Typography>
+          <IconButton onClick={handleCloseMediaDialog}>
             <CloseIcon />
           </IconButton>
-
+        </DialogTitle>
+        <DialogContent>
           {selectedMedia && survey && (
-            <Box
-              sx={{ display: "flex", flexDirection: "column", width: "100%" }}
-            >
-              <Box
-                sx={{
-                  width: "100%",
-                  textAlign: "center",
-                  position: "relative",
-                }}
-                className="media-fullscreen-container"
-              >
-                {selectedMedia.fileType === "IMAGE" ? (
-                  <>
-                    <img
-                      src={selectedMedia.url}
-                      alt={selectedMedia.description || "Survey image"}
-                      style={{
-                        maxWidth: "100%",
-                        maxHeight: "80vh",
-                        objectFit: "contain",
-                      }}
-                    />
-                    {selectedMedia.latitude && selectedMedia.longitude && (
-                      <MediaGeotagOverlay
-                        mediaFile={{
-                          ...selectedMedia,
-                          latitude: parseFloat(selectedMedia.latitude),
-                          longitude: parseFloat(selectedMedia.longitude),
-                        }}
-                      />
-                    )}
-                  </>
-                ) : (
-                  selectedMedia.fileType === "VIDEO" && (
-                    <>
-                      <video
-                        src={selectedMedia.url}
-                        controls
-                        autoPlay
-                        style={{ maxWidth: "100%", maxHeight: "80vh" }}
-                      />
-                      {selectedMedia.latitude && selectedMedia.longitude && (
-                        <MediaGeotagOverlay
-                          mediaFile={{
-                            ...selectedMedia,
-                            latitude: parseFloat(selectedMedia.latitude),
-                            longitude: parseFloat(selectedMedia.longitude),
+            <Grid container spacing={3}>
+              {/* Media Preview */}
+              <Grid xs={12} md={8}>
+                <Paper elevation={2} sx={{ p: 2 }}>
+                  {selectedMedia.fileType === "IMAGE" ? (
+                    <Box>
+                      <Box position="relative" sx={{ mb: 2 }}>
+                        <img
+                          src={selectedMedia.url}
+                          alt={selectedMedia.description || "Survey image"}
+                          style={{
+                            width: "100%",
+                            maxHeight: "500px",
+                            objectFit: "contain",
+                            borderRadius: 8
                           }}
                         />
-                      )}
-                    </>
-                  )
-                )}
-              </Box>
+                        {/* GPS Overlay on Image */}
+                        {(selectedMedia.latitude && selectedMedia.longitude) && (
+                          <Box
+                            sx={{
+                              position: 'absolute',
+                              top: 12,
+                              right: 12,
+                              bgcolor: 'rgba(0,0,0,0.8)',
+                              borderRadius: 2,
+                              px: 2,
+                              py: 1,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1
+                            }}
+                          >
+                            <GpsFixedIcon sx={{ color: '#4caf50', fontSize: 18 }} />
+                            <Typography variant="body2" sx={{ color: 'white', fontWeight: 'bold' }}>
+                              {formatCoordinate(selectedMedia.latitude)}, {formatCoordinate(selectedMedia.longitude)}
+                            </Typography>
+                          </Box>
+                        )}
+                      </Box>
+                      
+                      {/* Image Description */}
+                      <Typography variant="body1" sx={{ mb: 1, color: 'text.primary' }}>
+                        {selectedMedia.description || `image captured on ${formatDate(selectedMedia.uploadedAt || selectedMedia.uploaded_at)}`}
+                      </Typography>
+                      
+                      {/* File Type Info */}
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        {selectedMedia.fileType?.toUpperCase() || 'IMAGE'} • {selectedMedia.source === "field" ? `Field: ${selectedMedia.fieldKey}` : 'Survey'}
+                      </Typography>
+                      
+                      {/* Action Buttons */}
+                      <Stack direction="row" spacing={2}>
+                        {selectedMedia.url && (
+                          <Button
+                            startIcon={<OpenInNewIcon />}
+                            onClick={() => window.open(selectedMedia.url, "_blank")}
+                            variant="outlined"
+                            sx={{ px: 3 }}
+                          >
+                            Open
+                          </Button>
+                        )}
+                        {(selectedMedia.latitude && selectedMedia.longitude) && (
+                          <Button
+                            startIcon={<LocationOnIcon />}
+                            variant="contained"
+                            color="success"
+                            onClick={() => {
+                              const lat = selectedMedia.latitude;
+                              const lng = selectedMedia.longitude;
+                              if (lat && lng) {
+                                window.open(`https://www.google.com/maps?q=${lat},${lng}`, "_blank");
+                              }
+                            }}
+                            sx={{ px: 3 }}
+                          >
+                            Maps
+                          </Button>
+                        )}
+                      </Stack>
+                    </Box>
+                  ) : selectedMedia.fileType === "VIDEO" ? (
+                    <Box>
+                      <Box position="relative" sx={{ mb: 2 }}>
+                        <video
+                          src={selectedMedia.url}
+                          controls
+                          style={{ 
+                            width: "100%", 
+                            height: "400px",
+                            borderRadius: 8,
+                            backgroundColor: "#f5f5f5"
+                          }}
+                        />
+                        {/* GPS Overlay on Video */}
+                        {(selectedMedia.latitude && selectedMedia.longitude) && (
+                          <Box
+                            sx={{
+                              position: 'absolute',
+                              top: 12,
+                              right: 12,
+                              bgcolor: 'rgba(0,0,0,0.8)',
+                              borderRadius: 2,
+                              px: 2,
+                              py: 1,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1
+                            }}
+                          >
+                            <GpsFixedIcon sx={{ color: '#4caf50', fontSize: 18 }} />
+                            <Typography variant="body2" sx={{ color: 'white', fontWeight: 'bold' }}>
+                              {formatCoordinate(selectedMedia.latitude)}, {formatCoordinate(selectedMedia.longitude)}
+                            </Typography>
+                          </Box>
+                        )}
+                      </Box>
+                      
+                      {/* Video Description */}
+                      <Typography variant="body1" sx={{ mb: 1, color: 'text.primary' }}>
+                        {selectedMedia.description || `video captured on ${formatDate(selectedMedia.uploadedAt || selectedMedia.uploaded_at)}`}
+                      </Typography>
+                      
+                      {/* File Type Info */}
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        {selectedMedia.fileType?.toUpperCase() || 'VIDEO'} • {selectedMedia.source === "field" ? `Field: ${selectedMedia.fieldKey}` : 'Survey'}
+                      </Typography>
+                      
+                      {/* Action Buttons */}
+                      <Stack direction="row" spacing={2}>
+                        {selectedMedia.url && (
+                          <Button
+                            startIcon={<OpenInNewIcon />}
+                            onClick={() => window.open(selectedMedia.url, "_blank")}
+                            variant="outlined"
+                            sx={{ px: 3 }}
+                          >
+                            Open
+                          </Button>
+                        )}
+                        {(selectedMedia.latitude && selectedMedia.longitude) && (
+                          <Button
+                            startIcon={<LocationOnIcon />}
+                            variant="contained"
+                            color="success"
+                            onClick={() => {
+                              const lat = selectedMedia.latitude;
+                              const lng = selectedMedia.longitude;
+                              if (lat && lng) {
+                                window.open(`https://www.google.com/maps?q=${lat},${lng}`, "_blank");
+                              }
+                            }}
+                            sx={{ px: 3 }}
+                          >
+                            Maps
+                          </Button>
+                        )}
+                      </Stack>
+                    </Box>
+                  ) : (
+                    <Box>
+                      <Box 
+                        sx={{ 
+                          height: 300, 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          bgcolor: 'grey.100',
+                          borderRadius: 2,
+                          mb: 2
+                        }}
+                      >
+                        {getFileTypeIcon(selectedMedia.fileType)}
+                        <Typography variant="h6" sx={{ ml: 1 }}>
+                          {selectedMedia.fileType || 'File'}
+                        </Typography>
+                      </Box>
+                      
+                      {/* File info */}
+                      <Typography variant="body1" sx={{ mb: 1 }}>
+                        {selectedMedia.description || 'No description'}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        {selectedMedia.fileType} • {formatDate(selectedMedia.uploadedAt || selectedMedia.uploaded_at)}
+                      </Typography>
+                      
+                      <Stack direction="row" spacing={2}>
+                        {selectedMedia.url && (
+                          <Button
+                            startIcon={<OpenInNewIcon />}
+                            onClick={() => window.open(selectedMedia.url, "_blank")}
+                            variant="outlined"
+                          >
+                            Open
+                          </Button>
+                        )}
+                      </Stack>
+                    </Box>
+                  )}
+                </Paper>
+              </Grid>
 
-              <Box sx={{ p: 2, bgcolor: "background.paper" }}>
-                {selectedMedia.description && (
-                  <Typography variant="subtitle1">
-                    {selectedMedia.description}
-                  </Typography>
-                )}
-                {selectedMedia.source === "field" && (
-                  <Typography variant="body2" color="primary" sx={{ mt: 1 }}>
-                    From Field: {selectedMedia.fieldKey}
-                  </Typography>
-                )}
-              </Box>
-            </Box>
+              {/* Compact Side Panel */}
+              <Grid xs={12} md={4}>
+                <Stack spacing={2}>
+                  {/* GPS Location Card */}
+                  {(selectedMedia.latitude && selectedMedia.longitude) && (
+                    <Paper 
+                      elevation={1} 
+                      sx={{ 
+                        p: 2, 
+                        bgcolor: 'white',
+                        border: '2px solid #4caf50',
+                        borderRadius: 3
+                      }}
+                    >
+                      <Box display="flex" alignItems="center" gap={1} mb={1}>
+                        <GpsFixedIcon sx={{ color: '#4caf50', fontSize: 20 }} />
+                        <Typography variant="subtitle1" fontWeight="600" sx={{ color: '#4caf50' }}>
+                          GPS Location
+                        </Typography>
+                      </Box>
+                      <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>
+                        {formatCoordinate(selectedMedia.latitude)}, {formatCoordinate(selectedMedia.longitude)}
+                      </Typography>
+                    </Paper>
+                  )}
+
+                  {/* Capture Details Card */}
+                  <Paper elevation={1} sx={{ p: 2, bgcolor: 'white', borderRadius: 3 }}>
+                    <Box display="flex" alignItems="center" gap={1} mb={2}>
+                      <CameraAltIcon sx={{ color: '#1976d2', fontSize: 20 }} />
+                      <Typography variant="subtitle1" fontWeight="600" color="primary">
+                        Capture Details
+                      </Typography>
+                    </Box>
+                    <Stack spacing={1.5}>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <FileIcon fontSize="small" color="action" />
+                        <Typography variant="body2">{selectedMedia.fileType?.toUpperCase() || 'Unknown'}</Typography>
+                      </Box>
+                      {selectedMedia.source === "field" && (
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <BusinessIcon fontSize="small" color="action" />
+                          <Typography variant="body2">Field: {selectedMedia.fieldKey}</Typography>
+                        </Box>
+                      )}
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <AccessTimeIcon fontSize="small" color="action" />
+                        <Typography variant="body2">{formatDate(selectedMedia.uploadedAt || selectedMedia.uploaded_at)}</Typography>
+                      </Box>
+                    </Stack>
+                  </Paper>
+
+                  {/* No GPS Alert */}
+                  {!(selectedMedia.latitude && selectedMedia.longitude) && (
+                    <Alert severity="info" sx={{ fontSize: '0.875rem' }}>
+                      <Typography variant="caption">
+                        No GPS coordinates available for this media file.
+                      </Typography>
+                    </Alert>
+                  )}
+                </Stack>
+              </Grid>
+            </Grid>
           )}
         </DialogContent>
       </Dialog>
