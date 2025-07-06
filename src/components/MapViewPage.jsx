@@ -342,7 +342,8 @@ const MapViewPage = () => {
     const points = [];
     if (location?.route?.length > 0) {
       location.route.forEach((point) => {
-        if (!point.isTemporary && point.type !== "others") { // Exclude temporary points and "others" type points from exports
+        if (!point.isTemporary && point.type !== "others") {
+          // Exclude temporary points and "others" type points from exports
           points.push({ lat: point.latitude, lng: point.longitude });
         }
       });
@@ -886,8 +887,7 @@ const MapViewPage = () => {
     // Find the selected route
     const selectedRoute = locationRoutes.find(
       (r) =>
-        r.location &&
-        `${r.location.block} (${r.location.district})` === value
+        r.location && `${r.location.block} (${r.location.district})` === value
     );
 
     if (selectedRoute) {
@@ -1214,8 +1214,6 @@ const MapViewPage = () => {
       // API endpoint
       const apiEndpoint = `${LOCATION_URL}/api/locations/${editLocation._id}`;
 
-
-
       // Format data for API
       const formattedData = {
         status: editLocation.status,
@@ -1227,8 +1225,8 @@ const MapViewPage = () => {
         })),
       };
 
-      console.log("Update Location API URL",apiEndpoint);
-      console.log("Update Location API Body",formattedData);
+      console.log("Update Location API URL", apiEndpoint);
+      console.log("Update Location API Body", formattedData);
 
       try {
         const response = await fetch(apiEndpoint, {
@@ -1343,7 +1341,7 @@ const MapViewPage = () => {
     const routePoints = selectedLocations
       .map((loc) => loc.location.route || [])
       .flat()
-      .filter(point => !point.isTemporary && point.type !== "others"); // Exclude temporary points and "others" type points from exports
+      .filter((point) => !point.isTemporary && point.type !== "others"); // Exclude temporary points and "others" type points from exports
 
     // Format data to match the table in the image
     const excelData = [];
@@ -1893,9 +1891,9 @@ const MapViewPage = () => {
   const handleAddPointToRoute = async () => {
     try {
       setAddingPoint(true);
-      
+
       const { coordinates, locationData } = mapClickDialog;
-      
+
       // Create new route point
       const newPoint = {
         place: `Added Point ${Date.now()}`, // Temporary name
@@ -1909,7 +1907,7 @@ const MapViewPage = () => {
       const updatedRoute = [...locationData.route, newPoint];
 
       const apiEndpoint = `${LOCATION_URL}/api/locations/${locationData._id}`;
-      
+
       const response = await fetch(apiEndpoint, {
         method: "PUT",
         headers: {
@@ -1937,7 +1935,7 @@ const MapViewPage = () => {
 
       // Refresh locations to get updated data
       fetchLocations();
-      
+
       handleMapClickDialogClose();
     } catch (err) {
       console.error("Error adding point to route:", err);
@@ -1953,14 +1951,16 @@ const MapViewPage = () => {
 
   const handleRemoveTemporaryPoint = async (locationId, pointIndex) => {
     try {
-      const location = locations.find(loc => loc._id === locationId);
+      const location = locations.find((loc) => loc._id === locationId);
       if (!location) return;
 
       // Remove the point from route
-      const updatedRoute = location.route.filter((_, index) => index !== pointIndex);
+      const updatedRoute = location.route.filter(
+        (_, index) => index !== pointIndex
+      );
 
       const apiEndpoint = `${LOCATION_URL}/api/locations/${locationId}`;
-      
+
       const response = await fetch(apiEndpoint, {
         method: "PUT",
         headers: {
@@ -2001,14 +2001,16 @@ const MapViewPage = () => {
   // Handle removing "others" type points
   const handleRemoveOthersPoint = async (locationId, pointIndex) => {
     try {
-      const location = locations.find(loc => loc._id === locationId);
+      const location = locations.find((loc) => loc._id === locationId);
       if (!location) return;
 
       // Remove the point from route
-      const updatedRoute = location.route.filter((_, index) => index !== pointIndex);
+      const updatedRoute = location.route.filter(
+        (_, index) => index !== pointIndex
+      );
 
       const apiEndpoint = `${LOCATION_URL}/api/locations/${locationId}`;
-      
+
       const response = await fetch(apiEndpoint, {
         method: "PUT",
         headers: {
@@ -2096,9 +2098,10 @@ const MapViewPage = () => {
             <Autocomplete
               // Remove multiple prop for single selection
               options={locationOptions}
-              value={selectedLocations.length > 0 
-                ? `${selectedLocations[0].location.block} (${selectedLocations[0].location.district})`
-                : null
+              value={
+                selectedLocations.length > 0
+                  ? `${selectedLocations[0].location.block} (${selectedLocations[0].location.district})`
+                  : null
               }
               onChange={handleLocationSelect}
               renderInput={(params) => (
@@ -2327,10 +2330,7 @@ const MapViewPage = () => {
                     </Typography>
                     <Grid container spacing={2} sx={{ mb: 2 }}>
                       <Grid item xs={6}>
-                        <Typography
-                          variant="subtitle2"
-                          color="text.secondary"
-                        >
+                        <Typography variant="subtitle2" color="text.secondary">
                           Total Desktop Distance:
                         </Typography>
                         <Typography
@@ -2341,22 +2341,18 @@ const MapViewPage = () => {
                             fontSize: "1.2rem",
                           }}
                         >
-                          {formatDistance(locationRoutes.reduce(
-                            (acc, route) => {
+                          {formatDistance(
+                            locationRoutes.reduce((acc, route) => {
                               if (route.routeInfo) {
                                 acc += route.routeInfo.distance || 0;
                               }
                               return acc;
-                            },
-                            0
-                          ))}
+                            }, 0)
+                          )}
                         </Typography>
                       </Grid>
                       <Grid item xs={6}>
-                        <Typography
-                          variant="subtitle2"
-                          color="text.secondary"
-                        >
+                        <Typography variant="subtitle2" color="text.secondary">
                           Est. Travel Time:
                         </Typography>
                         <Typography
@@ -2367,15 +2363,14 @@ const MapViewPage = () => {
                             fontSize: "1.2rem",
                           }}
                         >
-                          {formatTime(locationRoutes.reduce(
-                            (acc, route) => {
+                          {formatTime(
+                            locationRoutes.reduce((acc, route) => {
                               if (route.routeInfo) {
                                 acc += route.routeInfo.time || 0;
                               }
                               return acc;
-                            },
-                            0
-                          ))}
+                            }, 0)
+                          )}
                         </Typography>
                       </Grid>
                     </Grid>
@@ -2398,11 +2393,9 @@ const MapViewPage = () => {
                           route.directions.routes[0].legs
                         ) {
                           let routeDistance = 0;
-                          route.directions.routes[0].legs.forEach(
-                            (leg) => {
-                              routeDistance += leg.distance.value;
-                            }
-                          );
+                          route.directions.routes[0].legs.forEach((leg) => {
+                            routeDistance += leg.distance.value;
+                          });
                           totalPhysicalDistance += routeDistance;
                           validSurveyRoutes++;
                         }
@@ -2460,9 +2453,11 @@ const MapViewPage = () => {
                                 // Only calculate if we have desktop distance
                                 if (totalDesktopDistance > 0) {
                                   const difference =
-                                    totalPhysicalDistance - totalDesktopDistance;
+                                    totalPhysicalDistance -
+                                    totalDesktopDistance;
                                   const percentDiff = (
-                                    (difference / totalDesktopDistance) * 100
+                                    (difference / totalDesktopDistance) *
+                                    100
                                   ).toFixed(1);
 
                                   return (
@@ -2515,17 +2510,10 @@ const MapViewPage = () => {
                         borderRadius: "8px",
                       }}
                     >
-                      <Typography
-                        variant="subtitle2"
-                        color="text.secondary"
-                      >
-                        Total Survey Points:{" "}
-                        <strong>{surveys.length}</strong>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Total Survey Points: <strong>{surveys.length}</strong>
                       </Typography>
-                      <Typography
-                        variant="subtitle2"
-                        color="text.secondary"
-                      >
+                      <Typography variant="subtitle2" color="text.secondary">
                         Locations with Survey Routes:{" "}
                         <strong>{surveyRoutes.length}</strong>
                       </Typography>
@@ -2535,281 +2523,279 @@ const MapViewPage = () => {
               </Grid>
 
               {/* Show selected location card if a location is selected */}
-              {selectedLocations.length > 0 && selectedLocations.map((location, index) => (
-                <Grid item xs={12} md={6} key={index}>
-                  <Card
-                    sx={{
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-                      borderRadius: "12px",
-                      overflow: "hidden",
-                      border: `1px solid ${routeColor}20`,
-                    }}
-                  >
-                    <CardContent sx={{ p: 3 }}>
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "flex-start",
-                          mb: 2,
-                        }}
-                      >
-                        <Typography
-                          variant="h6"
-                          sx={{ fontWeight: "bold", color: routeColor }}
+              {selectedLocations.length > 0 &&
+                selectedLocations.map((location, index) => (
+                  <Grid item xs={12} md={6} key={index}>
+                    <Card
+                      sx={{
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+                        borderRadius: "12px",
+                        overflow: "hidden",
+                        border: `1px solid ${routeColor}20`,
+                      }}
+                    >
+                      <CardContent sx={{ p: 3 }}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
+                            mb: 2,
+                          }}
                         >
-                          {location.location?.block} (
-                          {location.location?.district})
-                        </Typography>
-                      </Box>
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          mb: 2,
-                          p: 1.5,
-                          bgcolor: "rgba(0,0,0,0.03)",
-                          borderRadius: "8px",
-                        }}
-                      >
-                        <Typography variant="subtitle2" sx={{ mr: 1 }}>
-                          Status:{" "}
-                          {STATUS_MAPPING[location.location?.status] ||
-                            "Unknown"}
-                        </Typography>
-                        {location.location?.status === 5 && (
-                          <Chip
-                            label="Survey Route Enabled"
-                            color="warning"
-                            size="small"
-                            sx={{ fontWeight: 500 }}
-                          />
-                        )}
-                      </Box>
-                      {location.error && (
-                        <Alert
-                          severity="warning"
-                          sx={{ my: 2, borderRadius: "8px" }}
-                        >
-                          {location.error}
-                        </Alert>
-                      )}
-                      {location.routeInfo && (
-                        <>
-                          <Grid container spacing={2} sx={{ mb: 2 }}>
-                            <Grid item xs={6}>
-                              <Typography
-                                variant="subtitle2"
-                                color="text.secondary"
-                              >
-                                Desktop Survey Distance:
-                              </Typography>
-                              <Typography
-                                variant="body1"
-                                color="primary"
-                                sx={{
-                                  fontWeight: "bold",
-                                  fontSize: "1.2rem",
-                                }}
-                              >
-                                {formatDistance(
-                                  location.routeInfo.distance
-                                )}
-                              </Typography>
-                            </Grid>
-                            <Grid item xs={6}>
-                              <Typography
-                                variant="subtitle2"
-                                color="text.secondary"
-                              >
-                                Est. Survey Time:
-                              </Typography>
-                              <Typography
-                                variant="body1"
-                                color="primary"
-                                sx={{
-                                  fontWeight: "bold",
-                                  fontSize: "1.2rem",
-                                }}
-                              >
-                                {formatTime(location.routeInfo.time)}
-                              </Typography>
-                            </Grid>
-                          </Grid>
-
-                          {/* Add Physical Survey Distance and Difference */}
-                          {location.location &&
-                            location.location.status === 5 &&
-                            (() => {
-                              // Find survey route for this location
-                              const surveyRoute = surveyRoutes.find(
-                                (route) =>
-                                  route.locationId === location.location._id
-                              );
-
-                              if (surveyRoute) {
-                                // Get physical survey distance from the pre-calculated totalDistance when available
-                                let physicalDistance = 0;
-
-                                if (surveyRoute.totalDistance) {
-                                  // Use the pre-calculated totalDistance
-                                  physicalDistance =
-                                    surveyRoute.totalDistance;
-                                } else if (
-                                  surveyRoute.directions &&
-                                  surveyRoute.directions.routes &&
-                                  surveyRoute.directions.routes[0] &&
-                                  surveyRoute.directions.routes[0].legs
-                                ) {
-                                  // Fallback to calculating again if needed
-                                  surveyRoute.directions.routes[0].legs.forEach(
-                                    (leg) => {
-                                      physicalDistance +=
-                                        leg.distance.value;
-                                    }
-                                  );
-                                }
-
-                                // Only proceed if we have a valid physical distance
-                                if (physicalDistance > 0) {
-                                  // Calculate difference
-                                  const difference =
-                                    physicalDistance -
-                                    location.routeInfo.distance;
-                                  const percentDiff = (
-                                    (difference /
-                                      location.routeInfo.distance) *
-                                    100
-                                  ).toFixed(1);
-
-                                  return (
-                                    <Grid
-                                      container
-                                      spacing={2}
-                                      sx={{
-                                        mb: 2,
-                                        mt: 0.5,
-                                        pt: 2,
-                                        borderTop:
-                                          "1px dashed rgba(0,0,0,0.1)",
-                                      }}
-                                    >
-                                      <Grid item xs={6}>
-                                        <Typography
-                                          variant="subtitle2"
-                                          color="text.secondary"
-                                        >
-                                          Physical Survey Distance:
-                                        </Typography>
-                                        <Typography
-                                          variant="body1"
-                                          color="warning.dark"
-                                          sx={{
-                                            fontWeight: "bold",
-                                            fontSize: "1.2rem",
-                                          }}
-                                        >
-                                          {formatDistance(physicalDistance)}
-                                        </Typography>
-                                      </Grid>
-                                      <Grid item xs={6}>
-                                        <Typography
-                                          variant="subtitle2"
-                                          color="text.secondary"
-                                        >
-                                          Difference:
-                                        </Typography>
-                                        <Typography
-                                          variant="body1"
-                                          color={
-                                            difference > 0
-                                              ? "error.main"
-                                              : "success.main"
-                                          }
-                                          sx={{
-                                            fontWeight: "bold",
-                                            fontSize: "1.2rem",
-                                          }}
-                                        >
-                                          {formatDistance(
-                                            Math.abs(difference)
-                                          )}{" "}
-                                          ({difference > 0 ? "+" : "-"}
-                                          {Math.abs(percentDiff)}%)
-                                        </Typography>
-                                        <Typography
-                                          variant="caption"
-                                          color="text.secondary"
-                                        >
-                                          {difference > 0
-                                            ? "Physical survey is longer"
-                                            : "Physical survey is shorter"}
-                                        </Typography>
-                                      </Grid>
-                                    </Grid>
-                                  );
-                                }
-                              }
-                              return null;
-                            })()}
-
                           <Typography
-                            variant="subtitle2"
-                            color="text.secondary"
-                            sx={{ mt: 1 }}
+                            variant="h6"
+                            sx={{ fontWeight: "bold", color: routeColor }}
                           >
-                            Survey Points:{" "}
-                            {
-                              getSurveysForLocation(location.location?._id)
-                                .length
-                            }
-                            <Chip
-                              label="View Location Details"
-                              color="secondary"
-                              size="small"
-                              sx={{
-                                fontWeight: 500,
-                                ml: 1,
-                                cursor: "pointer",
-                                background:
-                                  "linear-gradient(45deg, #667eea 30%, #764ba2 90%)",
-                                color: "white",
-                                "&:hover": {
-                                  background:
-                                    "linear-gradient(45deg, #5a6fd8 30%, #6a4190 90%)",
-                                  transform: "translateY(-1px)",
-                                  boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
-                                },
-                                transition: "all 0.2s ease",
-                              }}
-                              onClick={() =>
-                                handleLocationMarkerClick(
-                                  location.location?._id
-                                )
-                              }
-                            />
-                            <Chip
-                              label="Hoto Information"
-                              color="primary"
-                              size="small"
-                              sx={{
-                                fontWeight: 500,
-                                ml: 1,
-                                cursor: "pointer",
-                              }}
-                              onClick={() =>
-                                navigate(
-                                  `/hoto-details/${location.location?._id}`
-                                )
-                              }
-                            />
+                            {location.location?.block} (
+                            {location.location?.district})
                           </Typography>
-                        </>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
+                        </Box>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            mb: 2,
+                            p: 1.5,
+                            bgcolor: "rgba(0,0,0,0.03)",
+                            borderRadius: "8px",
+                          }}
+                        >
+                          <Typography variant="subtitle2" sx={{ mr: 1 }}>
+                            Status:{" "}
+                            {STATUS_MAPPING[location.location?.status] ||
+                              "Unknown"}
+                          </Typography>
+                          {location.location?.status === 5 && (
+                            <Chip
+                              label="Survey Route Enabled"
+                              color="warning"
+                              size="small"
+                              sx={{ fontWeight: 500 }}
+                            />
+                          )}
+                        </Box>
+                        {location.error && (
+                          <Alert
+                            severity="warning"
+                            sx={{ my: 2, borderRadius: "8px" }}
+                          >
+                            {location.error}
+                          </Alert>
+                        )}
+                        {location.routeInfo && (
+                          <>
+                            <Grid container spacing={2} sx={{ mb: 2 }}>
+                              <Grid item xs={6}>
+                                <Typography
+                                  variant="subtitle2"
+                                  color="text.secondary"
+                                >
+                                  Desktop Survey Distance:
+                                </Typography>
+                                <Typography
+                                  variant="body1"
+                                  color="primary"
+                                  sx={{
+                                    fontWeight: "bold",
+                                    fontSize: "1.2rem",
+                                  }}
+                                >
+                                  {formatDistance(location.routeInfo.distance)}
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={6}>
+                                <Typography
+                                  variant="subtitle2"
+                                  color="text.secondary"
+                                >
+                                  Est. Survey Time:
+                                </Typography>
+                                <Typography
+                                  variant="body1"
+                                  color="primary"
+                                  sx={{
+                                    fontWeight: "bold",
+                                    fontSize: "1.2rem",
+                                  }}
+                                >
+                                  {formatTime(location.routeInfo.time)}
+                                </Typography>
+                              </Grid>
+                            </Grid>
+
+                            {/* Add Physical Survey Distance and Difference */}
+                            {location.location &&
+                              location.location.status === 5 &&
+                              (() => {
+                                // Find survey route for this location
+                                const surveyRoute = surveyRoutes.find(
+                                  (route) =>
+                                    route.locationId === location.location._id
+                                );
+
+                                if (surveyRoute) {
+                                  // Get physical survey distance from the pre-calculated totalDistance when available
+                                  let physicalDistance = 0;
+
+                                  if (surveyRoute.totalDistance) {
+                                    // Use the pre-calculated totalDistance
+                                    physicalDistance =
+                                      surveyRoute.totalDistance;
+                                  } else if (
+                                    surveyRoute.directions &&
+                                    surveyRoute.directions.routes &&
+                                    surveyRoute.directions.routes[0] &&
+                                    surveyRoute.directions.routes[0].legs
+                                  ) {
+                                    // Fallback to calculating again if needed
+                                    surveyRoute.directions.routes[0].legs.forEach(
+                                      (leg) => {
+                                        physicalDistance += leg.distance.value;
+                                      }
+                                    );
+                                  }
+
+                                  // Only proceed if we have a valid physical distance
+                                  if (physicalDistance > 0) {
+                                    // Calculate difference
+                                    const difference =
+                                      physicalDistance -
+                                      location.routeInfo.distance;
+                                    const percentDiff = (
+                                      (difference /
+                                        location.routeInfo.distance) *
+                                      100
+                                    ).toFixed(1);
+
+                                    return (
+                                      <Grid
+                                        container
+                                        spacing={2}
+                                        sx={{
+                                          mb: 2,
+                                          mt: 0.5,
+                                          pt: 2,
+                                          borderTop:
+                                            "1px dashed rgba(0,0,0,0.1)",
+                                        }}
+                                      >
+                                        <Grid item xs={6}>
+                                          <Typography
+                                            variant="subtitle2"
+                                            color="text.secondary"
+                                          >
+                                            Physical Survey Distance:
+                                          </Typography>
+                                          <Typography
+                                            variant="body1"
+                                            color="warning.dark"
+                                            sx={{
+                                              fontWeight: "bold",
+                                              fontSize: "1.2rem",
+                                            }}
+                                          >
+                                            {formatDistance(physicalDistance)}
+                                          </Typography>
+                                        </Grid>
+                                        <Grid item xs={6}>
+                                          <Typography
+                                            variant="subtitle2"
+                                            color="text.secondary"
+                                          >
+                                            Difference:
+                                          </Typography>
+                                          <Typography
+                                            variant="body1"
+                                            color={
+                                              difference > 0
+                                                ? "error.main"
+                                                : "success.main"
+                                            }
+                                            sx={{
+                                              fontWeight: "bold",
+                                              fontSize: "1.2rem",
+                                            }}
+                                          >
+                                            {formatDistance(
+                                              Math.abs(difference)
+                                            )}{" "}
+                                            ({difference > 0 ? "+" : "-"}
+                                            {Math.abs(percentDiff)}%)
+                                          </Typography>
+                                          <Typography
+                                            variant="caption"
+                                            color="text.secondary"
+                                          >
+                                            {difference > 0
+                                              ? "Physical survey is longer"
+                                              : "Physical survey is shorter"}
+                                          </Typography>
+                                        </Grid>
+                                      </Grid>
+                                    );
+                                  }
+                                }
+                                return null;
+                              })()}
+
+                            <Typography
+                              variant="subtitle2"
+                              color="text.secondary"
+                              sx={{ mt: 1 }}
+                            >
+                              Survey Points:{" "}
+                              {
+                                getSurveysForLocation(location.location?._id)
+                                  .length
+                              }
+                              <Chip
+                                label="View Location Details"
+                                color="secondary"
+                                size="small"
+                                sx={{
+                                  fontWeight: 500,
+                                  ml: 1,
+                                  cursor: "pointer",
+                                  background:
+                                    "linear-gradient(45deg, #667eea 30%, #764ba2 90%)",
+                                  color: "white",
+                                  "&:hover": {
+                                    background:
+                                      "linear-gradient(45deg, #5a6fd8 30%, #6a4190 90%)",
+                                    transform: "translateY(-1px)",
+                                    boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
+                                  },
+                                  transition: "all 0.2s ease",
+                                }}
+                                onClick={() =>
+                                  handleLocationMarkerClick(
+                                    location.location?._id
+                                  )
+                                }
+                              />
+                              <Chip
+                                label="Hoto Information"
+                                color="primary"
+                                size="small"
+                                sx={{
+                                  fontWeight: 500,
+                                  ml: 1,
+                                  cursor: "pointer",
+                                }}
+                                onClick={() =>
+                                  navigate(
+                                    `/hoto-details/${location.location?._id}`
+                                  )
+                                }
+                              />
+                            </Typography>
+                          </>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
             </Grid>
 
             {/* Single map for all locations */}
@@ -2871,9 +2857,11 @@ const MapViewPage = () => {
                     color="text.secondary"
                     sx={{ fontStyle: "italic" }}
                   >
-                    💡 Click on blue numbered markers or "View Location Details" buttons to explore location information.
+                    💡 Click on blue numbered markers or "View Location Details"
+                    buttons to explore location information.
                     <br />
-                    🗺️ Select exactly one location and click anywhere on the map to add temporary route points.
+                    🗺️ Select exactly one location and click anywhere on the map
+                    to add temporary route points.
                   </Typography>
                 </Box>
               </Box>
@@ -2905,8 +2893,10 @@ const MapViewPage = () => {
                           // Determine if this point corresponds to a BHQ type
                           const routePoint = route.location?.route[pidx];
                           const isBHQ = routePoint && routePoint.type === "BHQ";
-                          const isTemporary = routePoint && routePoint.isTemporary;
-                          const isOthers = routePoint && routePoint.type === "others";
+                          const isTemporary =
+                            routePoint && routePoint.isTemporary;
+                          const isOthers =
+                            routePoint && routePoint.type === "others";
 
                           return (
                             <Marker
@@ -2916,13 +2906,27 @@ const MapViewPage = () => {
                               onClick={() => {
                                 if (isTemporary) {
                                   // Show confirmation dialog for removing temporary point
-                                  if (window.confirm("Remove this temporary point from the route?")) {
-                                    handleRemoveTemporaryPoint(route.location._id, pidx);
+                                  if (
+                                    window.confirm(
+                                      "Remove this temporary point from the route?"
+                                    )
+                                  ) {
+                                    handleRemoveTemporaryPoint(
+                                      route.location._id,
+                                      pidx
+                                    );
                                   }
                                 } else if (isOthers) {
                                   // Show confirmation dialog for removing "others" type point
-                                  if (window.confirm("Remove this point from the route?")) {
-                                    handleRemoveOthersPoint(route.location._id, pidx);
+                                  if (
+                                    window.confirm(
+                                      "Remove this point from the route?"
+                                    )
+                                  ) {
+                                    handleRemoveOthersPoint(
+                                      route.location._id,
+                                      pidx
+                                    );
                                   }
                                 } else {
                                   handleLocationMarkerClick(route.location._id);
@@ -2933,22 +2937,32 @@ const MapViewPage = () => {
                                   window.google && window.google.maps
                                     ? window.google.maps.SymbolPath.CIRCLE
                                     : undefined,
-                                scale: isSelected ? (isOthers ? 8 : 11) : (isOthers ? 5 : 7), // Smaller size for "others" type points
-                                fillColor: isTemporary 
+                                scale: isSelected
+                                  ? isOthers
+                                    ? 8
+                                    : 11
+                                  : isOthers
+                                  ? 5
+                                  : 7, // Smaller size for "others" type points
+                                fillColor: isTemporary
                                   ? "#ff9800" // Orange color for temporary points
                                   : isOthers
                                   ? "#ffffff" // White color for "others" type points
-                                  : isBHQ 
+                                  : isBHQ
                                   ? "#f44336" // Red color for BHQ points
                                   : routeColor, // Blue color for regular points
                                 fillOpacity: 1,
-                                strokeColor: isSelected ? "#000" : (isOthers ? "#000" : "#fff"), // Black stroke for white "others" points
+                                strokeColor: isSelected
+                                  ? "#000"
+                                  : isOthers
+                                  ? "#000"
+                                  : "#fff", // Black stroke for white "others" points
                                 strokeWeight: isSelected ? 4 : 2,
                               }}
                               title={
-                                isTemporary 
-                                  ? "Click to remove this temporary point" 
-                                  : isOthers 
+                                isTemporary
+                                  ? "Click to remove this temporary point"
+                                  : isOthers
                                   ? "Click to remove this point from route"
                                   : undefined
                               }
@@ -3177,6 +3191,34 @@ const MapViewPage = () => {
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>
                 <TextField
+                  label="State"
+                  name="state"
+                  value={newLocation.state}
+                  onChange={handleLocationInputChange}
+                  fullWidth
+                  margin="normal"
+                  required
+                  InputProps={{
+                    sx: { borderRadius: "8px" },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label="State Code"
+                  name="state_code"
+                  value={newLocation.state_code}
+                  onChange={handleLocationInputChange}
+                  fullWidth
+                  margin="normal"
+                  required
+                  InputProps={{
+                    sx: { borderRadius: "8px" },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
                   label="District"
                   name="district"
                   value={newLocation.district}
@@ -3191,9 +3233,51 @@ const MapViewPage = () => {
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField
+                  label="District Code"
+                  name="district_code"
+                  value={newLocation.district_code}
+                  onChange={handleLocationInputChange}
+                  fullWidth
+                  margin="normal"
+                  required
+                  InputProps={{
+                    sx: { borderRadius: "8px" },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
                   label="Block"
                   name="block"
                   value={newLocation.block}
+                  onChange={handleLocationInputChange}
+                  fullWidth
+                  margin="normal"
+                  required
+                  InputProps={{
+                    sx: { borderRadius: "8px" },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label="Block Code"
+                  name="block_code"
+                  value={newLocation.block_code}
+                  onChange={handleLocationInputChange}
+                  fullWidth
+                  margin="normal"
+                  required
+                  InputProps={{
+                    sx: { borderRadius: "8px" },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label="Block Address"
+                  name="block_address"
+                  value={newLocation.block_address}
                   onChange={handleLocationInputChange}
                   fullWidth
                   margin="normal"
@@ -3461,6 +3545,28 @@ const MapViewPage = () => {
               <Grid container spacing={2}>
                 <Grid item xs={12} md={4}>
                   <TextField
+                    label="State"
+                    name="state"
+                    value={editLocation.state}
+                    onChange={handleEditLocationInputChange}
+                    fullWidth
+                    margin="normal"
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    label="State Code"
+                    name="state_code"
+                    value={editLocation.state_code}
+                    onChange={handleEditLocationInputChange}
+                    fullWidth
+                    margin="normal"
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField
                     label="District"
                     name="district"
                     value={editLocation.district}
@@ -3472,9 +3578,42 @@ const MapViewPage = () => {
                 </Grid>
                 <Grid item xs={12} md={4}>
                   <TextField
+                    label="District Code"
+                    name="district_code"
+                    value={editLocation.district_code}
+                    onChange={handleEditLocationInputChange}
+                    fullWidth
+                    margin="normal"
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField
                     label="Block"
                     name="block"
                     value={editLocation.block}
+                    onChange={handleEditLocationInputChange}
+                    fullWidth
+                    margin="normal"
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    label="Block Code"
+                    name="block_code"
+                    value={editLocation.block_code}
+                    onChange={handleEditLocationInputChange}
+                    fullWidth
+                    margin="normal"
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    label="Block Address"
+                    name="block_address"
+                    value={editLocation.block_address}
                     onChange={handleEditLocationInputChange}
                     fullWidth
                     margin="normal"
@@ -3895,12 +4034,14 @@ const MapViewPage = () => {
             Do you want to add this point to the desktop survey route?
           </Typography>
           {mapClickDialog.coordinates && (
-            <Box sx={{ 
-              p: 2, 
-              bgcolor: "rgba(0,0,0,0.04)", 
-              borderRadius: "8px",
-              mb: 2 
-            }}>
+            <Box
+              sx={{
+                p: 2,
+                bgcolor: "rgba(0,0,0,0.04)",
+                borderRadius: "8px",
+                mb: 2,
+              }}
+            >
               <Typography variant="subtitle2" fontWeight={600}>
                 Point Coordinates:
               </Typography>
@@ -3912,16 +4053,21 @@ const MapViewPage = () => {
               </Typography>
             </Box>
           )}
-          <Typography variant="caption" color="warning.main" sx={{ 
-            display: "block", 
-            mt: 1,
-            p: 1,
-            bgcolor: "warning.light",
-            borderRadius: "4px",
-            color: "warning.dark"
-          }}>
-            Note: This point will be added to the route but excluded from all exports (Excel and KML). 
-            It's only for visual reference and route planning.
+          <Typography
+            variant="caption"
+            color="warning.main"
+            sx={{
+              display: "block",
+              mt: 1,
+              p: 1,
+              bgcolor: "warning.light",
+              borderRadius: "4px",
+              color: "warning.dark",
+            }}
+          >
+            Note: This point will be added to the route but excluded from all
+            exports (Excel and KML). It's only for visual reference and route
+            planning.
           </Typography>
         </DialogContent>
         <DialogActions>
