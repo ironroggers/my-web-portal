@@ -17,7 +17,7 @@ import "./App.css";
 import Navigation from "./components/Navigation";
 import UserManagement from "./components/UserManagement";
 import AttendancePage from "./components/AttendancePage";
-import MapViewPage from "./components/MapViewPage";
+import MapViewPage from "./components/mapViewPage/MapViewPage";
 import HelpCenterPage from "./components/HelpCenterPage";
 import AboutPage from "./components/AboutPage";
 import LandingPage from "./components/LandingPage";

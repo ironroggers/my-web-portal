@@ -42,12 +42,12 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
-import SurveySidebar from "./SurveySidebar";
+import SurveySidebar from "./SurveySidebar.jsx";
 import * as XLSX from "xlsx";
-import { LOCATION_URL, SURVEY_URL } from "../API/api-keys.jsx";
-import surveyService from "../services/surveyService";
-import physicalSurveyExport from "../utils/physicalSurveyExport.util.jsx";
-import { exportToKML } from "../utils/exportUtils";
+import { LOCATION_URL, SURVEY_URL } from "../../API/api-keys.jsx";
+import surveyService from "../../services/surveyService.jsx";
+import physicalSurveyExport from "../../utils/physicalSurveyExport.util.jsx";
+import { exportToKML } from "../../utils/exportUtils.jsx";
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyC2pds2TL5_lGUM-7Y1CFiGq8Wrn0oULr0";
 
