@@ -1,0 +1,75 @@
+import React, { useState, useEffect } from "react";
+import { GoogleMap } from "@react-google-maps/api";
+import LocationRoutes from "./mapComponents/LocationRoutes";
+import SurveyMarkers from "./mapComponents/SurveyMarkers";
+import SurveyRoutes from "./mapComponents/SurveyRoutes";
+
+const MapComponent = ({
+  mapCenter,
+  mapZoom,
+  onMapLoad,
+  handleMapClick,
+  selectedLocations,
+  locationRoutes,
+  routeVisibility,
+  handleRemoveTemporaryPoint,
+  handleRemoveOthersPoint,
+  handleLocationMarkerClick,
+  getSurveysForLocation,
+  handleSurveyMarkerClick,
+  surveys,
+  surveyRoutes,
+  locations,
+  containerStyle,
+  routeColor,
+  surveyRouteColor,
+}) => {
+  const [mapRoutes, setMapRoutes] = useState([]);
+
+  useEffect(() => {
+    if (locationRoutes) {
+      setMapRoutes(
+        selectedLocations.length > 0 ? selectedLocations : locationRoutes
+      );
+    }
+  }, [locationRoutes, selectedLocations]);
+
+  return (
+    <GoogleMap
+      mapContainerStyle={containerStyle}
+      center={mapCenter}
+      zoom={mapZoom}
+      onLoad={onMapLoad}
+      onClick={handleMapClick}
+    >
+      <LocationRoutes
+        mapRoutes={mapRoutes}
+        selectedLocations={selectedLocations}
+        routeVisibility={routeVisibility}
+        routeColor={routeColor}
+        handleRemoveTemporaryPoint={handleRemoveTemporaryPoint}
+        handleRemoveOthersPoint={handleRemoveOthersPoint}
+        handleLocationMarkerClick={handleLocationMarkerClick}
+        getSurveysForLocation={getSurveysForLocation}
+        handleSurveyMarkerClick={handleSurveyMarkerClick}
+      />
+
+      <SurveyMarkers
+        surveys={surveys}
+        handleSurveyMarkerClick={handleSurveyMarkerClick}
+        isAllSurveys={true}
+      />
+
+      {routeVisibility.physicalSurvey && (
+        <SurveyRoutes
+          surveyRoutes={surveyRoutes}
+          locations={locations}
+          selectedLocations={selectedLocations}
+          surveyRouteColor={surveyRouteColor}
+        />
+      )}
+    </GoogleMap>
+  );
+};
+
+export default MapComponent;

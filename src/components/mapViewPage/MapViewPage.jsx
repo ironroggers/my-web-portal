@@ -43,6 +43,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import SurveySidebar from "./SurveySidebar.jsx";
+import MapComponent from "./MapComponent.jsx";
 import * as XLSX from "xlsx";
 import { LOCATION_URL, SURVEY_URL } from "../../API/api-keys.jsx";
 import surveyService from "../../services/surveyService.jsx";
@@ -2865,286 +2866,26 @@ const MapViewPage = () => {
                   </Typography>
                 </Box>
               </Box>
-              <GoogleMap
-                mapContainerStyle={containerStyle}
-                center={mapCenter}
-                zoom={mapZoom}
-                onLoad={onMapLoad}
-                onClick={handleMapClick}
-              >
-                {/* Render markers and routes for selected locations only */}
-                {(selectedLocations.length > 0
-                  ? selectedLocations
-                  : locationRoutes
-                ).map((route, idx) => {
-                  const isSelected = selectedLocations.some(
-                    (selected) =>
-                      selected.location &&
-                      route.location &&
-                      selected.location.block === route.location.block &&
-                      selected.location.district === route.location.district
-                  );
-
-                  // Only render if no locations are selected or if this route is selected
-                  if (selectedLocations.length === 0 || isSelected) {
-                    return (
-                      <React.Fragment key={`routefrag-${idx}`}>
-                        {route.points.map((point, pidx) => {
-                          // Determine if this point corresponds to a BHQ type
-                          const routePoint = route.location?.route[pidx];
-                          const isBHQ = routePoint && routePoint.type === "BHQ";
-                          const isTemporary =
-                            routePoint && routePoint.isTemporary;
-                          const isOthers =
-                            routePoint && routePoint.type === "others";
-
-                          return (
-                            <Marker
-                              key={`marker-${idx}-${pidx}`}
-                              position={point}
-                              label={isTemporary ? "+" : `${pidx + 1}`}
-                              onClick={() => {
-                                if (isTemporary) {
-                                  // Show confirmation dialog for removing temporary point
-                                  if (
-                                    window.confirm(
-                                      "Remove this temporary point from the route?"
-                                    )
-                                  ) {
-                                    handleRemoveTemporaryPoint(
-                                      route.location._id,
-                                      pidx
-                                    );
-                                  }
-                                } else if (isOthers) {
-                                  // Show confirmation dialog for removing "others" type point
-                                  if (
-                                    window.confirm(
-                                      "Remove this point from the route?"
-                                    )
-                                  ) {
-                                    handleRemoveOthersPoint(
-                                      route.location._id,
-                                      pidx
-                                    );
-                                  }
-                                } else {
-                                  handleLocationMarkerClick(route.location._id);
-                                }
-                              }}
-                              icon={{
-                                path:
-                                  window.google && window.google.maps
-                                    ? window.google.maps.SymbolPath.CIRCLE
-                                    : undefined,
-                                scale: isSelected
-                                  ? isOthers
-                                    ? 8
-                                    : 11
-                                  : isOthers
-                                  ? 5
-                                  : 7, // Smaller size for "others" type points
-                                fillColor: isTemporary
-                                  ? "#ff9800" // Orange color for temporary points
-                                  : isOthers
-                                  ? "#ffffff" // White color for "others" type points
-                                  : isBHQ
-                                  ? "#f44336" // Red color for BHQ points
-                                  : routeColor, // Blue color for regular points
-                                fillOpacity: 1,
-                                strokeColor: isSelected
-                                  ? "#000"
-                                  : isOthers
-                                  ? "#000"
-                                  : "#fff", // Black stroke for white "others" points
-                                strokeWeight: isSelected ? 4 : 2,
-                              }}
-                              title={
-                                isTemporary
-                                  ? "Click to remove this temporary point"
-                                  : isOthers
-                                  ? "Click to remove this point from route"
-                                  : undefined
-                              }
-                            />
-                          );
-                        })}
-                        {/* Render chunked routes if they exist */}
-                        {route.isChunked &&
-                          route.chunks &&
-                          routeVisibility.desktopSurvey &&
-                          route.chunks.map((chunk, chunkIdx) => (
-                            <DirectionsRenderer
-                              key={`chunk-${idx}-${chunkIdx}`}
-                              directions={chunk}
-                              options={{
-                                suppressMarkers: true,
-                                polylineOptions: {
-                                  strokeColor: routeColor,
-                                  strokeWeight: isSelected ? 10 : 6,
-                                  strokeOpacity: isSelected ? 1 : 0.9,
-                                },
-                              }}
-                            />
-                          ))}
-                        {/* Render single route if not chunked */}
-                        {!route.isChunked &&
-                          route.directions &&
-                          routeVisibility.desktopSurvey && (
-                            <DirectionsRenderer
-                              directions={route.directions}
-                              options={{
-                                suppressMarkers: true,
-                                polylineOptions: {
-                                  strokeColor: routeColor,
-                                  strokeWeight: isSelected ? 10 : 6,
-                                  strokeOpacity: isSelected ? 1 : 0.9,
-                                },
-                              }}
-                            />
-                          )}
-
-                        {/* Render survey points for this location */}
-                        {route.location &&
-                          getSurveysForLocation(route.location._id).map(
-                            (survey, sidx) => (
-                              <Marker
-                                key={`survey-${idx}-${sidx}`}
-                                position={{
-                                  lat:
-                                    survey.lat ||
-                                    parseFloat(survey.latitude) ||
-                                    0,
-                                  lng:
-                                    survey.lng ||
-                                    parseFloat(survey.longitude) ||
-                                    0,
-                                }}
-                                title={
-                                  survey.name || survey.title || "Survey Point"
-                                }
-                                onClick={() =>
-                                  handleSurveyMarkerClick(survey._id)
-                                }
-                                icon={{
-                                  path:
-                                    window.google && window.google.maps
-                                      ? window.google.maps.SymbolPath.CIRCLE
-                                      : undefined,
-                                  scale: 8,
-                                  fillColor: "#FFD700", // Yellow color for survey points
-                                  fillOpacity: 1,
-                                  strokeColor: "#000",
-                                  strokeWeight: 2,
-                                }}
-                              />
-                            )
-                          )}
-                      </React.Fragment>
-                    );
-                  }
-                  return null;
-                })}
-
-                {/* Render all survey points as individual markers */}
-                {surveys.map((survey, surveyIdx) => {
-                  // Skip surveys without valid coordinates
-                  if (
-                    !survey.lat ||
-                    !survey.lng ||
-                    survey.lat === 0 ||
-                    survey.lng === 0
-                  ) {
-                    return null;
-                  }
-
-                  return (
-                    <Marker
-                      key={`all-survey-${surveyIdx}`}
-                      position={{
-                        lat: survey.lat,
-                        lng: survey.lng,
-                      }}
-                      title={survey.name || survey.title || "Survey Point"}
-                      onClick={() => handleSurveyMarkerClick(survey._id)}
-                      icon={{
-                        path:
-                          window.google && window.google.maps
-                            ? window.google.maps.SymbolPath.CIRCLE
-                            : undefined,
-                        scale: 10,
-                        fillColor:
-                          survey.surveyType === "block"
-                            ? "#3498db"
-                            : survey.surveyType === "gp"
-                            ? "#e74c3c"
-                            : survey.surveyType === "ofc"
-                            ? "#27ae60"
-                            : "#FFD700",
-                        fillOpacity: 1,
-                        strokeColor: "#000",
-                        strokeWeight: 2,
-                      }}
-                    />
-                  );
-                })}
-
-                {/* Render survey routes for locations with status 5 */}
-                {routeVisibility.physicalSurvey &&
-                  surveyRoutes.map((route, idx) => {
-                    if (!route.directions) return null;
-                    const locationData = locations.find(
-                      (loc) => loc._id === route.locationId
-                    );
-
-                    // Only show survey routes for selected locations
-                    const isSelected =
-                      selectedLocations.length === 0 ||
-                      selectedLocations.some(
-                        (selected) =>
-                          selected.location._id === locationData?._id
-                      );
-
-                    if (!isSelected) return null;
-
-                    return (
-                      <React.Fragment key={`survey-route-frag-${idx}`}>
-                        {/* Render chunked survey routes if they exist */}
-                        {route.isChunked && route.chunks ? (
-                          route.chunks.map((chunk, chunkIdx) => (
-                            <DirectionsRenderer
-                              key={`survey-chunk-${idx}-${chunkIdx}`}
-                              directions={chunk}
-                              options={{
-                                suppressMarkers: true,
-                                polylineOptions: {
-                                  strokeColor: surveyRouteColor,
-                                  strokeWeight: isSelected ? 6 : 4,
-                                  strokeOpacity: 0.8,
-                                  strokeDasharray: "5,5", // Create a dashed line
-                                },
-                              }}
-                            />
-                          ))
-                        ) : (
-                          <DirectionsRenderer
-                            key={`survey-route-${idx}`}
-                            directions={route.directions}
-                            options={{
-                              suppressMarkers: true,
-                              polylineOptions: {
-                                strokeColor: surveyRouteColor,
-                                strokeWeight: isSelected ? 6 : 4,
-                                strokeOpacity: 0.8,
-                                strokeDasharray: "5,5", // Create a dashed line
-                              },
-                            }}
-                          />
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-              </GoogleMap>
+              <MapComponent
+                mapCenter={mapCenter}
+                mapZoom={mapZoom}
+                onMapLoad={onMapLoad}
+                handleMapClick={handleMapClick}
+                selectedLocations={selectedLocations}
+                locationRoutes={locationRoutes}
+                routeVisibility={routeVisibility}
+                handleRemoveTemporaryPoint={handleRemoveTemporaryPoint}
+                handleRemoveOthersPoint={handleRemoveOthersPoint}
+                handleLocationMarkerClick={handleLocationMarkerClick}
+                getSurveysForLocation={getSurveysForLocation}
+                handleSurveyMarkerClick={handleSurveyMarkerClick}
+                surveys={surveys}
+                surveyRoutes={surveyRoutes}
+                locations={locations}
+                containerStyle={containerStyle}
+                routeColor={routeColor}
+                surveyRouteColor={surveyRouteColor}
+              />
             </Box>
           </>
         )}
