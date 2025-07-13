@@ -8,6 +8,28 @@ const RouteVisibilityControls = ({ routeVisibility, setRouteVisibility }) => {
     }));
   };
 
+  const chipsOptions = [
+    {
+      label: "Desktop Survey (Blue)",
+      type: "desktopSurvey",
+      color: "primary",
+      onClick: () => handleRouteVisibilityChange("desktopSurvey"),
+    },
+    {
+      label: "Physical Survey (Yellow)",
+      type: "physicalSurvey",
+      color: "warning",
+      onClick: () => handleRouteVisibilityChange("physicalSurvey"),
+    },
+    {
+      label: "KMLs (Green)",
+      type: "addKML",
+      color: "success",
+      colorConstant: "success",
+      onClick: () => handleRouteVisibilityChange("addKML"),
+    },
+  ];
+
   return (
     <Box
       sx={{
@@ -27,20 +49,22 @@ const RouteVisibilityControls = ({ routeVisibility, setRouteVisibility }) => {
         Route Visibility:
       </Typography>
       <Box sx={{ display: "flex", gap: 2 }}>
-        <Chip
-          label="Desktop Survey (Blue)"
-          color={routeVisibility.desktopSurvey ? "primary" : "default"}
-          onClick={() => handleRouteVisibilityChange("desktopSurvey")}
-          variant={routeVisibility.desktopSurvey ? "filled" : "outlined"}
-          sx={{ fontWeight: 500, cursor: "pointer" }}
-        />
-        <Chip
-          label="Physical Survey (Yellow)"
-          color={routeVisibility.physicalSurvey ? "warning" : "default"}
-          onClick={() => handleRouteVisibilityChange("physicalSurvey")}
-          variant={routeVisibility.physicalSurvey ? "filled" : "outlined"}
-          sx={{ fontWeight: 500, cursor: "pointer" }}
-        />
+        {chipsOptions.map((chip) => (
+          <Chip
+            key={chip.label}
+            label={chip.label}
+            color={
+              chip.colorConstant
+                ? chip.colorConstant
+                : routeVisibility[chip.type]
+                ? chip.color
+                : "default"
+            }
+            onClick={chip.onClick}
+            variant={routeVisibility[chip.type] ? "filled" : "outlined"}
+            sx={{ fontWeight: 500, cursor: "pointer" }}
+          />
+        ))}
       </Box>
       <Box
         sx={{

@@ -3,8 +3,10 @@ import { GoogleMap } from "@react-google-maps/api";
 import LocationRoutes from "./mapComponents/LocationRoutes";
 import SurveyMarkers from "./mapComponents/SurveyMarkers";
 import SurveyRoutes from "./mapComponents/SurveyRoutes";
+import KMLLayer from "./mapComponents/KMLLayer";
 import { Box } from "@mui/material";
 import RouteVisibilityControls from "./mapComponents/RouteVisibilityControls.jsx";
+import ReferenceKMLs from "./mapComponents/ReferenceKMLs.jsx";
 
 const MapComponent = ({
   mapCenter,
@@ -28,9 +30,12 @@ const MapComponent = ({
   const [routeVisibility, setRouteVisibility] = useState({
     desktopSurvey: true, // Blue OFC routes
     physicalSurvey: true, // Yellow survey routes
+    addKML: false, // Green KML routes
   });
 
   const [mapRoutes, setMapRoutes] = useState([]);
+  const [loadedKMLs, setLoadedKMLs] = useState([]);
+  const [mapInstance, setMapInstance] = useState(null);
 
   useEffect(() => {
     if (locationRoutes) {
@@ -39,6 +44,38 @@ const MapComponent = ({
       );
     }
   }, [locationRoutes, selectedLocations]);
+
+  const handleMapLoad = (map) => {
+    setMapInstance(map);
+    if (onMapLoad) {
+      onMapLoad(map);
+    }
+  };
+
+  const handleKMLLoad = (name, content) => {
+    const newKML = {
+      name,
+      content,
+      id: Date.now(), // Simple ID for now
+      visible: true, // Default to visible when loaded
+    };
+    setLoadedKMLs((prev) => [...prev, newKML]);
+  };
+
+  const handleKMLRemove = (index) => {
+    setLoadedKMLs((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleKMLToggleVisibility = (index) => {
+    setLoadedKMLs((prev) =>
+      prev.map((kml, i) =>
+        i === index ? { ...kml, visible: !kml.visible } : kml
+      )
+    );
+  };
+
+  // Filter KMLs to only show visible ones
+  const visibleKMLs = loadedKMLs.filter((kml) => kml.visible);
 
   return (
     <Box>
@@ -50,7 +87,7 @@ const MapComponent = ({
         mapContainerStyle={containerStyle}
         center={mapCenter}
         zoom={mapZoom}
-        onLoad={onMapLoad}
+        onLoad={handleMapLoad}
         onClick={handleMapClick}
       >
         <LocationRoutes
@@ -79,7 +116,20 @@ const MapComponent = ({
             surveyRouteColor={surveyRouteColor}
           />
         )}
+
+        <KMLLayer loadedKMLs={visibleKMLs} map={mapInstance} />
       </GoogleMap>
+
+      {routeVisibility.addKML && (
+        <ReferenceKMLs
+          onKMLLoad={handleKMLLoad}
+          loadedKMLs={loadedKMLs}
+          onKMLRemove={handleKMLRemove}
+          onKMLToggleVisibility={handleKMLToggleVisibility}
+          routeVisibility={routeVisibility}
+          setRouteVisibility={setRouteVisibility}
+        />
+      )}
     </Box>
   );
 };
