@@ -8,7 +8,6 @@ const RouteDirections = ({
   routeVisibility,
   routeColor,
 }) => {
-  console.log(route, isSelected);
   const [directions, setDirections] = useState(null);
   const [error, setError] = useState(null);
 

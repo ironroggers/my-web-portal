@@ -1,10 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
-import {
-  GoogleMap,
-  Marker,
-  DirectionsRenderer,
-  useJsApiLoader,
-} from "@react-google-maps/api";
+import React, { useState, useEffect } from "react";
+import { useJsApiLoader } from "@react-google-maps/api";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -17,7 +12,6 @@ import {
   CardContent,
   Grid,
   Chip,
-  Stack,
   Autocomplete,
   TextField,
   Button,
@@ -92,10 +86,6 @@ const MapViewPage = () => {
   const [mapZoom, setMapZoom] = useState(11);
 
   // New state for route visibility
-  const [routeVisibility, setRouteVisibility] = useState({
-    desktopSurvey: true, // Blue OFC routes
-    physicalSurvey: true, // Yellow survey routes
-  });
 
   // New state variables for location creation
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
@@ -1849,14 +1839,6 @@ const MapViewPage = () => {
     navigate(`/location/${locationId}`);
   };
 
-  // Handle route visibility toggle
-  const handleRouteVisibilityChange = (type) => {
-    setRouteVisibility((prev) => ({
-      ...prev,
-      [type]: !prev[type],
-    }));
-  };
-
   // Add map click handler
   const handleMapClick = (event) => {
     // Only allow adding points if a location is selected
@@ -2178,6 +2160,7 @@ const MapViewPage = () => {
         ) : (
           <>
             {/* Legend */}
+            {/* TODO: Move this to a separate component */}
             <Box
               sx={{
                 display: "flex",
@@ -2197,13 +2180,13 @@ const MapViewPage = () => {
                     bgcolor: routeColor,
                     borderRadius: 1,
                     mr: 1,
-                    opacity: routeVisibility.desktopSurvey ? 1 : 0.3,
+                    // opacity: routeVisibility.desktopSurvey ? 1 : 0.3,
                   }}
                 />
                 <Typography
                   variant="body2"
                   fontWeight={500}
-                  sx={{ opacity: routeVisibility.desktopSurvey ? 1 : 0.5 }}
+                  // sx={{ opacity: routeVisibility.desktopSurvey ? 1 : 0.5 }}
                 >
                   Desktop Survey Routes
                 </Typography>
@@ -2216,13 +2199,13 @@ const MapViewPage = () => {
                     bgcolor: surveyRouteColor,
                     borderRadius: 1,
                     mr: 1,
-                    opacity: routeVisibility.physicalSurvey ? 1 : 0.3,
+                    // opacity: routeVisibility.physicalSurvey ? 1 : 0.3,
                   }}
                 />
                 <Typography
                   variant="body2"
                   fontWeight={500}
-                  sx={{ opacity: routeVisibility.physicalSurvey ? 1 : 0.5 }}
+                  // sx={{ opacity: routeVisibility.physicalSurvey ? 1 : 0.5 }}
                 >
                   Survey Routes (Status 5)
                 </Typography>
@@ -2308,6 +2291,7 @@ const MapViewPage = () => {
             </Box>
 
             {/* Info cards for selected locations */}
+            {/* TODO: Move this to a separate component */}
             <Grid container spacing={3} sx={{ mb: 5 }}>
               {/* Always show Total for All Locations card */}
               <Grid item xs={12} md={selectedLocations.length > 0 ? 12 : 24}>
@@ -2798,95 +2782,25 @@ const MapViewPage = () => {
                   </Grid>
                 ))}
             </Grid>
-
-            {/* Single map for all locations */}
-            <Box>
-              {/* Route Visibility Controls */}
-              <Box
-                sx={{
-                  display: "flex",
-                  mb: 2,
-                  p: 2,
-                  bgcolor: "rgba(0,0,0,0.03)",
-                  borderRadius: "8px 8px 0 0",
-                  alignItems: "center",
-                  gap: 2,
-                  flexWrap: "wrap",
-                  border: "1px solid rgba(0,0,0,0.08)",
-                  borderBottom: "none",
-                }}
-              >
-                <Typography variant="subtitle2" fontWeight={600}>
-                  Route Visibility:
-                </Typography>
-                <Box sx={{ display: "flex", gap: 2 }}>
-                  <Chip
-                    label="Desktop Survey (Blue)"
-                    color={
-                      routeVisibility.desktopSurvey ? "primary" : "default"
-                    }
-                    onClick={() => handleRouteVisibilityChange("desktopSurvey")}
-                    variant={
-                      routeVisibility.desktopSurvey ? "filled" : "outlined"
-                    }
-                    sx={{ fontWeight: 500, cursor: "pointer" }}
-                  />
-                  <Chip
-                    label="Physical Survey (Yellow)"
-                    color={
-                      routeVisibility.physicalSurvey ? "warning" : "default"
-                    }
-                    onClick={() =>
-                      handleRouteVisibilityChange("physicalSurvey")
-                    }
-                    variant={
-                      routeVisibility.physicalSurvey ? "filled" : "outlined"
-                    }
-                    sx={{ fontWeight: 500, cursor: "pointer" }}
-                  />
-                </Box>
-                <Box
-                  sx={{
-                    ml: "auto",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1,
-                  }}
-                >
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ fontStyle: "italic" }}
-                  >
-                    💡 Click on blue numbered markers or "View Location Details"
-                    buttons to explore location information.
-                    <br />
-                    🗺️ Select exactly one location and click anywhere on the map
-                    to add temporary route points.
-                  </Typography>
-                </Box>
-              </Box>
-              <MapComponent
-                mapCenter={mapCenter}
-                mapZoom={mapZoom}
-                onMapLoad={onMapLoad}
-                handleMapClick={handleMapClick}
-                selectedLocations={selectedLocations}
-                locationRoutes={locationRoutes}
-                routeVisibility={routeVisibility}
-                handleRemoveTemporaryPoint={handleRemoveTemporaryPoint}
-                handleRemoveOthersPoint={handleRemoveOthersPoint}
-                handleLocationMarkerClick={handleLocationMarkerClick}
-                getSurveysForLocation={getSurveysForLocation}
-                handleSurveyMarkerClick={handleSurveyMarkerClick}
-                surveys={surveys}
-                surveyRoutes={surveyRoutes}
-                locations={locations}
-                containerStyle={containerStyle}
-                routeColor={routeColor}
-                surveyRouteColor={surveyRouteColor}
-              />
-            </Box>
+            <MapComponent
+              mapCenter={mapCenter}
+              mapZoom={mapZoom}
+              onMapLoad={onMapLoad}
+              handleMapClick={handleMapClick}
+              selectedLocations={selectedLocations}
+              locationRoutes={locationRoutes}
+              handleRemoveTemporaryPoint={handleRemoveTemporaryPoint}
+              handleRemoveOthersPoint={handleRemoveOthersPoint}
+              handleLocationMarkerClick={handleLocationMarkerClick}
+              getSurveysForLocation={getSurveysForLocation}
+              handleSurveyMarkerClick={handleSurveyMarkerClick}
+              surveys={surveys}
+              surveyRoutes={surveyRoutes}
+              locations={locations}
+              containerStyle={containerStyle}
+              routeColor={routeColor}
+              surveyRouteColor={surveyRouteColor}
+            />
           </>
         )}
       </Paper>

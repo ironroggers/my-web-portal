@@ -3,6 +3,8 @@ import { GoogleMap } from "@react-google-maps/api";
 import LocationRoutes from "./mapComponents/LocationRoutes";
 import SurveyMarkers from "./mapComponents/SurveyMarkers";
 import SurveyRoutes from "./mapComponents/SurveyRoutes";
+import { Box } from "@mui/material";
+import RouteVisibilityControls from "./mapComponents/RouteVisibilityControls.jsx";
 
 const MapComponent = ({
   mapCenter,
@@ -11,7 +13,6 @@ const MapComponent = ({
   handleMapClick,
   selectedLocations,
   locationRoutes,
-  routeVisibility,
   handleRemoveTemporaryPoint,
   handleRemoveOthersPoint,
   handleLocationMarkerClick,
@@ -24,6 +25,11 @@ const MapComponent = ({
   routeColor,
   surveyRouteColor,
 }) => {
+  const [routeVisibility, setRouteVisibility] = useState({
+    desktopSurvey: true, // Blue OFC routes
+    physicalSurvey: true, // Yellow survey routes
+  });
+
   const [mapRoutes, setMapRoutes] = useState([]);
 
   useEffect(() => {
@@ -35,40 +41,46 @@ const MapComponent = ({
   }, [locationRoutes, selectedLocations]);
 
   return (
-    <GoogleMap
-      mapContainerStyle={containerStyle}
-      center={mapCenter}
-      zoom={mapZoom}
-      onLoad={onMapLoad}
-      onClick={handleMapClick}
-    >
-      <LocationRoutes
-        mapRoutes={mapRoutes}
-        selectedLocations={selectedLocations}
+    <Box>
+      <RouteVisibilityControls
         routeVisibility={routeVisibility}
-        routeColor={routeColor}
-        handleRemoveTemporaryPoint={handleRemoveTemporaryPoint}
-        handleRemoveOthersPoint={handleRemoveOthersPoint}
-        handleLocationMarkerClick={handleLocationMarkerClick}
-        getSurveysForLocation={getSurveysForLocation}
-        handleSurveyMarkerClick={handleSurveyMarkerClick}
+        setRouteVisibility={setRouteVisibility}
       />
-
-      <SurveyMarkers
-        surveys={surveys}
-        handleSurveyMarkerClick={handleSurveyMarkerClick}
-        isAllSurveys={true}
-      />
-
-      {routeVisibility.physicalSurvey && (
-        <SurveyRoutes
-          surveyRoutes={surveyRoutes}
-          locations={locations}
+      <GoogleMap
+        mapContainerStyle={containerStyle}
+        center={mapCenter}
+        zoom={mapZoom}
+        onLoad={onMapLoad}
+        onClick={handleMapClick}
+      >
+        <LocationRoutes
+          mapRoutes={mapRoutes}
           selectedLocations={selectedLocations}
-          surveyRouteColor={surveyRouteColor}
+          routeVisibility={routeVisibility}
+          routeColor={routeColor}
+          handleRemoveTemporaryPoint={handleRemoveTemporaryPoint}
+          handleRemoveOthersPoint={handleRemoveOthersPoint}
+          handleLocationMarkerClick={handleLocationMarkerClick}
+          getSurveysForLocation={getSurveysForLocation}
+          handleSurveyMarkerClick={handleSurveyMarkerClick}
         />
-      )}
-    </GoogleMap>
+
+        <SurveyMarkers
+          surveys={surveys}
+          handleSurveyMarkerClick={handleSurveyMarkerClick}
+          isAllSurveys={true}
+        />
+
+        {routeVisibility.physicalSurvey && (
+          <SurveyRoutes
+            surveyRoutes={surveyRoutes}
+            locations={locations}
+            selectedLocations={selectedLocations}
+            surveyRouteColor={surveyRouteColor}
+          />
+        )}
+      </GoogleMap>
+    </Box>
   );
 };
 
