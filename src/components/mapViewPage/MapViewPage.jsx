@@ -44,7 +44,7 @@ import { exportToKML } from "../../utils/exportUtils.jsx";
 import InfoCardComponent from "./InfoCardComponent.jsx";
 import SymbolsComponent from "./SymbolsComponent.jsx";
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyC2pds2TL5_lGUM-7Y1CFiGq8Wrn0oULr0";
+const GOOGLE_MAPS_API_KEY = "AIzaSyBckJzBWErdiRg8gO1vffTmg57RpdXkTF4";
 
 // Move libraries array outside component to prevent LoadScript reloading
 const GOOGLE_MAPS_LIBRARIES = ["places"];
