@@ -14,7 +14,7 @@ export default defineConfig({
     ],
     proxy: {
       '/api/airotrack': {
-        target: 'https://login.airotrack.in:8082',
+        target: process.env.AIROTRACK_API_URL || 'https://login.airotrack.in:8082',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api\/airotrack/, '/api'),
@@ -23,6 +23,13 @@ export default defineConfig({
             console.log('proxy error', err);
           });
           proxy.on('proxyReq', (proxyReq, req, _res) => {
+            // Add authentication headers for AiroTrack API
+            const username = process.env.AIROTRACK_USERNAME || '9934049403';
+            const password = process.env.AIROTRACK_PASSWORD || '123456';
+            const credentials = Buffer.from(`${username}:${password}`).toString('base64');
+            proxyReq.setHeader('Authorization', `Basic ${credentials}`);
+            proxyReq.setHeader('Content-Type', 'application/json');
+            
             console.log('Sending Request to the Target:', req.method, req.url);
           });
           proxy.on('proxyRes', (proxyRes, req, _res) => {

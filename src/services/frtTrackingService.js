@@ -1,31 +1,16 @@
 // FRT Tracking Service
-// Handles API calls to the AiroTrack vehicle tracking system
-
-// Detect if we're in development mode
-const isDevelopment = import.meta.env.DEV;
+// Handles API calls to the AiroTrack vehicle tracking system via proxy
 
 const API_CONFIG = {
-  // Use proxy in development, direct URL in production
-  baseUrl: isDevelopment ? '/api/airotrack' : 'https://login.airotrack.in:8082/api',
-  credentials: {
-    username: '9934049403',
-    password: '123456'
-  },
+  // Always use the proxy endpoint to avoid CORS issues
+  baseUrl: '/api/airotrack',
   endpoints: {
     positions: '/positions'
   }
 };
 
 /**
- * Create basic authentication header
- */
-const createAuthHeader = () => {
-  const credentials = btoa(`${API_CONFIG.credentials.username}:${API_CONFIG.credentials.password}`);
-  return `Basic ${credentials}`;
-};
-
-/**
- * Fetch vehicle positions from AiroTrack API
+ * Fetch vehicle positions from AiroTrack API via proxy
  * @param {Object} params - Query parameters
  * @returns {Promise<Array>} Array of vehicle position data
  */
@@ -44,24 +29,14 @@ export const fetchVehiclePositions = async (params = {}) => {
 
   try {
     const headers = {
-      'Authorization': createAuthHeader(),
       'Content-Type': 'application/json',
     };
 
-    // Only add CORS headers for direct API calls (production)
-    if (!isDevelopment) {
-      headers['Access-Control-Allow-Origin'] = '*';
-      headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS';
-      headers['Access-Control-Allow-Headers'] = 'Origin, X-Requested-With, Content-Type, Accept, Authorization';
-    }
-
-    console.log(`Fetching vehicle data from: ${url}`);
+    console.log(`Fetching vehicle data from proxy: ${url}`);
     
     const response = await fetch(url, {
       method: 'GET',
       headers,
-      // Add mode only for direct API calls
-      ...(isDevelopment ? {} : { mode: 'cors' }),
     });
 
     if (!response.ok) {
@@ -69,12 +44,12 @@ export const fetchVehiclePositions = async (params = {}) => {
     }
 
     const data = await response.json();
-    console.log(`Successfully fetched ${data.length} vehicles`);
+    console.log(`Successfully fetched ${data.length} vehicles via proxy`);
     
     // Filter and validate vehicle data
     return filterValidVehicles(data);
   } catch (error) {
-    console.error('Error fetching vehicle positions:', error);
+    console.error('Error fetching vehicle positions via proxy:', error);
     throw new Error(`Failed to fetch vehicle data: ${error.message}`);
   }
 };
