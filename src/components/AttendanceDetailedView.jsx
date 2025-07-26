@@ -69,6 +69,11 @@ const AttendanceDetailedView = () => {
   const [exportingUser, setExportingUser] = useState(null);
   const [exportLoading, setExportLoading] = useState(false);
 
+  // Global export state
+  const [globalExportDialogOpen, setGlobalExportDialogOpen] = useState(false);
+  const [globalSelectedMonth, setGlobalSelectedMonth] = useState(moment().format('YYYY-MM'));
+  const [globalExportLoading, setGlobalExportLoading] = useState(false);
+
   // Update ref when locationNames changes
   useEffect(() => {
     locationNamesRef.current = locationNames;
@@ -415,6 +420,163 @@ const AttendanceDetailedView = () => {
       alert('Failed to export attendance data. Please try again.');
     } finally {
       setExportLoading(false);
+    }
+  };
+
+  // Global export functions
+  const handleGlobalExportClick = () => {
+    setGlobalExportDialogOpen(true);
+  };
+
+  const handleGlobalExportClose = () => {
+    setGlobalExportDialogOpen(false);
+    setGlobalSelectedMonth(moment().format('YYYY-MM'));
+  };
+
+  const handleGlobalMonthChange = (event) => {
+    setGlobalSelectedMonth(event.target.value);
+  };
+
+  const handleGlobalExportConfirm = async () => {
+    if (!globalSelectedMonth) return;
+
+    try {
+      setGlobalExportLoading(true);
+
+      const workbook = XLSX.utils.book_new();
+      const monthStart = moment(globalSelectedMonth).startOf('month');
+      const monthEnd = moment(globalSelectedMonth).endOf('month');
+      const today = moment().startOf('day');
+
+      // Generate all days in the month
+      const daysInMonth = [];
+      for (let day = monthStart.clone(); day.isSameOrBefore(monthEnd); day.add(1, 'day')) {
+        daysInMonth.push(day.clone());
+      }
+
+      // Combined data for all users
+      const allUsersData = [];
+
+      // Process each user and add to combined data
+      for (const user of users) {
+        try {
+          // Fetch monthly attendance data for this user
+          const monthlyData = await fetchMonthlyAttendanceData(user._id, globalSelectedMonth);
+
+          // Process each day for this user
+          daysInMonth.forEach(day => {
+            const formattedDate = day.format('YYYY-MM-DD');
+            const dayName = day.format('dddd');
+            const dateString = day.format('MMM DD, YYYY');
+            const isFuture = day.isAfter(today);
+            
+            // Find attendance record for this day
+            const attendanceRecord = monthlyData.find(record =>
+              moment(record.date).format('YYYY-MM-DD') === formattedDate
+            );
+
+            let status = 'Absent';
+            let checkInTime = '-';
+            let checkOutTime = '-';
+            let hoursWorked = '-';
+            let location = '-';
+
+            if (!isFuture && attendanceRecord) {
+              status = attendanceRecord.status.charAt(0).toUpperCase() + attendanceRecord.status.slice(1);
+              
+              if (attendanceRecord.sessions && attendanceRecord.sessions.length > 0) {
+                const session = attendanceRecord.sessions[0];
+                checkInTime = session.checkInTime ? moment(session.checkInTime).format('hh:mm A') : '-';
+                checkOutTime = session.checkOutTime ? moment(session.checkOutTime).format('hh:mm A') : '-';
+                
+                if (session.checkInTime && session.checkOutTime) {
+                  const duration = moment.duration(moment(session.checkOutTime).diff(moment(session.checkInTime)));
+                  hoursWorked = duration.asHours().toFixed(2);
+                }
+              }
+
+              if (attendanceRecord.location) {
+                location = getLocationName(attendanceRecord.location);
+              }
+            } else if (isFuture) {
+              status = 'Upcoming';
+            }
+
+            // Add user data to combined array
+            allUsersData.push({
+              'Name': user.username || 'Unknown',
+              'Role': user.role || 'Unknown',
+              'Day': dayName,
+              'Date': dateString,
+              'Status': status,
+              'Check-in Time': checkInTime,
+              'Check-out Time': checkOutTime,
+              'Hours Worked': hoursWorked,
+              'Location': location
+            });
+          });
+          
+          // Add a small delay to avoid overwhelming the server
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+        } catch (userError) {
+          console.error(`Error processing user ${user.username}:`, userError);
+          // Continue with other users even if one fails
+        }
+      }
+
+      // Create single worksheet with all users' data
+      const worksheet = XLSX.utils.json_to_sheet(allUsersData);
+      
+      // Set column widths for better readability
+      worksheet['!cols'] = [
+        { wch: 15 }, // Name
+        { wch: 12 }, // Role
+        { wch: 10 }, // Day
+        { wch: 15 }, // Date
+        { wch: 10 }, // Status
+        { wch: 15 }, // Check-in Time
+        { wch: 15 }, // Check-out Time
+        { wch: 15 }, // Hours Worked
+        { wch: 25 }  // Location
+      ];
+
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'All Users Attendance');
+
+      // Generate filename
+      const monthName = moment(globalSelectedMonth).format('MMMM_YYYY');
+
+      // Generate Excel file buffer
+      const excelBuffer = XLSX.write(workbook, {
+        bookType: "xlsx",
+        type: "array",
+      });
+
+      // Create Blob from the buffer
+      const blob = new Blob([excelBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `All_Users_Attendance_${monthName}.xlsx`
+      );
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      handleGlobalExportClose();
+    } catch (error) {
+      console.error('Error exporting global attendance:', error);
+      alert('Failed to export attendance data. Please try again.');
+    } finally {
+      setGlobalExportLoading(false);
     }
   };
 
@@ -802,28 +964,42 @@ const AttendanceDetailedView = () => {
             </Tabs>
           </Box>
 
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Tooltip title="Previous Week">
-              <IconButton size="small" onClick={goToPreviousWeek}>
-                <KeyboardArrowDownIcon />
-              </IconButton>
-            </Tooltip>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {/* Global Export Button */}
+            <Button
+              variant="contained"
+              startIcon={<FileDownloadIcon />}
+              onClick={handleGlobalExportClick}
+              color="primary"
+              size="small"
+            >
+              Export All Users
+            </Button>
 
-            <Typography variant="subtitle2" sx={{ fontWeight: 500 }}>
-              {moment(weekStart).format('MMM DD')} - {moment(weekStart).add(6, 'days').format('MMM DD, YYYY')}
-            </Typography>
+            {/* Week Navigation */}
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Tooltip title="Previous Week">
+                <IconButton size="small" onClick={goToPreviousWeek}>
+                  <KeyboardArrowDownIcon />
+                </IconButton>
+              </Tooltip>
 
-            <Tooltip title="Next Week">
-              <IconButton size="small" onClick={goToNextWeek}>
-                <KeyboardArrowUpIcon />
-              </IconButton>
-            </Tooltip>
+              <Typography variant="subtitle2" sx={{ fontWeight: 500 }}>
+                {moment(weekStart).format('MMM DD')} - {moment(weekStart).add(6, 'days').format('MMM DD, YYYY')}
+              </Typography>
 
-            <Tooltip title="Current Week">
-              <IconButton size="small" onClick={goToCurrentWeek} color="primary">
-                <ScheduleIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+              <Tooltip title="Next Week">
+                <IconButton size="small" onClick={goToNextWeek}>
+                  <KeyboardArrowUpIcon />
+                </IconButton>
+              </Tooltip>
+
+              <Tooltip title="Current Week">
+                <IconButton size="small" onClick={goToCurrentWeek} color="primary">
+                  <ScheduleIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
           </Box>
         </Box>
       </Box>
@@ -898,6 +1074,58 @@ const AttendanceDetailedView = () => {
             startIcon={exportLoading ? <CircularProgress size={20} /> : <FileDownloadIcon />}
           >
             {exportLoading ? 'Exporting...' : 'Export'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Global Export Dialog */}
+      <Dialog 
+        open={globalExportDialogOpen} 
+        onClose={handleGlobalExportClose}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Export All Users Attendance Report
+          <Typography variant="body2" color="textSecondary">
+            This will export attendance data for all users with individual sheets per user plus a summary sheet.
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <FormControl fullWidth>
+              <InputLabel>Select Month</InputLabel>
+              <Select
+                value={globalSelectedMonth}
+                onChange={handleGlobalMonthChange}
+                label="Select Month"
+              >
+                {getMonthOptions().map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            
+            {users.length > 0 && (
+              <Typography variant="body2" color="textSecondary" sx={{ mt: 2 }}>
+                Will export data for {users.length} user(s)
+              </Typography>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleGlobalExportClose}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleGlobalExportConfirm}
+            variant="contained"
+            disabled={globalExportLoading}
+            startIcon={globalExportLoading ? <CircularProgress size={20} /> : <FileDownloadIcon />}
+          >
+            {globalExportLoading ? 'Exporting...' : 'Export All Users'}
           </Button>
         </DialogActions>
       </Dialog>
