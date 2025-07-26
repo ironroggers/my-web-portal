@@ -7,7 +7,11 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: process.env.PORT || 3000,
-    allowedHosts: ['annu-projects-survey-tool.onrender.com', 'localhost'],
+    allowedHosts: [
+      'annu-projects-survey-tool.onrender.com', 
+      'localhost',
+      'the-kerela-project.annuprojects.com'
+    ],
     proxy: {
       '/api/airotrack': {
         target: 'https://login.airotrack.in:8082',
