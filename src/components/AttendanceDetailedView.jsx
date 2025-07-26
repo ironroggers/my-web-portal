@@ -22,7 +22,16 @@ import {
   Divider,
   Avatar,
   Tooltip,
-  useTheme
+  useTheme,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
@@ -31,9 +40,12 @@ import PersonIcon from '@mui/icons-material/Person';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import ScheduleIcon from '@mui/icons-material/Schedule';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import axios from 'axios';
 import moment from 'moment';
 import {ATTENDANCE_URL, AUTH_URL} from "../API/api-keys.jsx";
+import { convertToExcelAndDownload } from '../utils/convertToExcelAndDownload.jsx';
+import * as XLSX from 'xlsx';
 
 // Define API URLs - using environment variables if available
 const ATTENDANCE_API_URL = ATTENDANCE_URL+'/api';
@@ -50,6 +62,12 @@ const AttendanceDetailedView = () => {
   const [weekStart, setWeekStart] = useState(moment().startOf('week').toDate());
   const [locationNames, setLocationNames] = useState({});
   const locationNamesRef = useRef(locationNames);
+
+  // Export-related state
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(moment().format('YYYY-MM'));
+  const [exportingUser, setExportingUser] = useState(null);
+  const [exportLoading, setExportLoading] = useState(false);
 
   // Update ref when locationNames changes
   useEffect(() => {
@@ -247,12 +265,220 @@ const AttendanceDetailedView = () => {
     return locationNames[locKey] || location.address || 'Unknown location';
   };
 
+  // Export-related functions
+  const handleExportClick = (user) => {
+    setExportingUser(user);
+    setExportDialogOpen(true);
+  };
+
+  const handleExportClose = () => {
+    setExportDialogOpen(false);
+    setExportingUser(null);
+    setSelectedMonth(moment().format('YYYY-MM'));
+  };
+
+  const handleMonthChange = (event) => {
+    setSelectedMonth(event.target.value);
+  };
+
+  const fetchMonthlyAttendanceData = async (userId, month) => {
+    try {
+      const startDate = moment(month).startOf('month').format('YYYY-MM-DD');
+      const endDate = moment(month).endOf('month').format('YYYY-MM-DD');
+
+      const response = await axios.get(`${ATTENDANCE_API_URL}/attendance/all`, {
+        params: {
+          startDate,
+          endDate,
+          userId
+        },
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      return response.data.data || [];
+    } catch (error) {
+      console.error('Error fetching monthly attendance:', error);
+      throw error;
+    }
+  };
+
+  const handleExportConfirm = async () => {
+    if (!exportingUser || !selectedMonth) return;
+
+    try {
+      setExportLoading(true);
+
+      // Fetch monthly attendance data
+      const monthlyData = await fetchMonthlyAttendanceData(exportingUser._id, selectedMonth);
+
+      // Prepare export data
+      const exportData = [];
+      const monthStart = moment(selectedMonth).startOf('month');
+      const monthEnd = moment(selectedMonth).endOf('month');
+      const today = moment().startOf('day');
+
+      // Generate all days in the month
+      const daysInMonth = [];
+      for (let day = monthStart.clone(); day.isSameOrBefore(monthEnd); day.add(1, 'day')) {
+        daysInMonth.push(day.clone());
+      }
+
+      // Create export rows for each day
+      daysInMonth.forEach(day => {
+        const formattedDate = day.format('YYYY-MM-DD');
+        const dayName = day.format('dddd');
+        const dateString = day.format('MMM DD, YYYY');
+        const isFuture = day.isAfter(today);
+        
+        // Find attendance record for this day
+        const attendanceRecord = monthlyData.find(record =>
+          moment(record.date).format('YYYY-MM-DD') === formattedDate
+        );
+
+        let status = 'Absent';
+        let checkInTime = '-';
+        let checkOutTime = '-';
+        let hoursWorked = '-';
+        let location = '-';
+
+        if (!isFuture && attendanceRecord) {
+          status = attendanceRecord.status.charAt(0).toUpperCase() + attendanceRecord.status.slice(1);
+          
+          if (attendanceRecord.sessions && attendanceRecord.sessions.length > 0) {
+            const session = attendanceRecord.sessions[0];
+            checkInTime = session.checkInTime ? moment(session.checkInTime).format('hh:mm A') : '-';
+            checkOutTime = session.checkOutTime ? moment(session.checkOutTime).format('hh:mm A') : '-';
+            
+            if (session.checkInTime && session.checkOutTime) {
+              const duration = moment.duration(moment(session.checkOutTime).diff(moment(session.checkInTime)));
+              hoursWorked = duration.asHours().toFixed(2);
+            }
+          }
+
+          if (attendanceRecord.location) {
+            location = getLocationName(attendanceRecord.location);
+          }
+        } else if (isFuture) {
+          status = 'Upcoming';
+        }
+
+        exportData.push({
+          'Day': dayName,
+          'Date': dateString,
+          'Status': status,
+          'Check-in Time': checkInTime,
+          'Check-out Time': checkOutTime,
+          'Hours Worked': hoursWorked,
+          'Location': location
+        });
+      });
+
+      // Generate filename
+      const monthName = moment(selectedMonth).format('MMMM_YYYY');
+      const username = exportingUser.username || 'Unknown_User';
+      
+      // Use the existing export utility but create our own filename
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
+
+      // Generate Excel file buffer
+      const excelBuffer = XLSX.write(workbook, {
+        bookType: "xlsx",
+        type: "array",
+      });
+
+      // Create Blob from the buffer
+      const blob = new Blob([excelBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `${username}_Attendance_${monthName}.xlsx`
+      );
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      handleExportClose();
+    } catch (error) {
+      console.error('Error exporting attendance:', error);
+      alert('Failed to export attendance data. Please try again.');
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  // Generate month options for the last 12 months
+  const getMonthOptions = () => {
+    const options = [];
+    for (let i = 0; i < 12; i++) {
+      const month = moment().subtract(i, 'months');
+      options.push({
+        value: month.format('YYYY-MM'),
+        label: month.format('MMMM YYYY')
+      });
+    }
+    return options;
+  };
+
   // Attendance detail row component
   const AttendanceDetailRow = ({ userId }) => {
+    const [userAttendanceData, setUserAttendanceData] = useState([]);
+    const [detailLoading, setDetailLoading] = useState(false);
     const user = users.find(u => u._id === userId) || {};
     const weekDates = getWeekDates();
-    const userAttendance = attendanceData[userId] || [];
     const today = moment().startOf('day');
+
+    // Fetch specific user's attendance data for the current week
+    useEffect(() => {
+      const fetchUserWeeklyData = async () => {
+        try {
+          setDetailLoading(true);
+          const startDate = moment(weekStart).format('YYYY-MM-DD');
+          const endDate = moment(weekStart).add(6, 'days').format('YYYY-MM-DD');
+
+          const response = await axios.get(`${ATTENDANCE_API_URL}/attendance/all`, {
+            params: {
+              startDate,
+              endDate,
+              userId
+            },
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('token')}`
+            }
+          });
+
+          setUserAttendanceData(response.data.data || []);
+        } catch (error) {
+          console.error('Error fetching user attendance data:', error);
+          setUserAttendanceData([]);
+        } finally {
+          setDetailLoading(false);
+        }
+      };
+
+      if (userId) {
+        fetchUserWeeklyData();
+      }
+    }, [userId, weekStart]);
+
+    // Get user attendance for a specific date from the fetched data
+    const getUserAttendanceForDateDetail = (date) => {
+      const formattedDate = moment(date).format('YYYY-MM-DD');
+      return userAttendanceData.find(record =>
+        moment(record.date).format('YYYY-MM-DD') === formattedDate
+      ) || { status: 'absent' };
+    };
 
     // Calculate attendance stats (only count past dates)
     const pastDates = weekDates.filter(date => moment(date).isSameOrBefore(today));
@@ -263,7 +489,7 @@ const AttendanceDetailedView = () => {
     
     pastDates.forEach(date => {
       const formattedDate = moment(date).format('YYYY-MM-DD');
-      const attendance = userAttendance.find(a => 
+      const attendance = userAttendanceData.find(a => 
         moment(a.date).format('YYYY-MM-DD') === formattedDate
       );
       
@@ -274,6 +500,18 @@ const AttendanceDetailedView = () => {
     });
     
     const absentDays = totalPastDays - presentDays - lateDays;
+
+    if (detailLoading) {
+      return (
+        <TableRow>
+          <TableCell colSpan={9}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress size={24} />
+            </Box>
+          </TableCell>
+        </TableRow>
+      );
+    }
 
     return (
       <TableRow>
@@ -352,7 +590,7 @@ const AttendanceDetailedView = () => {
                 <TableBody>
                   {weekDates.map((date, index) => {
                     const isFuture = moment(date).isAfter(today);
-                    const attendance = getUserAttendanceForDate(userId, date);
+                    const attendance = getUserAttendanceForDateDetail(date);
                     const checkInTime = attendance.sessions && attendance.sessions.length > 0
                       ? moment(attendance.sessions[0].checkInTime).format('hh:mm A')
                       : '-';
@@ -509,6 +747,20 @@ const AttendanceDetailedView = () => {
           <TableCell align="center">
             {attendancePercentage + '%'}
           </TableCell>
+          <TableCell align="center">
+            <Tooltip title="Export Attendance">
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleExportClick(user);
+                }}
+                color="primary"
+              >
+                <FileDownloadIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </TableCell>
         </TableRow>
         {open && <AttendanceDetailRow userId={user._id} />}
       </>
@@ -590,6 +842,7 @@ const AttendanceDetailedView = () => {
                 <TableCell align="center">Late</TableCell>
                 <TableCell align="center">Absent</TableCell>
                 <TableCell align="center">Attendance %</TableCell>
+                <TableCell align="center">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -600,6 +853,54 @@ const AttendanceDetailedView = () => {
           </Table>
         </TableContainer>
       )}
+
+      {/* Export Dialog */}
+      <Dialog 
+        open={exportDialogOpen} 
+        onClose={handleExportClose}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Export Attendance Report
+          {exportingUser && (
+            <Typography variant="body2" color="textSecondary">
+              For: {exportingUser.username} ({exportingUser.role})
+            </Typography>
+          )}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <FormControl fullWidth>
+              <InputLabel>Select Month</InputLabel>
+              <Select
+                value={selectedMonth}
+                onChange={handleMonthChange}
+                label="Select Month"
+              >
+                {getMonthOptions().map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleExportClose}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleExportConfirm}
+            variant="contained"
+            disabled={exportLoading}
+            startIcon={exportLoading ? <CircularProgress size={20} /> : <FileDownloadIcon />}
+          >
+            {exportLoading ? 'Exporting...' : 'Export'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
