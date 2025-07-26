@@ -18,6 +18,7 @@ import Navigation from "./components/Navigation";
 import UserManagement from "./components/UserManagement";
 import AttendancePage from "./components/AttendancePage";
 import MapViewPage from "./components/mapViewPage/MapViewPage";
+import FRTTracking from "./components/FRTTracking";
 import HelpCenterPage from "./components/HelpCenterPage";
 import AboutPage from "./components/AboutPage";
 import LandingPage from "./components/LandingPage";
@@ -113,6 +114,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <MapViewPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/frt-tracking"
+                  element={
+                    <ProtectedRoute>
+                      <FRTTracking />
                     </ProtectedRoute>
                   }
                 />

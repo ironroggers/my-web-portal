@@ -22,6 +22,7 @@ import {
 import PeopleIcon from "@mui/icons-material/People";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import MapIcon from "@mui/icons-material/Map";
+import GpsFixedIcon from "@mui/icons-material/GpsFixed";
 import HelpIcon from "@mui/icons-material/Help";
 import InfoIcon from "@mui/icons-material/Info";
 import DashboardIcon from "@mui/icons-material/Dashboard";
@@ -100,6 +101,12 @@ const Navigation = () => {
       requireAuth: true,
     },
     { to: "/map", label: "Locations", icon: <MapIcon />, requireAuth: true },
+    { 
+      to: "/frt-tracking", 
+      label: "FRT Tracking", 
+      icon: <GpsFixedIcon />, 
+      requireAuth: true 
+    },
     { to: "/help", label: "Help", icon: <HelpIcon />, showAlways: true },
   ];
 
