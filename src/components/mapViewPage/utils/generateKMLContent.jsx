@@ -1,11 +1,10 @@
-// Helper function to calculate distance between two points
 const calculateDistance = (point1, point2) => {
   const lat1 = point1.lat;
   const lon1 = point1.lng;
   const lat2 = point2.lat;
   const lon2 = point2.lng;
 
-  const R = 6371; // Radius of the Earth in kilometers
+  const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
@@ -15,11 +14,10 @@ const calculateDistance = (point1, point2) => {
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const d = R * c; // Distance in kilometers
+  const d = R * c;
   return d;
 };
 
-// Sort waypoints based on their order along the route path
 const sortWaypointsByRouteOrder = (waypoints, routePath) => {
   if (!routePath || routePath.length === 0) {
     return waypoints;
@@ -29,7 +27,6 @@ const sortWaypointsByRouteOrder = (waypoints, routePath) => {
     let closestDistance = Infinity;
     let routeIndex = 0;
 
-    // Find the closest point on the route path for this waypoint
     routePath.forEach((routePoint, index) => {
       const distance = calculateDistance(waypoint, routePoint);
       if (distance < closestDistance) {
@@ -45,13 +42,11 @@ const sortWaypointsByRouteOrder = (waypoints, routePath) => {
     };
   });
 
-  // Sort by route index (position along the route)
   return waypointsWithRoutePosition
     .sort((a, b) => a.routeIndex - b.routeIndex)
     .map(({ routeIndex, closestDistance, ...waypoint }) => waypoint);
 };
 
-// Extract route segment between two waypoints
 const extractRouteSegment = (
   routePath,
   startWaypoint,
@@ -62,7 +57,6 @@ const extractRouteSegment = (
     return [];
   }
 
-  // Find indices of closest points on route for start and end waypoints
   let startIndex = 0;
   let endIndex = routePath.length - 1;
   let minStartDistance = Infinity;
@@ -83,25 +77,20 @@ const extractRouteSegment = (
     }
   });
 
-  // Handle wraparound case (closing segment from last waypoint to first)
   if (isClosingSegment && startIndex > endIndex) {
-    // For closing segment, concatenate: from startIndex to end + from beginning to endIndex
     const segment1 = routePath.slice(startIndex);
     const segment2 = routePath.slice(0, endIndex + 1);
     return segment1.concat(segment2);
   }
 
-  // Normal case - ensure start comes before end
   if (startIndex > endIndex) {
     [startIndex, endIndex] = [endIndex, startIndex];
   }
 
-  // Extract the segment
   return routePath.slice(startIndex, endIndex + 1);
 };
 
 const generateKMLContent = (selectedLocations, routePath, waypoints, type) => {
-  // Sort waypoints by their order along the route
   const sortedWaypoints = sortWaypointsByRouteOrder(waypoints, routePath);
 
   let kml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -131,11 +120,9 @@ const generateKMLContent = (selectedLocations, routePath, waypoints, type) => {
         </IconStyle>
       </Style>`;
 
-  // Create individual folders for each segment between consecutive waypoints
-  // Include the closing segment from last waypoint back to first waypoint
   for (let i = 0; i < sortedWaypoints.length; i++) {
     const startWaypoint = sortedWaypoints[i];
-    const endWaypoint = sortedWaypoints[(i + 1) % sortedWaypoints.length]; // Use modulo to wrap around to first waypoint
+    const endWaypoint = sortedWaypoints[(i + 1) % sortedWaypoints.length];
     const isClosingSegment = i === sortedWaypoints.length - 1;
     const segmentPath = extractRouteSegment(
       routePath,
@@ -181,7 +168,6 @@ const generateKMLContent = (selectedLocations, routePath, waypoints, type) => {
       </Folder>`;
   }
 
-  // Create a separate folder for all waypoints
   kml += `
       <Folder>
         <name>Waypoints</name>
@@ -204,7 +190,6 @@ const generateKMLContent = (selectedLocations, routePath, waypoints, type) => {
   kml += `
       </Folder>`;
 
-  // If there's only one waypoint or no segments could be created, fall back to original behavior
   if (sortedWaypoints.length <= 1) {
     kml += `
       <Placemark>
