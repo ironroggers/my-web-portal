@@ -107,7 +107,7 @@ const Navigation = () => {
       icon: <GpsFixedIcon />, 
       requireAuth: true 
     },
-    { to: "/help", label: "Help", icon: <HelpIcon />, showAlways: true },
+    // { to: "/help", label: "Help", icon: <HelpIcon />, showAlways: true },
   ];
 
   const renderNavigationItems = (mobile = false) => {
