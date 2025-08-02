@@ -40,7 +40,7 @@ import * as XLSX from "xlsx";
 import { LOCATION_URL, SURVEY_URL } from "../../API/api-keys.jsx";
 import surveyService from "../../services/surveyService.jsx";
 import physicalSurveyExport from "../../utils/physicalSurveyExport.util.jsx";
-import { exportToKML } from "../../utils/exportUtils.jsx";
+import { exportToKML } from "./utils/exportUtils.jsx";
 import InfoCardComponent from "./InfoCardComponent.jsx";
 import SymbolsComponent from "./SymbolsComponent.jsx";
 
@@ -148,12 +148,12 @@ const MapViewPage = () => {
   });
 
   // Add this useEffect to adjust map bounds when locations are selected
-  useEffect(() => {
-    if (isLoaded && selectedLocations.length > 0 && window.google) {
-      // If we have a map reference, we can fit the bounds
-      // This will be implemented via the onLoad callback below
-    }
-  }, [selectedLocations, isLoaded]);
+  // useEffect(() => {
+  //   if (isLoaded && selectedLocations.length > 0 && window.google) {
+  //     // If we have a map reference, we can fit the bounds
+  //     // This will be implemented via the onLoad callback below
+  //   }
+  // }, [selectedLocations, isLoaded]);
 
   // Add state for map reference
   const [map, setMap] = useState(null);
@@ -1766,8 +1766,8 @@ const MapViewPage = () => {
   };
 
   // Export to KML
-  const handleExportToKML = (type = "desktop") => {
-    exportToKML(
+  const handleExportToKML = async (type = "desktop") => {
+    await exportToKML(
       selectedLocations,
       surveyRoutes,
       getSurveysForLocation,
