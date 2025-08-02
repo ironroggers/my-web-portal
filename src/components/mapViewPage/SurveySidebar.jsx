@@ -46,7 +46,8 @@ import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import "./SurveySidebar.css";
 import { useJsApiLoader } from "@react-google-maps/api";
-const GOOGLE_MAPS_API_KEY = "AIzaSyBckJzBWErdiRg8gO1vffTmg57RpdXkTF4";
+import {GOOGLE_MAPS_DIRECTIONS_API} from "../../API/api-keys";
+const GOOGLE_MAPS_API_KEY = GOOGLE_MAPS_DIRECTIONS_API;
 
 const formatDate = (dateString) => {
   const date = new Date(dateString);

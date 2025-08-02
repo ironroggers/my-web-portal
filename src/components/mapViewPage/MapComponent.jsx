@@ -40,7 +40,7 @@ const MapComponent = ({
   useEffect(() => {
     if (locationRoutes) {
       setMapRoutes(
-        selectedLocations.length > 0 ? selectedLocations : locationRoutes
+        selectedLocations.length > 0 ? selectedLocations : []
       );
     }
   }, [locationRoutes, selectedLocations]);

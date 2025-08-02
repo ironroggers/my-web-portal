@@ -37,14 +37,14 @@ import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import SurveySidebar from "./SurveySidebar.jsx";
 import MapComponent from "./MapComponent.jsx";
 import * as XLSX from "xlsx";
-import { LOCATION_URL, SURVEY_URL } from "../../API/api-keys.jsx";
+import {GOOGLE_MAPS_DIRECTIONS_API, LOCATION_URL, SURVEY_URL} from "../../API/api-keys.jsx";
 import surveyService from "../../services/surveyService.jsx";
 import physicalSurveyExport from "../../utils/physicalSurveyExport.util.jsx";
 import { exportToKML } from "./utils/exportUtils.jsx";
 import InfoCardComponent from "./InfoCardComponent.jsx";
 import SymbolsComponent from "./SymbolsComponent.jsx";
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyBckJzBWErdiRg8gO1vffTmg57RpdXkTF4";
+const GOOGLE_MAPS_API_KEY = GOOGLE_MAPS_DIRECTIONS_API;
 
 // Move libraries array outside component to prevent LoadScript reloading
 const GOOGLE_MAPS_LIBRARIES = ["places"];
@@ -197,11 +197,128 @@ const MapViewPage = () => {
     fetchSurveys();
   }, []);
 
+  // Only process selected locations - no batch processing
   useEffect(() => {
-    if (locations.length > 0 && isLoaded) {
-      getAllLocationRoutes(locations);
+    if (selectedLocations.length > 0 && isLoaded) {
+      processSelectedLocation(selectedLocations[0]);
+    } else {
+      // Clear location routes when no location is selected
+      setLocationRoutes([]);
     }
-  }, [locations, isLoaded]);
+  }, [selectedLocations, isLoaded]);
+
+  // Sync route calculation results back to selectedLocations
+  useEffect(() => {
+    if (selectedLocations.length > 0 && locationRoutes.length > 0) {
+      const selectedLocation = selectedLocations[0];
+      const matchingRoute = locationRoutes.find(
+        route => route.location &&
+                selectedLocation.location &&
+                route.location._id === selectedLocation.location._id
+      );
+      
+      if (matchingRoute && matchingRoute.routeInfo && !selectedLocation.routeInfo) {
+        // Update selectedLocations with the calculated route info
+        setSelectedLocations([{
+          ...selectedLocation,
+          routeInfo: matchingRoute.routeInfo,
+          directions: matchingRoute.directions,
+          error: matchingRoute.error
+        }]);
+      }
+    }
+  }, [locationRoutes, selectedLocations]);
+
+  // Process only the selected location with directions
+  const processSelectedLocation = async (selectedLocationRoute) => {
+    const location = selectedLocationRoute.location;
+    const points = getPointsForLocation(location);
+    
+    if (!window.google || !window.google.maps || points.length < 2) {
+      setLocationRoutes([{
+        points,
+        directions: null,
+        routeInfo: null,
+        mapCenter: points[0] || defaultCenter,
+        error: points.length < 2 ? "Not enough points for route" : null,
+        location,
+      }]);
+      return;
+    }
+
+    try {
+      let result;
+      
+      // Handle case where we have more than 10 waypoints (Google Maps API limit)
+      if (points.length > 11) {
+        result = await getChunkedRoutes(points, location);
+      } else {
+        // Process single location with directions
+        const directionsService = new window.google.maps.DirectionsService();
+        const origin = points[0];
+        const destination = points[0]; // Loop
+        const waypoints = points
+          .slice(1)
+          .map((p) => ({ location: p, stopover: true }));
+        
+        result = await new Promise((resolve) => {
+          directionsService.route(
+            {
+              origin,
+              destination,
+              waypoints,
+              travelMode: window.google.maps.TravelMode.WALKING,
+              optimizeWaypoints: true,
+            },
+            (result, status) => {
+              if (status === "OK") {
+                let totalDistance = 0;
+                let totalDuration = 0;
+                result.routes[0].legs.forEach((leg) => {
+                  totalDistance += leg.distance.value;
+                  totalDuration += leg.duration.value;
+                });
+                resolve({
+                  points,
+                  directions: result,
+                  routeInfo: {
+                    distance: totalDistance,
+                    time: totalDuration,
+                    legs: result.routes[0].legs.length,
+                  },
+                  mapCenter: points[0],
+                  error: null,
+                  location,
+                });
+              } else {
+                resolve({
+                  points,
+                  directions: null,
+                  routeInfo: null,
+                  mapCenter: points[0] || defaultCenter,
+                  error: "Failed to get optimized route from Google Maps.",
+                  location,
+                });
+              }
+            }
+          );
+        });
+      }
+      
+      // Set only this single location in locationRoutes
+      setLocationRoutes([result]);
+    } catch (error) {
+      console.error("Error processing location:", error);
+      setLocationRoutes([{
+        points,
+        directions: null,
+        routeInfo: null,
+        mapCenter: points[0] || defaultCenter,
+        error: "Failed to process location",
+        location,
+      }]);
+    }
+  };
 
   useEffect(() => {
     if (surveys.length > 0 && isLoaded) {
@@ -422,6 +539,122 @@ const MapViewPage = () => {
       })
     );
     setLocationRoutes(results);
+  };
+
+  // New function to initialize location routes without directions (saves API calls)
+  const initializeLocationRoutesWithoutDirections = (locations) => {
+    const results = locations.map((location) => {
+      const points = getPointsForLocation(location);
+      return {
+        points,
+        directions: null,
+        routeInfo: null,
+        mapCenter: points[0] || defaultCenter,
+        error: null,
+        location,
+      };
+    });
+    setLocationRoutes(results);
+  };
+
+  // New function to get routes only for selected locations
+  const getSelectedLocationRoutes = async (selectedLocations) => {
+    // First, initialize all locations without directions
+    const allLocationResults = locations.map((location) => {
+      const points = getPointsForLocation(location);
+      return {
+        points,
+        directions: null,
+        routeInfo: null,
+        mapCenter: points[0] || defaultCenter,
+        error: null,
+        location,
+      };
+    });
+
+    // Then calculate directions only for selected locations
+    const selectedResults = await Promise.all(
+      selectedLocations.map(async (selectedLocationRoute) => {
+        const location = selectedLocationRoute.location;
+        const points = getPointsForLocation(location);
+        
+        if (!window.google || !window.google.maps || points.length < 2) {
+          return {
+            points,
+            directions: null,
+            routeInfo: null,
+            mapCenter: points[0] || defaultCenter,
+            error: points.length < 2 ? "Not enough points for route" : null,
+            location,
+          };
+        }
+
+        // Handle case where we have more than 10 waypoints (Google Maps API limit)
+        if (points.length > 11) {
+          return await getChunkedRoutes(points, location);
+        } else {
+          const directionsService = new window.google.maps.DirectionsService();
+          const origin = points[0];
+          const destination = points[0]; // Loop
+          const waypoints = points
+            .slice(1)
+            .map((p) => ({ location: p, stopover: true }));
+          
+          return new Promise((resolve) => {
+            directionsService.route(
+              {
+                origin,
+                destination,
+                waypoints,
+                travelMode: window.google.maps.TravelMode.WALKING,
+                optimizeWaypoints: true,
+              },
+              (result, status) => {
+                if (status === "OK") {
+                  let totalDistance = 0;
+                  let totalDuration = 0;
+                  result.routes[0].legs.forEach((leg) => {
+                    totalDistance += leg.distance.value;
+                    totalDuration += leg.duration.value;
+                  });
+                  resolve({
+                    points,
+                    directions: result,
+                    routeInfo: {
+                      distance: totalDistance,
+                      time: totalDuration,
+                      legs: result.routes[0].legs.length,
+                    },
+                    mapCenter: points[0],
+                    error: null,
+                    location,
+                  });
+                } else {
+                  resolve({
+                    points,
+                    directions: null,
+                    routeInfo: null,
+                    mapCenter: points[0] || defaultCenter,
+                    error: "Failed to get optimized route from Google Maps.",
+                    location,
+                  });
+                }
+              }
+            );
+          });
+        }
+      })
+    );
+
+    // Update the locationRoutes with the new results (selected locations with directions, others without)
+    const updatedResults = allLocationResults.map((locationResult) => {
+      const selectedResult = selectedResults.find(
+        (selected) => selected.location.id === locationResult.location.id
+      );
+      return selectedResult || locationResult;
+    });
+
+    setLocationRoutes(updatedResults);
   };
 
   // Function to handle routes with more than 10 waypoints
@@ -861,24 +1094,31 @@ const MapViewPage = () => {
       return;
     }
 
-    // Find the selected route
-    const selectedRoute = locationRoutes.find(
-      (r) =>
-        r.location && `${r.location.block} (${r.location.district})` === value
+    // Find the selected location from the original locations data
+    const selectedLocation = locations.find(
+      (location) => `${location.block} (${location.district})` === value
     );
 
-    if (selectedRoute) {
+    if (selectedLocation) {
+      // Create a route object for the selected location
+      const selectedRoute = {
+        points: getPointsForLocation(selectedLocation),
+        directions: null,
+        routeInfo: null,
+        mapCenter: getPointsForLocation(selectedLocation)[0] || defaultCenter,
+        error: null,
+        location: selectedLocation,
+      };
+      
       setSelectedLocations([selectedRoute]);
       setRecentlySelectedLocation(selectedRoute);
       setMapZoom(15);
     }
   };
 
-  // Prepare options for Autocomplete
-  const locationOptions = locationRoutes
-    .map((r) =>
-      r.location ? `${r.location.block} (${r.location.district})` : ""
-    )
+  // Prepare options for Autocomplete from original locations data
+  const locationOptions = locations
+    .map((location) => `${location.block} (${location.district})`)
     .filter(Boolean);
 
   // Handle open/close of create dialog
@@ -1295,6 +1535,14 @@ const MapViewPage = () => {
     });
   };
 
+  // Helper function to check if route calculation is in progress
+  const isRouteCalculationInProgress = () => {
+    if (selectedLocations.length === 0) return false;
+    const selectedLocation = selectedLocations[0];
+    // Route calculation is in progress if we have no routeInfo and no error
+    return !selectedLocation.routeInfo && !selectedLocation.error;
+  };
+
   // Handle opening export menu
   const handleExportClick = (event) => {
     setExportAnchorEl(event.currentTarget);
@@ -1313,6 +1561,41 @@ const MapViewPage = () => {
 
     // Set the export type
     setExportType(type);
+
+    // Check if route calculation is complete for desktop export
+    if (type === "desktop") {
+      const selectedLocation = selectedLocations[0];
+      
+      // Check if route calculation is still in progress
+      if (!selectedLocation.routeInfo && !selectedLocation.error) {
+        setSnackbar({
+          open: true,
+          message: "Route calculation is still in progress. Please wait for the distance calculation to complete before exporting.",
+          severity: "warning",
+        });
+        return;
+      }
+      
+      // Check if route calculation failed
+      if (selectedLocation.error && !selectedLocation.routeInfo) {
+        setSnackbar({
+          open: true,
+          message: "Route calculation failed. Excel export will use estimated distances. Error: " + selectedLocation.error,
+          severity: "warning",
+        });
+        // Continue with export using fallback distances
+      }
+      
+      // Check if no distance is available at all
+      if (!selectedLocation.routeInfo?.distance && !selectedLocation.location?.route?.length) {
+        setSnackbar({
+          open: true,
+          message: "No route data available for distance calculation. Cannot export Excel file.",
+          severity: "error",
+        });
+        return;
+      }
+    }
 
     // Create data in the format shown in the image
     const routePoints = selectedLocations
@@ -1355,6 +1638,26 @@ const MapViewPage = () => {
       selectedLocations[0].routeInfo.distance
     ) {
       desktopTotalLength = Math.round(selectedLocations[0].routeInfo.distance);
+    } else if (routePoints.length > 1) {
+      // Fallback: Calculate estimated distance using Haversine formula
+      console.warn("Route calculation failed, using fallback distance calculation");
+      for (let i = 0; i < routePoints.length - 1; i++) {
+        const point1 = routePoints[i];
+        const point2 = routePoints[i + 1];
+        
+        // Haversine formula for calculating distance between two points
+        const R = 6371000; // Earth's radius in meters
+        const dLat = (point2.latitude - point1.latitude) * Math.PI / 180;
+        const dLon = (point2.longitude - point1.longitude) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(point1.latitude * Math.PI / 180) * Math.cos(point2.latitude * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        const distance = R * c;
+        
+        desktopTotalLength += distance;
+      }
+      desktopTotalLength = Math.round(desktopTotalLength);
     }
 
     // Calculate difference between physical and desktop survey
@@ -2122,9 +2425,15 @@ const MapViewPage = () => {
                 color="success"
                 startIcon={<FileDownloadIcon />}
                 onClick={handleExportClick}
-                sx={{ borderRadius: "8px", fontWeight: 500, flex: 1 }}
+                disabled={selectedLocations.length === 0 || isRouteCalculationInProgress()}
+                sx={{ 
+                  borderRadius: "8px", 
+                  fontWeight: 500, 
+                  flex: 1,
+                  opacity: isRouteCalculationInProgress() ? 0.6 : 1
+                }}
               >
-                Export
+                {isRouteCalculationInProgress() ? "Calculating..." : "Export"}
               </Button>
             </Box>
           )}

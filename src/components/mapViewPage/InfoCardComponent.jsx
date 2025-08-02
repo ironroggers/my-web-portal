@@ -35,215 +35,68 @@ const InfoCardComponent = ({
     return hours > 0 ? `${hours} hr ${minutes} min` : `${minutes} min`;
   };
 
+  // Helper function to get distance information with fallbacks
+  const getDistanceInfo = (location) => {
+    // Priority 1: Use calculated route info if available
+    if (location.routeInfo && location.routeInfo.distance) {
+      return {
+        distance: formatDistance(location.routeInfo.distance),
+        status: "Calculated",
+        color: "success.main",
+        description: "Optimized route"
+      };
+    }
+    
+    // Priority 2: Check if we have an error
+    if (location.error) {
+      return {
+        distance: "Failed",
+        status: "Error",
+        color: "error.main", 
+        description: "API call failed"
+      };
+    }
+    
+    // Priority 3: Calculate rough estimate from points if available
+    if (location.points && location.points.length >= 2) {
+      let estimatedDistance = 0;
+      for (let i = 0; i < location.points.length - 1; i++) {
+        const point1 = location.points[i];
+        const point2 = location.points[i + 1];
+        // Simple distance calculation (Haversine formula simplified)
+        const R = 6371000; // Earth's radius in meters
+        const dLat = (point2.lat - point1.lat) * Math.PI / 180;
+        const dLon = (point2.lng - point1.lng) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(point1.lat * Math.PI / 180) * Math.cos(point2.lat * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        estimatedDistance += R * c;
+      }
+      
+      return {
+        distance: `~${formatDistance(estimatedDistance)}`,
+        status: "Estimated",
+        color: "warning.main",
+        description: "Straight-line estimate"
+      };
+    }
+    
+    // Priority 4: Loading state
+    return {
+      distance: "Calculating...",
+      status: "Loading",
+      color: "primary.main",
+      description: "Google Maps API"
+    };
+  };
+
   return (
     <Grid container spacing={3} sx={{ mb: 5 }}>
-      {/* Always show Total for All Locations card */}
-      <Grid item xs={12} md={selectedLocations.length > 0 ? 12 : 24}>
-        <Card
-          sx={{
-            boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-            borderRadius: "12px",
-            overflow: "hidden",
-          }}
-        >
-          <CardContent sx={{ p: 3 }}>
-            <Typography
-              variant="h6"
-              sx={{
-                fontWeight: "bold",
-                color: "primary.main",
-                mb: 2,
-              }}
-            >
-              Total for All Locations
-            </Typography>
-            <Grid container spacing={2} sx={{ mb: 2 }}>
-              <Grid item xs={6}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Total Desktop Distance:
-                </Typography>
-                <Typography
-                  variant="body1"
-                  color="primary"
-                  sx={{
-                    fontWeight: "bold",
-                    fontSize: "1.2rem",
-                  }}
-                >
-                  {formatDistance(
-                    locationRoutes.reduce((acc, route) => {
-                      if (route.routeInfo) {
-                        acc += route.routeInfo.distance || 0;
-                      }
-                      return acc;
-                    }, 0)
-                  )}
-                </Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Est. Travel Time:
-                </Typography>
-                <Typography
-                  variant="body1"
-                  color="primary"
-                  sx={{
-                    fontWeight: "bold",
-                    fontSize: "1.2rem",
-                  }}
-                >
-                  {formatTime(
-                    locationRoutes.reduce((acc, route) => {
-                      if (route.routeInfo) {
-                        acc += route.routeInfo.time || 0;
-                      }
-                      return acc;
-                    }, 0)
-                  )}
-                </Typography>
-              </Grid>
-            </Grid>
-
-            {/* Calculate total physical survey distance */}
-            {(() => {
-              // Calculate total physical distance across all survey routes
-              let totalPhysicalDistance = 0;
-              let validSurveyRoutes = 0;
-
-              surveyRoutes.forEach((route) => {
-                // Use pre-calculated totalDistance when available
-                if (route.totalDistance) {
-                  totalPhysicalDistance += route.totalDistance;
-                  validSurveyRoutes++;
-                } else if (
-                  route.directions &&
-                  route.directions.routes &&
-                  route.directions.routes[0] &&
-                  route.directions.routes[0].legs
-                ) {
-                  let routeDistance = 0;
-                  route.directions.routes[0].legs.forEach((leg) => {
-                    routeDistance += leg.distance.value;
-                  });
-                  totalPhysicalDistance += routeDistance;
-                  validSurveyRoutes++;
-                }
-              });
-
-              const totalDesktopDistance = locationRoutes.reduce(
-                (acc, route) => {
-                  if (route.routeInfo) {
-                    acc += route.routeInfo.distance || 0;
-                  }
-                  return acc;
-                },
-                0
-              );
-
-              if (validSurveyRoutes > 0) {
-                // Calculate overall difference
-                return (
-                  <Grid
-                    container
-                    spacing={2}
-                    sx={{
-                      mb: 2,
-                      mt: 1,
-                      pt: 2,
-                      borderTop: "1px dashed rgba(0,0,0,0.1)",
-                    }}
-                  >
-                    <Grid item xs={6}>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        Total Physical Distance:
-                      </Typography>
-                      <Typography
-                        variant="body1"
-                        color="warning.dark"
-                        sx={{
-                          fontWeight: "bold",
-                          fontSize: "1.2rem",
-                        }}
-                      >
-                        {formatDistance(totalPhysicalDistance)}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        Avg. Difference:
-                      </Typography>
-                      {(() => {
-                        // Only calculate if we have desktop distance
-                        if (totalDesktopDistance > 0) {
-                          const difference =
-                            totalPhysicalDistance - totalDesktopDistance;
-                          const percentDiff = (
-                            (difference / totalDesktopDistance) *
-                            100
-                          ).toFixed(1);
-
-                          return (
-                            <>
-                              <Typography
-                                variant="body1"
-                                color={
-                                  difference > 0 ? "error.main" : "success.main"
-                                }
-                                sx={{
-                                  fontWeight: "bold",
-                                  fontSize: "1.2rem",
-                                }}
-                              >
-                                {difference > 0 ? "+" : "-"}
-                                {Math.abs(percentDiff)}%
-                              </Typography>
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                              >
-                                {difference > 0
-                                  ? "Physical surveys are longer on average"
-                                  : "Physical surveys are shorter on average"}
-                              </Typography>
-                            </>
-                          );
-                        }
-                        return (
-                          <Typography variant="body2">Not available</Typography>
-                        );
-                      })()}
-                    </Grid>
-                  </Grid>
-                );
-              }
-
-              return null;
-            })()}
-
-            <Box
-              sx={{
-                mt: 2,
-                p: 1.5,
-                bgcolor: "rgba(0,0,0,0.03)",
-                borderRadius: "8px",
-              }}
-            >
-              <Typography variant="subtitle2" color="text.secondary">
-                Total Survey Points: <strong>{surveys.length}</strong>
-              </Typography>
-              <Typography variant="subtitle2" color="text.secondary">
-                Locations with Survey Routes:{" "}
-                <strong>{surveyRoutes.length}</strong>
-              </Typography>
-            </Box>
-          </CardContent>
-        </Card>
-      </Grid>
-
       {/* Show selected location card if a location is selected */}
       {selectedLocations.length > 0 &&
         selectedLocations.map((location, index) => (
-          <Grid item xs={12} md={6} key={index}>
+          <Grid item xs={12} md={12} key={index}>
             <Card
               sx={{
                 boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
@@ -267,223 +120,203 @@ const InfoCardComponent = ({
                   >
                     {location.location?.block} ({location.location?.district})
                   </Typography>
+                  <Chip
+                    label={STATUS_MAPPING[location.location?.status] || "Unknown"}
+                    color={location.location?.status === 5 ? "success" : "default"}
+                    sx={{ fontWeight: 500 }}
+                  />
                 </Box>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    mb: 2,
-                    p: 1.5,
-                    bgcolor: "rgba(0,0,0,0.03)",
-                    borderRadius: "8px",
-                  }}
-                >
-                  <Typography variant="subtitle2" sx={{ mr: 1 }}>
-                    Status:{" "}
-                    {STATUS_MAPPING[location.location?.status] || "Unknown"}
-                  </Typography>
-                  {location.location?.status === 5 && (
-                    <Chip
-                      label="Survey Route Enabled"
-                      color="warning"
-                      size="small"
-                      sx={{ fontWeight: 500 }}
-                    />
-                  )}
-                </Box>
+                
                 {location.error && (
-                  <Alert severity="warning" sx={{ my: 2, borderRadius: "8px" }}>
+                  <Alert severity="warning" sx={{ mb: 2 }}>
                     {location.error}
                   </Alert>
                 )}
-                {location.routeInfo && (
-                  <>
-                    <Grid container spacing={2} sx={{ mb: 2 }}>
-                      <Grid item xs={6}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Desktop Survey Distance:
+                
+                {/* Simplified Overview */}
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" sx={{ mb: 2, fontWeight: "bold", color: "primary.main" }}>
+                    📍 Location Overview
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={4}>
+                      <Box sx={{ 
+                        p: 2, 
+                        bgcolor: "rgba(37, 99, 235, 0.05)", 
+                        borderRadius: "8px", 
+                        border: "1px solid rgba(37, 99, 235, 0.2)" 
+                      }}>
+                        <Typography variant="subtitle2" color="primary.main" sx={{ fontWeight: "bold" }}>
+                          Desktop Distance
                         </Typography>
-                        <Typography
-                          variant="body1"
-                          color="primary"
-                          sx={{
-                            fontWeight: "bold",
-                            fontSize: "1.2rem",
-                          }}
-                        >
-                          {formatDistance(location.routeInfo.distance)}
+                        <Typography variant="h4" color="primary.main" sx={{ fontWeight: "bold", mt: 1 }}>
+                          {getDistanceInfo(location).distance}
                         </Typography>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Est. Survey Time:
+                        <Typography variant="caption" color="text.secondary">
+                          {getDistanceInfo(location).description}
                         </Typography>
-                        <Typography
-                          variant="body1"
-                          color="primary"
-                          sx={{
-                            fontWeight: "bold",
-                            fontSize: "1.2rem",
-                          }}
-                        >
-                          {formatTime(location.routeInfo.time)}
-                        </Typography>
-                      </Grid>
+                      </Box>
                     </Grid>
+                    
+                    <Grid item xs={4}>
+                      <Box sx={{ 
+                        p: 2, 
+                        bgcolor: "rgba(245, 158, 11, 0.05)", 
+                        borderRadius: "8px",
+                        border: "1px solid rgba(245, 158, 11, 0.2)" 
+                      }}>
+                        <Typography variant="subtitle2" color="warning.main" sx={{ fontWeight: "bold" }}>
+                          Route Points
+                        </Typography>
+                        <Typography variant="h4" color="warning.main" sx={{ fontWeight: "bold", mt: 1 }}>
+                          {location.points?.length || 0}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Survey waypoints
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    
+                    <Grid item xs={4}>
+                      <Box sx={{ 
+                        p: 2, 
+                        bgcolor: "rgba(34, 197, 94, 0.05)", 
+                        borderRadius: "8px",
+                        border: "1px solid rgba(34, 197, 94, 0.2)" 
+                      }}>
+                        <Typography variant="subtitle2" color="success.main" sx={{ fontWeight: "bold" }}>
+                          Physical Surveys
+                        </Typography>
+                        <Typography variant="h4" color="success.main" sx={{ fontWeight: "bold", mt: 1 }}>
+                          {getSurveysForLocation(location.location?._id).length}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Completed surveys
+                        </Typography>
+                      </Box>
+                    </Grid>
+                  </Grid>
+                </Box>
 
-                    {/* Add Physical Survey Distance and Difference */}
-                    {location.location &&
-                      location.location.status === 5 &&
-                      (() => {
-                        // Find survey route for this location
-                        const surveyRoute = surveyRoutes.find(
-                          (route) => route.locationId === location.location._id
-                        );
+                {/* Distance Comparison (only if both desktop and physical data available) */}
+                {location.routeInfo && location.location && (() => {
+                  const locationSurveyRoutes = surveyRoutes.filter(
+                    (sr) => sr.locationId === location.location._id
+                  );
+                  const physicalDistance = locationSurveyRoutes.reduce(
+                    (total, sr) => total + (sr.routeInfo?.distance || 0),
+                    0
+                  );
+                  
+                  if (physicalDistance > 0) {
+                    const difference = Math.abs(location.routeInfo.distance - physicalDistance);
+                    const percentDiff = ((difference / Math.max(location.routeInfo.distance, physicalDistance)) * 100).toFixed(1);
+                    
+                    return (
+                      <Box sx={{ mb: 3 }}>
+                        <Typography variant="h6" sx={{ mb: 2, fontWeight: "bold", color: "primary.main" }}>
+                          📊 Distance Comparison
+                        </Typography>
+                        <Grid container spacing={2}>
+                          <Grid item xs={4}>
+                            <Box sx={{ 
+                              p: 2, 
+                              bgcolor: "rgba(37, 99, 235, 0.05)", 
+                              borderRadius: "8px", 
+                              border: "1px solid rgba(37, 99, 235, 0.2)" 
+                            }}>
+                              <Typography variant="subtitle2" color="primary.main" sx={{ fontWeight: "bold" }}>
+                                Desktop Survey
+                              </Typography>
+                              <Typography variant="h4" color="primary.main" sx={{ fontWeight: "bold", mt: 1 }}>
+                                {formatDistance(location.routeInfo.distance)}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                Est. time: {formatTime(location.routeInfo.time)}
+                              </Typography>
+                            </Box>
+                          </Grid>
+                          
+                          <Grid item xs={4}>
+                            <Box sx={{ 
+                              p: 2, 
+                              bgcolor: "rgba(245, 158, 11, 0.05)", 
+                              borderRadius: "8px",
+                              border: "1px solid rgba(245, 158, 11, 0.2)" 
+                            }}>
+                              <Typography variant="subtitle2" color="warning.main" sx={{ fontWeight: "bold" }}>
+                                Physical Survey
+                              </Typography>
+                              <Typography variant="h4" color="warning.main" sx={{ fontWeight: "bold", mt: 1 }}>
+                                {formatDistance(physicalDistance)}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                From field data
+                              </Typography>
+                            </Box>
+                          </Grid>
+                          
+                          <Grid item xs={4}>
+                            <Box sx={{ 
+                              p: 2, 
+                              bgcolor: "rgba(239, 68, 68, 0.05)", 
+                              borderRadius: "8px",
+                              border: "1px solid rgba(239, 68, 68, 0.2)" 
+                            }}>
+                              <Typography variant="subtitle2" color="error.main" sx={{ fontWeight: "bold" }}>
+                                Difference
+                              </Typography>
+                              <Typography variant="h4" color="error.main" sx={{ fontWeight: "bold", mt: 1 }}>
+                                {percentDiff}%
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {formatDistance(difference)}
+                              </Typography>
+                            </Box>
+                          </Grid>
+                        </Grid>
+                      </Box>
+                    );
+                  }
+                  return null;
+                })()}
 
-                        if (surveyRoute) {
-                          // Get physical survey distance from the pre-calculated totalDistance when available
-                          let physicalDistance = 0;
-
-                          if (surveyRoute.totalDistance) {
-                            // Use the pre-calculated totalDistance
-                            physicalDistance = surveyRoute.totalDistance;
-                          } else if (
-                            surveyRoute.directions &&
-                            surveyRoute.directions.routes &&
-                            surveyRoute.directions.routes[0] &&
-                            surveyRoute.directions.routes[0].legs
-                          ) {
-                            // Fallback to calculating again if needed
-                            surveyRoute.directions.routes[0].legs.forEach(
-                              (leg) => {
-                                physicalDistance += leg.distance.value;
-                              }
-                            );
-                          }
-
-                          // Only proceed if we have a valid physical distance
-                          if (physicalDistance > 0) {
-                            // Calculate difference
-                            const difference =
-                              physicalDistance - location.routeInfo.distance;
-                            const percentDiff = (
-                              (difference / location.routeInfo.distance) *
-                              100
-                            ).toFixed(1);
-
-                            return (
-                              <Grid
-                                container
-                                spacing={2}
-                                sx={{
-                                  mb: 2,
-                                  mt: 0.5,
-                                  pt: 2,
-                                  borderTop: "1px dashed rgba(0,0,0,0.1)",
-                                }}
-                              >
-                                <Grid item xs={6}>
-                                  <Typography
-                                    variant="subtitle2"
-                                    color="text.secondary"
-                                  >
-                                    Physical Survey Distance:
-                                  </Typography>
-                                  <Typography
-                                    variant="body1"
-                                    color="warning.dark"
-                                    sx={{
-                                      fontWeight: "bold",
-                                      fontSize: "1.2rem",
-                                    }}
-                                  >
-                                    {formatDistance(physicalDistance)}
-                                  </Typography>
-                                </Grid>
-                                <Grid item xs={6}>
-                                  <Typography
-                                    variant="subtitle2"
-                                    color="text.secondary"
-                                  >
-                                    Difference:
-                                  </Typography>
-                                  <Typography
-                                    variant="body1"
-                                    color={
-                                      difference > 0
-                                        ? "error.main"
-                                        : "success.main"
-                                    }
-                                    sx={{
-                                      fontWeight: "bold",
-                                      fontSize: "1.2rem",
-                                    }}
-                                  >
-                                    {formatDistance(Math.abs(difference))} (
-                                    {difference > 0 ? "+" : "-"}
-                                    {Math.abs(percentDiff)}%)
-                                  </Typography>
-                                  <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                  >
-                                    {difference > 0
-                                      ? "Physical survey is longer"
-                                      : "Physical survey is shorter"}
-                                  </Typography>
-                                </Grid>
-                              </Grid>
-                            );
-                          }
-                        }
-                        return null;
-                      })()}
-
-                    <Typography
-                      variant="subtitle2"
-                      color="text.secondary"
-                      sx={{ mt: 1 }}
-                    >
-                      Survey Points:{" "}
-                      {getSurveysForLocation(location.location?._id).length}
-                      <Chip
-                        label="View Location Details"
-                        color="secondary"
-                        size="small"
-                        sx={{
-                          fontWeight: 500,
-                          ml: 1,
-                          cursor: "pointer",
-                          background:
-                            "linear-gradient(45deg, #667eea 30%, #764ba2 90%)",
-                          color: "white",
-                          "&:hover": {
-                            background:
-                              "linear-gradient(45deg, #5a6fd8 30%, #6a4190 90%)",
-                            transform: "translateY(-1px)",
-                            boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
-                          },
-                          transition: "all 0.2s ease",
-                        }}
-                        onClick={() =>
-                          handleLocationMarkerClick(location.location?._id)
-                        }
-                      />
-                      <Chip
-                        label="Hoto Information"
-                        color="primary"
-                        size="small"
-                        sx={{
-                          fontWeight: 500,
-                          ml: 1,
-                          cursor: "pointer",
-                        }}
-                        onClick={() =>
-                          navigate(`/hoto-details/${location.location?._id}`)
-                        }
-                      />
-                    </Typography>
-                  </>
+                {/* Action Buttons */}
+                {location.location && (
+                  <Box sx={{ mt: 2, display: "flex", gap: 1, flexWrap: "wrap" }}>
+                    <Chip
+                      label="View Location Details"
+                      color="secondary"
+                      sx={{
+                        fontWeight: 500,
+                        cursor: "pointer",
+                        "&:hover": {
+                          transform: "translateY(-1px)",
+                          boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
+                        },
+                        transition: "all 0.2s ease",
+                      }}
+                      onClick={() =>
+                        handleLocationMarkerClick(location.location?._id)
+                      }
+                    />
+                    <Chip
+                      label="Hoto Information"
+                      color="primary"
+                      sx={{
+                        fontWeight: 500,
+                        cursor: "pointer",
+                        "&:hover": {
+                          transform: "translateY(-1px)",
+                          boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
+                        },
+                        transition: "all 0.2s ease",
+                      }}
+                      onClick={() =>
+                        navigate(`/hoto-details/${location.location?._id}`)
+                      }
+                    />
+                  </Box>
                 )}
               </CardContent>
             </Card>
