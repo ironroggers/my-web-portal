@@ -12,15 +12,18 @@ const API_CONFIG = {
 /**
  * Fetch vehicle positions from AiroTrack API via proxy
  * @param {Object} params - Query parameters
+ * @param {boolean} params.includeInvalidVehicles - Whether to include vehicles with invalid data (default: false)
  * @returns {Promise<Array>} Array of vehicle position data
  */
 export const fetchVehiclePositions = async (params = {}) => {
+  const { includeInvalidVehicles = false, ...apiParams } = params;
+  
   const defaultParams = {
     status: 'ALL',
     isAddressRequired: false,
     limit: 80,
     offset: 0,
-    ...params
+    ...apiParams
   };
 
   // Build query string
@@ -46,8 +49,8 @@ export const fetchVehiclePositions = async (params = {}) => {
     const data = await response.json();
     console.log(`Successfully fetched ${data.length} vehicles via proxy`);
     
-    // Filter and validate vehicle data
-    return filterValidVehicles(data);
+    // Filter and validate vehicle data based on the includeInvalidVehicles flag
+    return includeInvalidVehicles ? filterAllVehicles(data) : filterValidVehicles(data);
   } catch (error) {
     console.error('Error fetching vehicle positions via proxy:', error);
     throw new Error(`Failed to fetch vehicle data: ${error.message}`);
@@ -55,7 +58,26 @@ export const fetchVehiclePositions = async (params = {}) => {
 };
 
 /**
- * Filter vehicles with valid position data
+ * Filter all vehicles with minimal validation (for showing all statuses)
+ * @param {Array} vehicles - Raw vehicle data from API
+ * @returns {Array} All vehicles with basic data structure validation
+ */
+const filterAllVehicles = (vehicles) => {
+  if (!Array.isArray(vehicles)) {
+    return [];
+  }
+
+  return vehicles.filter(vehicle => {
+    // Only check for basic required fields, allow invalid coordinates and data
+    return vehicle && 
+           typeof vehicle === 'object' && 
+           vehicle.deviceId && 
+           vehicle.name;
+  });
+};
+
+/**
+ * Filter vehicles with valid position data (original function)
  * @param {Array} vehicles - Raw vehicle data from API
  * @returns {Array} Filtered vehicles with valid coordinates
  */
@@ -93,29 +115,47 @@ export const getVehicleStatistics = (vehicles) => {
       running: 0,
       stopped: 0,
       idle: 0,
-      noData: 0
+      noData: 0,
+      offline: 0,
+      unknown: 0
     };
   }
 
   return vehicles.reduce((stats, vehicle) => {
     stats.total++;
     
-    switch (vehicle.status) {
+    // Handle different status values more robustly
+    const status = vehicle.status ? vehicle.status.toUpperCase() : 'UNKNOWN';
+    
+    switch (status) {
       case 'RUNNING':
+      case 'MOVING':
         stats.running++;
         break;
       case 'STOPPED':
+      case 'PARKED':
         stats.stopped++;
         break;
       case 'IDLE':
+      case 'IDLING':
         stats.idle++;
         break;
       case 'NO_DATA':
+      case 'NODATA':
         stats.noData++;
         break;
+      case 'OFFLINE':
+        stats.offline++;
+        break;
+      case 'UNKNOWN':
+      case '':
+      case null:
+      case undefined:
+        stats.unknown++;
+        break;
       default:
-        // Count unknown statuses as no data
-        stats.noData++;
+        // Count any other unknown statuses as unknown
+        stats.unknown++;
     }
     
     return stats;
@@ -124,8 +164,28 @@ export const getVehicleStatistics = (vehicles) => {
     running: 0,
     stopped: 0,
     idle: 0,
-    noData: 0
+    noData: 0,
+    offline: 0,
+    unknown: 0
   });
+};
+
+/**
+ * Fetch all vehicles including those with invalid data (convenience function)
+ * @param {Object} params - Query parameters (optional)
+ * @returns {Promise<Array>} Array of all vehicle data including invalid vehicles
+ */
+export const fetchAllVehicles = async (params = {}) => {
+  return fetchVehiclePositions({ ...params, includeInvalidVehicles: true });
+};
+
+/**
+ * Fetch only valid vehicles with coordinates (convenience function)
+ * @param {Object} params - Query parameters (optional)
+ * @returns {Promise<Array>} Array of valid vehicle data only
+ */
+export const fetchValidVehicles = async (params = {}) => {
+  return fetchVehiclePositions({ ...params, includeInvalidVehicles: false });
 };
 
 /**
@@ -199,17 +259,31 @@ export const getDistanceToday = (attributes) => {
  * @returns {string} Material-UI color name
  */
 export const getStatusColor = (status) => {
-  switch (status) {
+  if (!status) {
+    return 'secondary'; // For null/undefined status
+  }
+  
+  const normalizedStatus = status.toUpperCase();
+  
+  switch (normalizedStatus) {
     case 'RUNNING':
+    case 'MOVING':
       return 'success';
     case 'STOPPED':
+    case 'PARKED':
       return 'error';
     case 'IDLE':
+    case 'IDLING':
       return 'warning';
     case 'NO_DATA':
+    case 'NODATA':
+      return 'info';
+    case 'OFFLINE':
       return 'default';
+    case 'UNKNOWN':
+      return 'secondary';
     default:
-      return 'primary';
+      return 'secondary'; // For any unknown status
   }
 };
 

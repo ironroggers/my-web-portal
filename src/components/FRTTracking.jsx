@@ -27,7 +27,7 @@ import 'leaflet/dist/leaflet.css';
 import './FRTTracking.css';
 import L from 'leaflet';
 import {
-  fetchVehiclePositions,
+  fetchAllVehicles,
   getVehicleStatistics,
   formatSpeed,
   formatDeviceTime,
@@ -154,7 +154,8 @@ const FRTTracking = () => {
       setLoading(true);
       setError(null);
 
-      const vehicleData = await fetchVehiclePositions();
+      // Use fetchAllVehicles to show vehicles of all statuses including invalid ones
+      const vehicleData = await fetchAllVehicles();
       setVehicles(vehicleData);
       setLastUpdate(new Date());
     } catch (err) {
@@ -231,6 +232,20 @@ const FRTTracking = () => {
   // Get statistics using the service
   const stats = getVehicleStatistics(vehicles);
 
+  // Helper function to check if a vehicle has valid coordinates for map display
+  const hasValidCoordinates = (vehicle) => {
+    return vehicle.latitude && 
+           vehicle.longitude && 
+           vehicle.latitude !== 0 && 
+           vehicle.longitude !== 0 &&
+           typeof vehicle.latitude === 'number' &&
+           typeof vehicle.longitude === 'number';
+  };
+
+  // Filter vehicles with valid coordinates for map display
+  const vehiclesWithCoordinates = vehicles.filter(hasValidCoordinates);
+  const vehiclesWithoutCoordinates = vehicles.filter(v => !hasValidCoordinates(v));
+
   return (
     <Box className="frt-tracking" sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
@@ -269,6 +284,15 @@ const FRTTracking = () => {
                 <Chip label={`Running: ${stats.running}`} color="success" size="small" />
                 <Chip label={`Stopped: ${stats.stopped}`} color="error" size="small" />
                 <Chip label={`Idle: ${stats.idle}`} color="warning" size="small" />
+                {stats.offline > 0 && (
+                  <Chip label={`Offline: ${stats.offline}`} color="default" size="small" />
+                )}
+                {stats.noData > 0 && (
+                  <Chip label={`No Data: ${stats.noData}`} color="info" size="small" />
+                )}
+                {stats.unknown > 0 && (
+                  <Chip label={`Unknown: ${stats.unknown}`} color="secondary" size="small" />
+                )}
                 
                 {lastUpdate && (
                   <Typography variant="caption" color="text.secondary">
@@ -346,7 +370,7 @@ const FRTTracking = () => {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           
-          {vehicles.map((vehicle) => (
+          {vehiclesWithCoordinates.map((vehicle) => (
             <Marker
               key={vehicle.deviceId}
               position={[vehicle.latitude, vehicle.longitude]}
@@ -400,6 +424,11 @@ const FRTTracking = () => {
         <Paper sx={{ mt: 3, p: 2 }}>
           <Typography variant="h6" gutterBottom>
             Vehicle List ({vehicles.length} vehicles)
+            {vehiclesWithoutCoordinates.length > 0 && (
+              <Typography variant="caption" color="text.secondary" display="block">
+                {vehiclesWithoutCoordinates.length} vehicles without location data are shown in list only
+              </Typography>
+            )}
           </Typography>
           
           <Grid container spacing={2}>
@@ -410,29 +439,49 @@ const FRTTracking = () => {
                     cursor: 'pointer',
                     '&:hover': { elevation: 4 },
                     border: selectedVehicle?.deviceId === vehicle.deviceId ? 2 : 0,
-                    borderColor: 'primary.main'
+                    borderColor: 'primary.main',
+                    // Add subtle visual indication for vehicles without coordinates
+                    opacity: hasValidCoordinates(vehicle) ? 1 : 0.8,
+                    backgroundColor: hasValidCoordinates(vehicle) ? 'background.paper' : 'grey.50'
                   }}
                   onClick={() => setSelectedVehicle(vehicle)}
                 >
                   <CardContent sx={{ pb: 1 }}>
                     <Typography variant="subtitle2" noWrap gutterBottom>
                       {vehicle.name}
+                      {!hasValidCoordinates(vehicle) && (
+                        <Chip 
+                          label="No Location" 
+                          size="small" 
+                          variant="outlined" 
+                          color="warning"
+                          sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
+                        />
+                      )}
                     </Typography>
                     
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       <Chip 
-                        label={vehicle.status} 
+                        label={vehicle.status || 'Unknown'} 
                         color={getStatusColor(vehicle.status)}
                         size="small"
                       />
-                      <Typography variant="caption">
-                        {formatSpeed(vehicle.speed)}
-                      </Typography>
+                      {hasValidCoordinates(vehicle) && (
+                        <Typography variant="caption">
+                          {formatSpeed(vehicle.speed)}
+                        </Typography>
+                      )}
                     </Box>
 
                     <Typography variant="caption" color="text.secondary" display="block">
-                      {formatDeviceTime(vehicle.deviceTime)}
+                      {vehicle.deviceTime ? formatDeviceTime(vehicle.deviceTime) : 'No timestamp'}
                     </Typography>
+                    
+                    {hasValidCoordinates(vehicle) && (
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        📍 {vehicle.latitude.toFixed(4)}, {vehicle.longitude.toFixed(4)}
+                      </Typography>
+                    )}
                   </CardContent>
                 </Card>
               </Grid>
