@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import "./UserManagement.css";
 import {
   Container,
@@ -33,11 +33,13 @@ import {
   DialogTitle,
   IconButton,
   FormHelperText,
+  InputAdornment,
 } from "@mui/material";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
+import SearchIcon from "@mui/icons-material/Search";
 import { AUTH_URL } from "../API/api-keys.jsx";
 
 const UserManagement = () => {
@@ -61,6 +63,9 @@ const UserManagement = () => {
   const [userToDelete, setUserToDelete] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [editUserId, setEditUserId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState("ALL");
+  const [managerFilter, setManagerFilter] = useState("ALL");
 
   useEffect(() => {
     fetchPotentialManagers();
@@ -73,6 +78,11 @@ const UserManagement = () => {
       setFormData((prev) => ({ ...prev, reportingTo: "" }));
     }
   }, [formData.role]);
+
+  // Reset pagination whenever filters/search change
+  useEffect(() => {
+    setPage(0);
+  }, [searchQuery, roleFilter, managerFilter]);
 
   const fetchAllUsers = async () => {
     try {
@@ -244,6 +254,37 @@ const UserManagement = () => {
   };
 
   const isAdmin = formData.role === "ADMIN";
+
+  // Filtered users based on search and filters
+  const filteredUsers = useMemo(() => {
+    let data = users;
+
+    const query = searchQuery.trim().toLowerCase();
+    if (query) {
+      data = data.filter((u) => {
+        const name = (u.username || "").toLowerCase();
+        const email = (u.email || "").toLowerCase();
+        const designation = (u.designation || "").toLowerCase();
+        return (
+          name.includes(query) || email.includes(query) || designation.includes(query)
+        );
+      });
+    }
+
+    if (roleFilter !== "ALL") {
+      data = data.filter((u) => u.role === roleFilter);
+    }
+
+    if (managerFilter !== "ALL") {
+      if (managerFilter === "UNASSIGNED") {
+        data = data.filter((u) => !u.reportingTo);
+      } else {
+        data = data.filter((u) => u.reportingTo?._id === managerFilter);
+      }
+    }
+
+    return data;
+  }, [users, searchQuery, roleFilter, managerFilter]);
 
   // Handle table pagination
   const handleChangePage = (event, newPage) => {
@@ -582,149 +623,224 @@ const UserManagement = () => {
                 >
                   <CircularProgress />
                 </Box>
-              ) : users.length > 0 ? (
+              ) : (
                 <>
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>
-                            <Typography variant="subtitle2" fontWeight="bold">
-                              Username
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="subtitle2" fontWeight="bold">
-                              Email
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="subtitle2" fontWeight="bold">
-                              Role
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="subtitle2" fontWeight="bold">
-                              Designation
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="subtitle2" fontWeight="bold">
-                              Reporting To
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="right">
-                            <Typography variant="subtitle2" fontWeight="bold">
-                              Actions
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {users
-                          .slice(
-                            page * rowsPerPage,
-                            page * rowsPerPage + rowsPerPage
-                          )
-                          .map((user) => (
-                            <TableRow key={user._id} hover>
+                  <Box sx={{ mb: 2 }}>
+                    <Grid container spacing={2} alignItems="center">
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          placeholder="Search by name, email, or designation"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <SearchIcon fontSize="small" />
+                              </InputAdornment>
+                            ),
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={6} md={3}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel id="filter-role-label">Role</InputLabel>
+                          <Select
+                            labelId="filter-role-label"
+                            value={roleFilter}
+                            label="Role"
+                            onChange={(e) => setRoleFilter(e.target.value)}
+                          >
+                            <MenuItem value="ALL">All</MenuItem>
+                            <MenuItem value="ADMIN">Admin</MenuItem>
+                            <MenuItem value="SUPERVISOR">Supervisor</MenuItem>
+                            <MenuItem value="SURVEYOR">Surveyor</MenuItem>
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                      <Grid item xs={6} md={3}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel id="filter-manager-label">Manager</InputLabel>
+                          <Select
+                            labelId="filter-manager-label"
+                            value={managerFilter}
+                            label="Manager"
+                            onChange={(e) => setManagerFilter(e.target.value)}
+                          >
+                            <MenuItem value="ALL">All</MenuItem>
+                            <MenuItem value="UNASSIGNED">Unassigned</MenuItem>
+                            {potentialManagers &&
+                              potentialManagers.map((manager) => (
+                                <MenuItem key={manager._id} value={manager._id}>
+                                  {manager.username}
+                                </MenuItem>
+                              ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                      <Grid item xs={12} md={12}>
+                        <Box sx={{ display: "flex", gap: 1, justifyContent: { xs: "stretch", md: "flex-end" } }}>
+                          <Button
+                            variant="text"
+                            onClick={() => {
+                              setSearchQuery("");
+                              setRoleFilter("ALL");
+                              setManagerFilter("ALL");
+                            }}
+                          >
+                            Clear filters
+                          </Button>
+                        </Box>
+                      </Grid>
+                    </Grid>
+                  </Box>
+
+                  {filteredUsers.length > 0 ? (
+                    <>
+                      <TableContainer>
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow>
                               <TableCell>
-                                <Box
-                                  sx={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 1,
-                                  }}
-                                >
-                                  {user.username}
-                                </Box>
+                                <Typography variant="subtitle2" fontWeight="bold">
+                                  Username
+                                </Typography>
                               </TableCell>
-                              <TableCell>{user.email}</TableCell>
                               <TableCell>
-                                <Chip
-                                  label={user.role}
-                                  size="small"
-                                  color={
-                                    user.role === "ADMIN"
-                                      ? "error"
-                                      : user.role === "SUPERVISOR"
-                                      ? "warning"
-                                      : "success"
-                                  }
-                                  variant="outlined"
-                                />
+                                <Typography variant="subtitle2" fontWeight="bold">
+                                  Email
+                                </Typography>
                               </TableCell>
-                              <TableCell>{user.designation || "-"}</TableCell>
                               <TableCell>
-                                {user.reportingTo
-                                  ? user.reportingTo.username
-                                  : "-"}
+                                <Typography variant="subtitle2" fontWeight="bold">
+                                  Role
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="subtitle2" fontWeight="bold">
+                                  Designation
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="subtitle2" fontWeight="bold">
+                                  Reporting To
+                                </Typography>
                               </TableCell>
                               <TableCell align="right">
-                                <Box
-                                  sx={{
-                                    display: "flex",
-                                    gap: 1,
-                                    justifyContent: "flex-end",
-                                  }}
-                                >
-                                  <IconButton
-                                    size="small"
-                                    color="primary"
-                                    onClick={() => handleEdit(user)}
-                                    sx={{
-                                      "&:hover": {
-                                        bgcolor: "primary.light",
-                                        "& svg": { color: "white" },
-                                      },
-                                    }}
-                                  >
-                                    <EditIcon fontSize="small" />
-                                  </IconButton>
-                                  <IconButton
-                                    size="small"
-                                    color="error"
-                                    onClick={() => handleDeleteClick(user)}
-                                    sx={{
-                                      "&:hover": {
-                                        bgcolor: "error.light",
-                                        "& svg": { color: "white" },
-                                      },
-                                    }}
-                                  >
-                                    <DeleteIcon fontSize="small" />
-                                  </IconButton>
-                                </Box>
+                                <Typography variant="subtitle2" fontWeight="bold">
+                                  Actions
+                                </Typography>
                               </TableCell>
                             </TableRow>
-                          ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                  <TablePagination
-                    component="div"
-                    count={users.length}
-                    rowsPerPage={rowsPerPage}
-                    page={page}
-                    onPageChange={handleChangePage}
-                    onRowsPerPageChange={handleChangeRowsPerPage}
-                    rowsPerPageOptions={[5, 10, 25]}
-                  />
+                          </TableHead>
+                          <TableBody>
+                            {filteredUsers
+                              .slice(
+                                page * rowsPerPage,
+                                page * rowsPerPage + rowsPerPage
+                              )
+                              .map((user) => (
+                                <TableRow key={user._id} hover>
+                                  <TableCell>
+                                    <Box
+                                      sx={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 1,
+                                      }}
+                                    >
+                                      {user.username}
+                                    </Box>
+                                  </TableCell>
+                                  <TableCell>{user.email}</TableCell>
+                                  <TableCell>
+                                    <Chip
+                                      label={user.role}
+                                      size="small"
+                                      color={
+                                        user.role === "ADMIN"
+                                          ? "error"
+                                          : user.role === "SUPERVISOR"
+                                          ? "warning"
+                                          : "success"
+                                      }
+                                      variant="outlined"
+                                    />
+                                  </TableCell>
+                                  <TableCell>{user.designation || "-"}</TableCell>
+                                  <TableCell>
+                                    {user.reportingTo
+                                      ? user.reportingTo.username
+                                      : "-"}
+                                  </TableCell>
+                                  <TableCell align="right">
+                                    <Box
+                                      sx={{
+                                        display: "flex",
+                                        gap: 1,
+                                        justifyContent: "flex-end",
+                                      }}
+                                    >
+                                      <IconButton
+                                        size="small"
+                                        color="primary"
+                                        onClick={() => handleEdit(user)}
+                                        sx={{
+                                          "&:hover": {
+                                            bgcolor: "primary.light",
+                                            "& svg": { color: "white" },
+                                          },
+                                        }}
+                                      >
+                                        <EditIcon fontSize="small" />
+                                      </IconButton>
+                                      <IconButton
+                                        size="small"
+                                        color="error"
+                                        onClick={() => handleDeleteClick(user)}
+                                        sx={{
+                                          "&:hover": {
+                                            bgcolor: "error.light",
+                                            "& svg": { color: "white" },
+                                          },
+                                        }}
+                                      >
+                                        <DeleteIcon fontSize="small" />
+                                      </IconButton>
+                                    </Box>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                      <TablePagination
+                        component="div"
+                        count={filteredUsers.length}
+                        rowsPerPage={rowsPerPage}
+                        page={page}
+                        onPageChange={handleChangePage}
+                        onRowsPerPageChange={handleChangeRowsPerPage}
+                        rowsPerPageOptions={[5, 10, 25]}
+                      />
+                    </>
+                  ) : (
+                    <Box
+                      sx={{
+                        p: 4,
+                        textAlign: "center",
+                        bgcolor: "#f8fafc",
+                        borderRadius: 2,
+                        border: "1px dashed #e2e8f0",
+                      }}
+                    >
+                      <Typography variant="body1" color="text.secondary">
+                        No users found.
+                      </Typography>
+                    </Box>
+                  )}
                 </>
-              ) : (
-                <Box
-                  sx={{
-                    p: 4,
-                    textAlign: "center",
-                    bgcolor: "#f8fafc",
-                    borderRadius: 2,
-                    border: "1px dashed #e2e8f0",
-                  }}
-                >
-                  <Typography variant="body1" color="text.secondary">
-                    No users found.
-                  </Typography>
-                </Box>
               )}
             </CardContent>
           </Card>
