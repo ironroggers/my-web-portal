@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Typography, Paper, CircularProgress, Alert } from '@mui/material';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Box, Typography, Paper, CircularProgress, Alert, Autocomplete, TextField } from '@mui/material';
 import axios from 'axios';
-import { MapContainer, TileLayer, Marker, Popup, CircleMarker } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, CircleMarker, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -23,11 +23,34 @@ L.Icon.Default.mergeOptions({
 const ATTENDANCE_API_URL =ATTENDANCE_URL+'/api';
 const AUTH_API_URL =  AUTH_URL+'/api';
 
+// Helper map controllers
+const MapFitBounds = ({ positions }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (positions && positions.length > 0) {
+      const bounds = L.latLngBounds(positions);
+      map.fitBounds(bounds, { padding: [40, 40] });
+    }
+  }, [map, positions && positions.length, JSON.stringify(positions)]);
+  return null;
+};
+
+const MapFlyTo = ({ position, zoom = 16 }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (position && Number.isFinite(position[0]) && Number.isFinite(position[1])) {
+      map.flyTo(position, zoom, { duration: 0.75 });
+    }
+  }, [map, position && position[0], position && position[1], zoom]);
+  return null;
+};
+
 const AttendanceMapView = () => {
   const [loading, setLoading] = useState(true);
   const [attendances, setAttendances] = useState([]);
   const [users, setUsers] = useState([]);
   const [error, setError] = useState(null);
+  const [selectedUserId, setSelectedUserId] = useState(null);
 
   // Default center position (can be adjusted based on your requirements)
   const defaultCenter = [0, 0];
@@ -64,27 +87,68 @@ const AttendanceMapView = () => {
 
         console.log('Attendance data received:', attendanceResponse.data);
 
-        // Filter only records with location data
-        const usersWithLocation = (attendanceResponse.data.data || []).filter(
-          record => record.location && record.location.latitude && record.location.longitude
-        );
+        // Filter only records with valid numeric location data (including zeros)
+        const raw = attendanceResponse.data.data || [];
+        const usersWithLocation = raw
+          .filter(record => {
+            const hasLocation = record && record.location && record.location.latitude !== undefined && record.location.longitude !== undefined;
+            if (!hasLocation) return false;
+            const lat = Number(record.location.latitude);
+            const lng = Number(record.location.longitude);
+            return Number.isFinite(lat) && Number.isFinite(lng);
+          })
+          .map(record => ({
+            ...record,
+            location: {
+              ...record.location,
+              latitude: Number(record.location.latitude),
+              longitude: Number(record.location.longitude)
+            }
+          }));
 
         console.log('Filtered users with location:', usersWithLocation.length);
 
-        // Fetch user data from auth API to get roles
-        const userResponse = await axios.get(`${AUTH_API_URL}/auth/users`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        }).catch(error => {
-          console.error('Auth API Error:', error);
-          throw new Error(`Auth API Error: ${error.message}`);
-        });
+        // Fetch user data from auth API to get roles (attempt to fetch ALL users, bypassing any pagination)
+        const authHeaders = { Authorization: `Bearer ${localStorage.getItem('token')}` };
 
-        console.log('User data received:', userResponse.data);
+        const fetchAllUsers = async () => {
+          // Try a big limit first
+          const bigLimit = 10000;
+          try {
+            const resp = await axios.get(`${AUTH_API_URL}/auth/users`, {
+              params: { limit: bigLimit },
+              headers: authHeaders,
+            });
+            const arr = resp?.data?.data || [];
+            if (Array.isArray(arr)) return arr;
+          } catch (e) {
+            // Ignore and fallback to paged approach
+          }
+
+          // Fallback: iterate pages with a reasonable page size
+          const pageSize = 1000;
+          const aggregated = [];
+          let page = 1;
+          while (true) {
+            const resp = await axios.get(`${AUTH_API_URL}/auth/users`, {
+              params: { page, limit: pageSize },
+              headers: authHeaders,
+            });
+            const chunk = resp?.data?.data || [];
+            if (!Array.isArray(chunk) || chunk.length === 0) break;
+            aggregated.push(...chunk);
+            if (chunk.length < pageSize) break;
+            page += 1;
+          }
+          return aggregated;
+        };
+
+        const allUsers = await fetchAllUsers();
+
+        console.log('User data received:', { count: allUsers?.length || 0 });
 
         setAttendances(usersWithLocation);
-        setUsers(userResponse.data.data || []);
+        setUsers(allUsers || []);
         setLoading(false);
       } catch (err) {
         console.error('Error fetching data:', err);
@@ -101,14 +165,30 @@ const AttendanceMapView = () => {
     return users.find(user => user._id === userId) || {};
   };
 
-  // Calculate map bounds if we have locations
-  const getBounds = () => {
-    if (attendances.length > 0) {
-      const positions = attendances.map(a => [a.location.latitude, a.location.longitude]);
-      return L.latLngBounds(positions);
-    }
-    return null;
-  };
+  // Derived data for map
+  const positions = useMemo(() => (
+    attendances.map(a => [a.location.latitude, a.location.longitude])
+  ), [attendances]);
+
+  const selectedAttendance = useMemo(() => (
+    attendances.find(a => a.userId === selectedUserId) || null
+  ), [attendances, selectedUserId]);
+
+  const searchOptions = useMemo(() => {
+    const uniqueByUser = new Map();
+    attendances.forEach(a => {
+      if (!uniqueByUser.has(a.userId)) {
+        const user = getUserDetails(a.userId);
+        uniqueByUser.set(a.userId, {
+          userId: a.userId,
+          label: user.username || user.email || a.userId,
+          latitude: a.location.latitude,
+          longitude: a.location.longitude,
+        });
+      }
+    });
+    return Array.from(uniqueByUser.values());
+  }, [attendances, users]);
 
   // Find center of map based on all locations
   const getCenter = () => {
@@ -142,17 +222,62 @@ const AttendanceMapView = () => {
     console.log('Map center:', center);
     console.log('Attendances to show:', attendances.length);
 
+    const supervisorsCount = attendances.filter(a => getUserDetails(a.userId).role === 'SUPERVISOR').length;
+    const surveyorsCount = attendances.length - supervisorsCount;
+
     return (
       <MapContainer
+        key="attendance-map"
         center={center}
         zoom={attendances.length > 1 ? 10 : 14}
-        bounds={getBounds()}
         style={{ height: '100%', width: '100%' }}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+
+        {/* Fit bounds on data load/update */}
+        <MapFitBounds positions={positions} />
+        {/* Fly to when user is selected */}
+        {selectedAttendance && (
+          <MapFlyTo position={[selectedAttendance.location.latitude, selectedAttendance.location.longitude]} />
+        )}
+
+        {/* Search Control */}
+        <div style={{
+          position: 'absolute',
+          top: '12px',
+          right: '12px',
+          zIndex: 1000,
+          width: '300px',
+        }}>
+          <Paper elevation={3} sx={{ p: 1 }}>
+            <Autocomplete
+              size="small"
+              options={searchOptions}
+              getOptionLabel={(option) => option.label}
+              value={(() => {
+                if (!selectedUserId) return null;
+                const user = attendances.find(a => a.userId === selectedUserId);
+                if (!user) return null;
+                const details = getUserDetails(selectedUserId);
+                return {
+                  userId: selectedUserId,
+                  label: details.username || details.email || selectedUserId,
+                  latitude: user.location.latitude,
+                  longitude: user.location.longitude,
+                };
+              })()}
+              onChange={(e, value) => {
+                setSelectedUserId(value ? value.userId : null);
+              }}
+              renderInput={(params) => (
+                <TextField {...params} placeholder="Search user..." />
+              )}
+            />
+          </Paper>
+        </div>
 
         {/* Legend */}
         <div className="info legend" style={{
@@ -176,7 +301,7 @@ const AttendanceMapView = () => {
               marginRight: '5px',
               border: '1px solid white'
             }}></span>
-            <span>Supervisor</span>
+            <span>Supervisor ({supervisorsCount})</span>
           </div>
           <div>
             <span style={{
@@ -188,7 +313,7 @@ const AttendanceMapView = () => {
               marginRight: '5px',
               border: '1px solid white'
             }}></span>
-            <span>Surveyor</span>
+            <span>Surveyor ({surveyorsCount})</span>
           </div>
         </div>
 
@@ -196,17 +321,21 @@ const AttendanceMapView = () => {
           const user = getUserDetails(attendance.userId);
           const isSupervisor = user.role === 'SUPERVISOR';
           const markerColor = isSupervisor ? '#ff5722' : '#2196f3'; // Orange for supervisors, blue for surveyors
+          const isSelected = selectedUserId === attendance.userId;
 
           return (
             <CircleMarker
               key={`${attendance.userId}-${index}`}
               center={[attendance.location.latitude, attendance.location.longitude]}
-              radius={8}
+              radius={isSelected ? 10 : 8}
               pathOptions={{
                 fillColor: markerColor,
-                fillOpacity: 0.8,
-                color: '#fff',
-                weight: 1
+                fillOpacity: isSelected ? 1 : 0.8,
+                color: isSelected ? '#000' : '#fff',
+                weight: isSelected ? 2 : 1
+              }}
+              eventHandlers={{
+                click: () => setSelectedUserId(attendance.userId),
               }}
             >
               <Popup>
@@ -222,7 +351,7 @@ const AttendanceMapView = () => {
                     </div>
                   )}
                   {
-                    attendance?.location?.latitude && attendance?.location?.longitude && (
+                    attendance?.location?.latitude !== undefined && attendance?.location?.longitude !== undefined && (
                       <div>
                         <strong>Latitude:</strong> {attendance.location.latitude}
                         <br />

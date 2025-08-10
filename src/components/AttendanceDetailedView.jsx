@@ -121,10 +121,24 @@ const AttendanceDetailedView = () => {
         attendanceByUser[record.userId].push(record);
         
         // Store location coordinates for reverse geocoding
-        if (record.location && record.location.coordinates && record.location.coordinates.length === 2) {
-          const locKey = `${record.location.coordinates[1]},${record.location.coordinates[0]}`;
-          if (!locationNamesRef.current[locKey]) {
-            newLocations[locKey] = true;
+        if (record.location) {
+          if (record.location.coordinates && record.location.coordinates.length === 2) {
+            const locKey = `${record.location.coordinates[1]},${record.location.coordinates[0]}`; // lat,lng
+            if (!locationNamesRef.current[locKey]) {
+              newLocations[locKey] = true;
+            }
+          } else if (
+            record.location.latitude !== undefined &&
+            record.location.longitude !== undefined
+          ) {
+            const lat = Number(record.location.latitude);
+            const lng = Number(record.location.longitude);
+            if (Number.isFinite(lat) && Number.isFinite(lng)) {
+              const locKey = `${lat},${lng}`;
+              if (!locationNamesRef.current[locKey]) {
+                newLocations[locKey] = true;
+              }
+            }
           }
         }
       });
@@ -260,14 +274,31 @@ const AttendanceDetailedView = () => {
     setWeekStart(moment().startOf('week').toDate());
   };
 
-  // Get the location name from coordinates
+  // Get the location name/address from location object
   const getLocationName = (location) => {
-    if (!location || !location.coordinates || location.coordinates.length !== 2) {
-      return '-';
+    if (!location) return '-';
+    // Prefer explicit address if present
+    if (location.address) return location.address;
+
+    let lat; let lng;
+    if (location.coordinates && location.coordinates.length === 2) {
+      // GeoJSON order [lng, lat]
+      lng = Number(location.coordinates[0]);
+      lat = Number(location.coordinates[1]);
+    } else if (
+      location.latitude !== undefined &&
+      location.longitude !== undefined
+    ) {
+      lat = Number(location.latitude);
+      lng = Number(location.longitude);
+    }
+
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      const locKey = `${lat},${lng}`;
+      return locationNames[locKey] || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
     }
     
-    const locKey = `${location.coordinates[1]},${location.coordinates[0]}`;
-    return locationNames[locKey] || location.address || 'Unknown location';
+    return 'Unknown location';
   };
 
   // Export-related functions
