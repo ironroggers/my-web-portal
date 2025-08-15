@@ -39,9 +39,7 @@ const MapComponent = ({
 
   useEffect(() => {
     if (locationRoutes) {
-      setMapRoutes(
-        selectedLocations.length > 0 ? selectedLocations : []
-      );
+      setMapRoutes(selectedLocations.length > 0 ? selectedLocations : []);
     }
   }, [locationRoutes, selectedLocations]);
 
@@ -76,6 +74,13 @@ const MapComponent = ({
 
   // Filter KMLs to only show visible ones
   const visibleKMLs = loadedKMLs.filter((kml) => kml.visible);
+
+  useEffect(() => {
+    const kmls = selectedLocations[0]?.location?.kml_urls;
+    if (kmls) {
+      setLoadedKMLs(kmls);
+    }
+  }, [selectedLocations]);
 
   return (
     <Box>
@@ -120,7 +125,7 @@ const MapComponent = ({
         <KMLLayer loadedKMLs={visibleKMLs} map={mapInstance} />
       </GoogleMap>
 
-      {routeVisibility.addKML && (
+      {routeVisibility.addKML && selectedLocations.length > 0 && (
         <ReferenceKMLs
           onKMLLoad={handleKMLLoad}
           loadedKMLs={loadedKMLs}
@@ -128,6 +133,7 @@ const MapComponent = ({
           onKMLToggleVisibility={handleKMLToggleVisibility}
           routeVisibility={routeVisibility}
           setRouteVisibility={setRouteVisibility}
+          selectedLocations={selectedLocations}
         />
       )}
     </Box>
