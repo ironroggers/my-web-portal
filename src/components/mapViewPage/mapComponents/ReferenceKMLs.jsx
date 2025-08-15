@@ -32,6 +32,9 @@ const ReferenceKMLs = ({
   routeVisibility,
   setRouteVisibility,
   selectedLocations,
+  refreshLocations,
+  loading,
+  setLoading,
 }) => {
   const setOpen = (open) => {
     setRouteVisibility({ ...routeVisibility, addKML: open });
@@ -39,7 +42,6 @@ const ReferenceKMLs = ({
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
@@ -60,6 +62,7 @@ const ReferenceKMLs = ({
     setLoading(true);
     try {
       await handleKMLUpload(selectedFile, selectedLocations[0].location._id);
+      await refreshLocations();
       setLoading(false);
       setSelectedFile(null);
     } catch (err) {

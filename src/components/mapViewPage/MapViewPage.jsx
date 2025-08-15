@@ -37,7 +37,11 @@ import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import SurveySidebar from "./SurveySidebar.jsx";
 import MapComponent from "./MapComponent.jsx";
 import * as XLSX from "xlsx";
-import {GOOGLE_MAPS_DIRECTIONS_API, LOCATION_URL, SURVEY_URL} from "../../API/api-keys.jsx";
+import {
+  GOOGLE_MAPS_DIRECTIONS_API,
+  LOCATION_URL,
+  SURVEY_URL,
+} from "../../API/api-keys.jsx";
 import surveyService from "../../services/surveyService.jsx";
 import physicalSurveyExport from "../../utils/physicalSurveyExport.util.jsx";
 import { exportToKML } from "./utils/exportUtils.jsx";
@@ -147,14 +151,6 @@ const MapViewPage = () => {
     libraries: GOOGLE_MAPS_LIBRARIES,
   });
 
-  // Add this useEffect to adjust map bounds when locations are selected
-  // useEffect(() => {
-  //   if (isLoaded && selectedLocations.length > 0 && window.google) {
-  //     // If we have a map reference, we can fit the bounds
-  //     // This will be implemented via the onLoad callback below
-  //   }
-  // }, [selectedLocations, isLoaded]);
-
   // Add state for map reference
   const [map, setMap] = useState(null);
 
@@ -192,6 +188,23 @@ const MapViewPage = () => {
     adjustMapBounds();
   }, [map, selectedLocations, recentlySelectedLocation]);
 
+  const refreshLocations = async () => {
+    const loading = false;
+    await fetchLocations(loading);
+    await fetchSurveys();
+    if (selectedLocations.length > 0) {
+      const newSelectedLocations = locations.filter((location) => {
+        const selectedLocation = selectedLocations[0];
+        return location._id === selectedLocation.location._id;
+      });
+
+      const value = `${newSelectedLocations[0].block} (${newSelectedLocations[0].district})`;
+
+      handleLocationSelect(null, null);
+      handleLocationSelect(null, value);
+    }
+  };
+
   useEffect(() => {
     fetchLocations();
     fetchSurveys();
@@ -212,19 +225,26 @@ const MapViewPage = () => {
     if (selectedLocations.length > 0 && locationRoutes.length > 0) {
       const selectedLocation = selectedLocations[0];
       const matchingRoute = locationRoutes.find(
-        route => route.location &&
-                selectedLocation.location &&
-                route.location._id === selectedLocation.location._id
+        (route) =>
+          route.location &&
+          selectedLocation.location &&
+          route.location._id === selectedLocation.location._id
       );
-      
-      if (matchingRoute && matchingRoute.routeInfo && !selectedLocation.routeInfo) {
+
+      if (
+        matchingRoute &&
+        matchingRoute.routeInfo &&
+        !selectedLocation.routeInfo
+      ) {
         // Update selectedLocations with the calculated route info
-        setSelectedLocations([{
-          ...selectedLocation,
-          routeInfo: matchingRoute.routeInfo,
-          directions: matchingRoute.directions,
-          error: matchingRoute.error
-        }]);
+        setSelectedLocations([
+          {
+            ...selectedLocation,
+            routeInfo: matchingRoute.routeInfo,
+            directions: matchingRoute.directions,
+            error: matchingRoute.error,
+          },
+        ]);
       }
     }
   }, [locationRoutes, selectedLocations]);
@@ -233,22 +253,24 @@ const MapViewPage = () => {
   const processSelectedLocation = async (selectedLocationRoute) => {
     const location = selectedLocationRoute.location;
     const points = getPointsForLocation(location);
-    
+
     if (!window.google || !window.google.maps || points.length < 2) {
-      setLocationRoutes([{
-        points,
-        directions: null,
-        routeInfo: null,
-        mapCenter: points[0] || defaultCenter,
-        error: points.length < 2 ? "Not enough points for route" : null,
-        location,
-      }]);
+      setLocationRoutes([
+        {
+          points,
+          directions: null,
+          routeInfo: null,
+          mapCenter: points[0] || defaultCenter,
+          error: points.length < 2 ? "Not enough points for route" : null,
+          location,
+        },
+      ]);
       return;
     }
 
     try {
       let result;
-      
+
       // Handle case where we have more than 10 waypoints (Google Maps API limit)
       if (points.length > 11) {
         result = await getChunkedRoutes(points, location);
@@ -260,7 +282,7 @@ const MapViewPage = () => {
         const waypoints = points
           .slice(1)
           .map((p) => ({ location: p, stopover: true }));
-        
+
         result = await new Promise((resolve) => {
           directionsService.route(
             {
@@ -304,19 +326,21 @@ const MapViewPage = () => {
           );
         });
       }
-      
+
       // Set only this single location in locationRoutes
       setLocationRoutes([result]);
     } catch (error) {
       console.error("Error processing location:", error);
-      setLocationRoutes([{
-        points,
-        directions: null,
-        routeInfo: null,
-        mapCenter: points[0] || defaultCenter,
-        error: "Failed to process location",
-        location,
-      }]);
+      setLocationRoutes([
+        {
+          points,
+          directions: null,
+          routeInfo: null,
+          mapCenter: points[0] || defaultCenter,
+          error: "Failed to process location",
+          location,
+        },
+      ]);
     }
   };
 
@@ -327,9 +351,9 @@ const MapViewPage = () => {
     }
   }, [surveys, isLoaded]);
 
-  const fetchLocations = async () => {
+  const fetchLocations = async (loading = true) => {
     try {
-      setLoading(true);
+      setLoading(loading);
       setError(null);
 
       console.log("Attempting to fetch locations from API...");
@@ -443,218 +467,6 @@ const MapViewPage = () => {
         arr.findIndex((q) => q.lat === p.lat && q.lng === p.lng) === idx
     );
     return uniquePoints;
-  };
-
-  // Extract points for export (excluding temporary points)
-  const getPointsForLocationExport = (location) => {
-    const points = [];
-    if (location?.route?.length > 0) {
-      location.route.forEach((point) => {
-        if (!point.isTemporary && point.type !== "others") {
-          // Exclude temporary points and "others" type points from exports
-          points.push({ lat: point.latitude, lng: point.longitude });
-        }
-      });
-    }
-    // Remove duplicates
-    const uniquePoints = points.filter(
-      (p, idx, arr) =>
-        arr.findIndex((q) => q.lat === p.lat && q.lng === p.lng) === idx
-    );
-    return uniquePoints;
-  };
-
-  // For all locations, get their optimized route
-  const getAllLocationRoutes = async (locations) => {
-    const results = await Promise.all(
-      locations.map(async (location) => {
-        const points = getPointsForLocation(location);
-        if (!window.google || !window.google.maps || points.length < 2) {
-          return {
-            points,
-            directions: null,
-            routeInfo: null,
-            mapCenter: points[0] || defaultCenter,
-            error: points.length < 2 ? "Not enough points for route" : null,
-            location,
-          };
-        }
-
-        // Handle case where we have more than 10 waypoints (Google Maps API limit)
-        if (points.length > 11) {
-          // 10 waypoints + origin = 11
-          // Need to break into chunks
-          return await getChunkedRoutes(points, location);
-        } else {
-          // Original code for 10 or fewer waypoints
-          const directionsService = new window.google.maps.DirectionsService();
-          const origin = points[0];
-          const destination = points[0]; // Loop
-          const waypoints = points
-            .slice(1)
-            .map((p) => ({ location: p, stopover: true }));
-          return new Promise((resolve) => {
-            directionsService.route(
-              {
-                origin,
-                destination,
-                waypoints,
-                travelMode: window.google.maps.TravelMode.WALKING,
-                optimizeWaypoints: true,
-              },
-              (result, status) => {
-                if (status === "OK") {
-                  let totalDistance = 0;
-                  let totalDuration = 0;
-                  result.routes[0].legs.forEach((leg) => {
-                    totalDistance += leg.distance.value;
-                    totalDuration += leg.duration.value;
-                  });
-                  resolve({
-                    points,
-                    directions: result,
-                    routeInfo: {
-                      distance: totalDistance,
-                      time: totalDuration,
-                      legs: result.routes[0].legs.length,
-                    },
-                    mapCenter: points[0],
-                    error: null,
-                    location,
-                  });
-                } else {
-                  resolve({
-                    points,
-                    directions: null,
-                    routeInfo: null,
-                    mapCenter: points[0] || defaultCenter,
-                    error: "Failed to get optimized route from Google Maps.",
-                    location,
-                  });
-                }
-              }
-            );
-          });
-        }
-      })
-    );
-    setLocationRoutes(results);
-  };
-
-  // New function to initialize location routes without directions (saves API calls)
-  const initializeLocationRoutesWithoutDirections = (locations) => {
-    const results = locations.map((location) => {
-      const points = getPointsForLocation(location);
-      return {
-        points,
-        directions: null,
-        routeInfo: null,
-        mapCenter: points[0] || defaultCenter,
-        error: null,
-        location,
-      };
-    });
-    setLocationRoutes(results);
-  };
-
-  // New function to get routes only for selected locations
-  const getSelectedLocationRoutes = async (selectedLocations) => {
-    // First, initialize all locations without directions
-    const allLocationResults = locations.map((location) => {
-      const points = getPointsForLocation(location);
-      return {
-        points,
-        directions: null,
-        routeInfo: null,
-        mapCenter: points[0] || defaultCenter,
-        error: null,
-        location,
-      };
-    });
-
-    // Then calculate directions only for selected locations
-    const selectedResults = await Promise.all(
-      selectedLocations.map(async (selectedLocationRoute) => {
-        const location = selectedLocationRoute.location;
-        const points = getPointsForLocation(location);
-        
-        if (!window.google || !window.google.maps || points.length < 2) {
-          return {
-            points,
-            directions: null,
-            routeInfo: null,
-            mapCenter: points[0] || defaultCenter,
-            error: points.length < 2 ? "Not enough points for route" : null,
-            location,
-          };
-        }
-
-        // Handle case where we have more than 10 waypoints (Google Maps API limit)
-        if (points.length > 11) {
-          return await getChunkedRoutes(points, location);
-        } else {
-          const directionsService = new window.google.maps.DirectionsService();
-          const origin = points[0];
-          const destination = points[0]; // Loop
-          const waypoints = points
-            .slice(1)
-            .map((p) => ({ location: p, stopover: true }));
-          
-          return new Promise((resolve) => {
-            directionsService.route(
-              {
-                origin,
-                destination,
-                waypoints,
-                travelMode: window.google.maps.TravelMode.WALKING,
-                optimizeWaypoints: true,
-              },
-              (result, status) => {
-                if (status === "OK") {
-                  let totalDistance = 0;
-                  let totalDuration = 0;
-                  result.routes[0].legs.forEach((leg) => {
-                    totalDistance += leg.distance.value;
-                    totalDuration += leg.duration.value;
-                  });
-                  resolve({
-                    points,
-                    directions: result,
-                    routeInfo: {
-                      distance: totalDistance,
-                      time: totalDuration,
-                      legs: result.routes[0].legs.length,
-                    },
-                    mapCenter: points[0],
-                    error: null,
-                    location,
-                  });
-                } else {
-                  resolve({
-                    points,
-                    directions: null,
-                    routeInfo: null,
-                    mapCenter: points[0] || defaultCenter,
-                    error: "Failed to get optimized route from Google Maps.",
-                    location,
-                  });
-                }
-              }
-            );
-          });
-        }
-      })
-    );
-
-    // Update the locationRoutes with the new results (selected locations with directions, others without)
-    const updatedResults = allLocationResults.map((locationResult) => {
-      const selectedResult = selectedResults.find(
-        (selected) => selected.location.id === locationResult.location.id
-      );
-      return selectedResult || locationResult;
-    });
-
-    setLocationRoutes(updatedResults);
   };
 
   // Function to handle routes with more than 10 waypoints
@@ -1109,7 +921,7 @@ const MapViewPage = () => {
         error: null,
         location: selectedLocation,
       };
-      
+
       setSelectedLocations([selectedRoute]);
       setRecentlySelectedLocation(selectedRoute);
       setMapZoom(15);
@@ -1565,32 +1377,39 @@ const MapViewPage = () => {
     // Check if route calculation is complete for desktop export
     if (type === "desktop") {
       const selectedLocation = selectedLocations[0];
-      
+
       // Check if route calculation is still in progress
       if (!selectedLocation.routeInfo && !selectedLocation.error) {
         setSnackbar({
           open: true,
-          message: "Route calculation is still in progress. Please wait for the distance calculation to complete before exporting.",
+          message:
+            "Route calculation is still in progress. Please wait for the distance calculation to complete before exporting.",
           severity: "warning",
         });
         return;
       }
-      
+
       // Check if route calculation failed
       if (selectedLocation.error && !selectedLocation.routeInfo) {
         setSnackbar({
           open: true,
-          message: "Route calculation failed. Excel export will use estimated distances. Error: " + selectedLocation.error,
+          message:
+            "Route calculation failed. Excel export will use estimated distances. Error: " +
+            selectedLocation.error,
           severity: "warning",
         });
         // Continue with export using fallback distances
       }
-      
+
       // Check if no distance is available at all
-      if (!selectedLocation.routeInfo?.distance && !selectedLocation.location?.route?.length) {
+      if (
+        !selectedLocation.routeInfo?.distance &&
+        !selectedLocation.location?.route?.length
+      ) {
         setSnackbar({
           open: true,
-          message: "No route data available for distance calculation. Cannot export Excel file.",
+          message:
+            "No route data available for distance calculation. Cannot export Excel file.",
           severity: "error",
         });
         return;
@@ -1640,21 +1459,26 @@ const MapViewPage = () => {
       desktopTotalLength = Math.round(selectedLocations[0].routeInfo.distance);
     } else if (routePoints.length > 1) {
       // Fallback: Calculate estimated distance using Haversine formula
-      console.warn("Route calculation failed, using fallback distance calculation");
+      console.warn(
+        "Route calculation failed, using fallback distance calculation"
+      );
       for (let i = 0; i < routePoints.length - 1; i++) {
         const point1 = routePoints[i];
         const point2 = routePoints[i + 1];
-        
+
         // Haversine formula for calculating distance between two points
         const R = 6371000; // Earth's radius in meters
-        const dLat = (point2.latitude - point1.latitude) * Math.PI / 180;
-        const dLon = (point2.longitude - point1.longitude) * Math.PI / 180;
-        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                  Math.cos(point1.latitude * Math.PI / 180) * Math.cos(point2.latitude * Math.PI / 180) *
-                  Math.sin(dLon/2) * Math.sin(dLon/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        const dLat = ((point2.latitude - point1.latitude) * Math.PI) / 180;
+        const dLon = ((point2.longitude - point1.longitude) * Math.PI) / 180;
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos((point1.latitude * Math.PI) / 180) *
+            Math.cos((point2.latitude * Math.PI) / 180) *
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const distance = R * c;
-        
+
         desktopTotalLength += distance;
       }
       desktopTotalLength = Math.round(desktopTotalLength);
@@ -2425,12 +2249,15 @@ const MapViewPage = () => {
                 color="success"
                 startIcon={<FileDownloadIcon />}
                 onClick={handleExportClick}
-                disabled={selectedLocations.length === 0 || isRouteCalculationInProgress()}
-                sx={{ 
-                  borderRadius: "8px", 
-                  fontWeight: 500, 
+                disabled={
+                  selectedLocations.length === 0 ||
+                  isRouteCalculationInProgress()
+                }
+                sx={{
+                  borderRadius: "8px",
+                  fontWeight: 500,
                   flex: 1,
-                  opacity: isRouteCalculationInProgress() ? 0.6 : 1
+                  opacity: isRouteCalculationInProgress() ? 0.6 : 1,
                 }}
               >
                 {isRouteCalculationInProgress() ? "Calculating..." : "Export"}
@@ -2482,6 +2309,7 @@ const MapViewPage = () => {
               containerStyle={containerStyle}
               routeColor={routeColor}
               surveyRouteColor={surveyRouteColor}
+              refreshLocations={refreshLocations}
             />
           </>
         )}

@@ -26,7 +26,9 @@ const MapComponent = ({
   containerStyle,
   routeColor,
   surveyRouteColor,
+  refreshLocations,
 }) => {
+  const [kmlLoading, setKmlLoading] = useState(false);
   const [routeVisibility, setRouteVisibility] = useState({
     desktopSurvey: true, // Blue OFC routes
     physicalSurvey: true, // Yellow survey routes
@@ -76,11 +78,13 @@ const MapComponent = ({
   const visibleKMLs = loadedKMLs.filter((kml) => kml.visible);
 
   useEffect(() => {
+    console.log("selectedLocations", selectedLocations);
     const kmls = selectedLocations[0]?.location?.kml_urls;
+    console.log("kmls", kmls);
     if (kmls) {
       setLoadedKMLs(kmls);
     }
-  }, [selectedLocations]);
+  }, [selectedLocations, kmlLoading]);
 
   return (
     <Box>
@@ -134,6 +138,9 @@ const MapComponent = ({
           routeVisibility={routeVisibility}
           setRouteVisibility={setRouteVisibility}
           selectedLocations={selectedLocations}
+          refreshLocations={refreshLocations}
+          loading={kmlLoading}
+          setLoading={setKmlLoading}
         />
       )}
     </Box>

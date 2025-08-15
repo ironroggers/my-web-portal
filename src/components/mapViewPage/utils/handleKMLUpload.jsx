@@ -10,8 +10,6 @@ const handleKMLUpload = async (file, locationId) => {
     deleteOrAdd: "add",
   };
 
-  console.log("kmlData", kmlData);
-
   const response = await fetch(
     `${LOCATION_URL}/api/locations/kml/${locationId}`,
     {
@@ -22,7 +20,6 @@ const handleKMLUpload = async (file, locationId) => {
       body: JSON.stringify(kmlData),
     }
   );
-  console.log("response", response);
 };
 
 const handleKMLDelete = async (locationId, index) => {
