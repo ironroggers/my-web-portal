@@ -192,17 +192,6 @@ const MapViewPage = () => {
     const loading = false;
     await fetchLocations(loading);
     await fetchSurveys();
-    if (selectedLocations.length > 0) {
-      const newSelectedLocations = locations.filter((location) => {
-        const selectedLocation = selectedLocations[0];
-        return location._id === selectedLocation.location._id;
-      });
-
-      const value = `${newSelectedLocations[0].block} (${newSelectedLocations[0].district})`;
-
-      handleLocationSelect(null, null);
-      handleLocationSelect(null, value);
-    }
   };
 
   useEffect(() => {

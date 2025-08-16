@@ -35,6 +35,7 @@ const ReferenceKMLs = ({
   refreshLocations,
   loading,
   setLoading,
+  refreshKMLs,
 }) => {
   const setOpen = (open) => {
     setRouteVisibility({ ...routeVisibility, addKML: open });
@@ -61,10 +62,14 @@ const ReferenceKMLs = ({
     if (!selectedFile) return;
     setLoading(true);
     try {
-      await handleKMLUpload(selectedFile, selectedLocations[0].location._id);
+      const newKmls = await handleKMLUpload(
+        selectedFile,
+        selectedLocations[0].location._id
+      );
       await refreshLocations();
       setLoading(false);
       setSelectedFile(null);
+      refreshKMLs(newKmls);
     } catch (err) {
       setError(err.message || "Error processing file");
       setLoading(false);
@@ -76,6 +81,12 @@ const ReferenceKMLs = ({
     setSelectedFile(null);
     setError(null);
     setLoading(false);
+  };
+
+  const deleteKML = async (index) => {
+    await handleKMLDelete(selectedLocations[0].location._id, index);
+    refreshKMLs(loadedKMLs.filter((_, i) => i !== index));
+    await refreshLocations();
   };
 
   return (
@@ -155,12 +166,7 @@ const ReferenceKMLs = ({
                           <Tooltip title="Delete KML">
                             <IconButton
                               edge="end"
-                              onClick={() =>
-                                handleKMLDelete(
-                                  selectedLocations[0].location._id,
-                                  index
-                                )
-                              }
+                              onClick={() => deleteKML(index)}
                               size="small"
                               color="error"
                             >

@@ -74,17 +74,42 @@ const MapComponent = ({
     );
   };
 
+  const refreshKMLs = async (kmls) => {
+    const newKMLs = kmls.map((kml) => {
+      const existingKML = loadedKMLs.find((kml) => kml.name === kml.name);
+      if (existingKML) {
+        return existingKML;
+      }
+
+      const newKML = {
+        name: kml.name,
+        content: kml.content,
+        id: Date.now(),
+        visible: true,
+      };
+
+      return newKML;
+    });
+    setLoadedKMLs(newKMLs);
+  };
+
   // Filter KMLs to only show visible ones
   const visibleKMLs = loadedKMLs.filter((kml) => kml.visible);
 
   useEffect(() => {
-    console.log("selectedLocations", selectedLocations);
-    const kmls = selectedLocations[0]?.location?.kml_urls;
-    console.log("kmls", kmls);
+    let kmls = selectedLocations[0]?.location?.kml_urls;
     if (kmls) {
-      setLoadedKMLs(kmls);
+      kmls = kmls.map((kml) => ({
+        name: kml.name,
+        content: kml.content,
+        id: Date.now(),
+        visible: true,
+      }));
+      if (kmls) {
+        setLoadedKMLs(kmls);
+      }
     }
-  }, [selectedLocations, kmlLoading]);
+  }, [selectedLocations]);
 
   return (
     <Box>
@@ -141,6 +166,7 @@ const MapComponent = ({
           refreshLocations={refreshLocations}
           loading={kmlLoading}
           setLoading={setKmlLoading}
+          refreshKMLs={refreshKMLs}
         />
       )}
     </Box>
