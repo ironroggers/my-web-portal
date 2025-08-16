@@ -1,29 +1,71 @@
 import React, { useEffect, useRef } from "react";
 import { Polyline, Polygon, Marker, InfoWindow } from "@react-google-maps/api";
-import { parseKMLContent } from "../utils/kmlUtils";
+import { Button } from "@mui/material";
+import { parseKMLContent, fetchKMLContentFromURL } from "../utils/kmlUtils";
 
 const KMLLayer = ({ loadedKMLs, map }) => {
   const [parsedFeatures, setParsedFeatures] = React.useState([]);
   const [selectedFeature, setSelectedFeature] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState(null);
+
+  console.log("loadedKMLs", loadedKMLs);
 
   useEffect(() => {
     if (!loadedKMLs || loadedKMLs.length === 0) {
       setParsedFeatures([]);
+      setError(null);
       return;
     }
 
-    const allFeatures = [];
-    loadedKMLs.forEach((kml, kmlIndex) => {
-      const features = parseKMLContent(kml.content);
-      // Add KML source info to each feature
-      features.forEach((feature) => {
-        feature.kmlSource = kml.name;
-        feature.kmlIndex = kmlIndex;
-      });
-      allFeatures.push(...features);
-    });
+    const processKMLs = async () => {
+      setLoading(true);
+      setError(null);
+      const allFeatures = [];
 
-    setParsedFeatures(allFeatures);
+      try {
+        // Process each KML
+        for (const [kmlIndex, kml] of loadedKMLs.entries()) {
+          try {
+            let kmlContent;
+
+            // Check if content is a URL or actual KML content
+            if (
+              kml.content.startsWith("http://") ||
+              kml.content.startsWith("https://")
+            ) {
+              // Fetch content from URL
+              kmlContent = await fetchKMLContentFromURL(kml.content);
+            } else {
+              // Content is already KML text
+              kmlContent = kml.content;
+            }
+
+            const features = parseKMLContent(kmlContent);
+
+            // Add KML source info to each feature
+            features.forEach((feature) => {
+              feature.kmlSource = kml.name;
+              feature.kmlIndex = kmlIndex;
+            });
+
+            allFeatures.push(...features);
+          } catch (kmlError) {
+            console.error(`Error processing KML ${kml.name}:`, kmlError);
+            // Continue processing other KMLs even if one fails
+          }
+        }
+
+        setParsedFeatures(allFeatures);
+      } catch (generalError) {
+        console.error("Error processing KMLs:", generalError);
+        setError("Failed to load some KML files");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    processKMLs();
   }, [loadedKMLs]);
 
   const handleFeatureClick = (feature) => {
@@ -64,6 +106,16 @@ const KMLLayer = ({ loadedKMLs, map }) => {
       scaledSize: new window.google.maps.Size(24, 24),
     },
   };
+
+  // Show loading indicator if processing KMLs
+  if (loading) {
+    console.log("Loading KML features...");
+  }
+
+  // Show error if there was a problem
+  if (error) {
+    console.error("KML loading error:", error);
+  }
 
   return (
     <>

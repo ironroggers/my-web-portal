@@ -140,4 +140,51 @@ const extractKMLFromKMZ = async (file) => {
   }
 };
 
+// Function to fetch KML/KMZ content from URL
+export const fetchKMLContentFromURL = async (url) => {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    // Check if it's a KMZ file based on URL or content type
+    const contentType = response.headers.get("content-type") || "";
+    const isKMZ =
+      url.toLowerCase().includes(".kmz") ||
+      contentType.includes("application/vnd.google-earth.kmz") ||
+      contentType.includes("application/zip");
+
+    if (isKMZ) {
+      // Handle KMZ file
+      const arrayBuffer = await response.arrayBuffer();
+      const zip = new JSZip();
+      const zipContent = await zip.loadAsync(arrayBuffer);
+
+      // Look for KML files in the zip
+      const kmlFiles = Object.keys(zipContent.files).filter(
+        (filename) =>
+          filename.toLowerCase().endsWith(".kml") &&
+          !zipContent.files[filename].dir
+      );
+
+      if (kmlFiles.length === 0) {
+        throw new Error("No KML files found in the KMZ archive");
+      }
+
+      // Use the first KML file found
+      const kmlFile = zipContent.files[kmlFiles[0]];
+      const kmlContent = await kmlFile.async("text");
+      return kmlContent;
+    } else {
+      // Handle KML file
+      const kmlContent = await response.text();
+      return kmlContent;
+    }
+  } catch (error) {
+    console.error("Error fetching KML content from URL:", error);
+    throw error;
+  }
+};
+
 export { extractKMLFromKMZ };
