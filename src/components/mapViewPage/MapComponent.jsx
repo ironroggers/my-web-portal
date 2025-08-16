@@ -74,16 +74,16 @@ const MapComponent = ({
     );
   };
 
-  const refreshKMLs = async (kmls) => {
-    const newKMLs = kmls.map((kml) => {
-      const existingKML = loadedKMLs.find((kml) => kml.name === kml.name);
+  const refreshKMLs = async (newKMLs) => {
+    newKMLs = newKMLs.map((newKML) => {
+      const existingKML = loadedKMLs.find((kml) => kml.name === newKML.name);
       if (existingKML) {
         return existingKML;
       }
 
-      const newKML = {
-        name: kml.name,
-        content: kml.content,
+      newKML = {
+        name: newKML.name,
+        content: newKML.content,
         id: Date.now(),
         visible: true,
       };
