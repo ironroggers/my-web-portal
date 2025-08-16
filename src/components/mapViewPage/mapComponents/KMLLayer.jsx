@@ -9,8 +9,6 @@ const KMLLayer = ({ loadedKMLs, map }) => {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState(null);
 
-  console.log("loadedKMLs", loadedKMLs);
-
   useEffect(() => {
     if (!loadedKMLs || loadedKMLs.length === 0) {
       setParsedFeatures([]);
