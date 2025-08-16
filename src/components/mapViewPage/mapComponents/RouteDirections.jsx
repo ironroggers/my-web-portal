@@ -7,13 +7,17 @@ const RouteDirections = ({
   isSelected,
   routeVisibility,
   routeColor,
+  setDistance,
 }) => {
   const [directions, setDirections] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchOptimizedRoute = async () => {
-      if (!route.location?.route || !routeVisibility.desktopSurvey) return;
+      if (!route.location?.route || !routeVisibility.desktopSurvey) {
+        setDistance(0);
+        return;
+      }
 
       try {
         // Optimize the route
@@ -52,14 +56,25 @@ const RouteDirections = ({
             if (status === "OK") {
               setDirections(result);
               setError(null);
+
+              // Calculate total distance
+              let totalDistance = 0;
+              if (result.routes && result.routes[0] && result.routes[0].legs) {
+                result.routes[0].legs.forEach((leg) => {
+                  totalDistance += leg.distance.value; // distance in meters
+                });
+              }
+              setDistance(totalDistance);
             } else {
               setError(`Directions request failed: ${status}`);
+              setDistance(0);
               console.error("Error fetching directions:", status);
             }
           }
         );
       } catch (error) {
         setError(`Route optimization failed: ${error.message}`);
+        setDistance(0);
         console.error("Error optimizing route:", error);
       }
     };

@@ -27,6 +27,8 @@ const MapComponent = ({
   routeColor,
   surveyRouteColor,
   refreshLocations,
+  distance,
+  setDistance,
 }) => {
   const [kmlLoading, setKmlLoading] = useState(false);
   const [routeVisibility, setRouteVisibility] = useState({
@@ -134,6 +136,8 @@ const MapComponent = ({
           handleLocationMarkerClick={handleLocationMarkerClick}
           getSurveysForLocation={getSurveysForLocation}
           handleSurveyMarkerClick={handleSurveyMarkerClick}
+          distance={distance}
+          setDistance={setDistance}
         />
 
         <SurveyMarkers

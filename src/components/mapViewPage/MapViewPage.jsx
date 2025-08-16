@@ -88,6 +88,7 @@ const MapViewPage = () => {
   const [error, setError] = useState(null);
   const [selectedLocations, setSelectedLocations] = useState([]); // Changed to array for multiple selection
   const [mapZoom, setMapZoom] = useState(11);
+  const [distance, setDistance] = useState(0);
 
   // New state for route visibility
 
@@ -2278,6 +2279,7 @@ const MapViewPage = () => {
               getSurveysForLocation={getSurveysForLocation}
               handleLocationMarkerClick={handleLocationMarkerClick}
               STATUS_MAPPING={STATUS_MAPPING}
+              distance={distance}
             />
             <SymbolsComponent surveys={surveys} />
             <MapComponent
@@ -2299,6 +2301,8 @@ const MapViewPage = () => {
               routeColor={routeColor}
               surveyRouteColor={surveyRouteColor}
               refreshLocations={refreshLocations}
+              distance={distance}
+              setDistance={setDistance}
             />
           </>
         )}

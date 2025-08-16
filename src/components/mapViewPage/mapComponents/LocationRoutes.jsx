@@ -13,6 +13,8 @@ const LocationRoutes = ({
   handleLocationMarkerClick,
   getSurveysForLocation,
   handleSurveyMarkerClick,
+  distance,
+  setDistance,
 }) => {
   return (
     <>
@@ -50,6 +52,8 @@ const LocationRoutes = ({
               isSelected={isSelected}
               routeVisibility={routeVisibility}
               routeColor={routeColor}
+              distance={distance}
+              setDistance={setDistance}
             />
 
             {route.location && (
