@@ -2,6 +2,9 @@ import React, { useEffect, useState } from "react";
 import { DirectionsRenderer, DirectionsService } from "@react-google-maps/api";
 import { optimizeRoute } from "../../../utils/routeOptimizer";
 
+export let OptimizedPoints = null;
+export let DIRECTIONS = null;
+
 const RouteDirections = ({
   route,
   isSelected,
@@ -25,6 +28,8 @@ const RouteDirections = ({
           route.location.route,
           isSelected
         );
+
+        OptimizedPoints = optimizedPoints;
 
         // Create waypoints for the DirectionsService
         const waypoints = optimizedPoints.slice(1, -1).map((point) => ({
@@ -54,6 +59,7 @@ const RouteDirections = ({
           },
           (result, status) => {
             if (status === "OK") {
+              DIRECTIONS = result;
               setDirections(result);
               setError(null);
 
