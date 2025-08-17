@@ -141,6 +141,26 @@ const AttendanceDetailedView = () => {
             }
           }
         }
+
+        // Store checkoutLocation coordinates for reverse geocoding
+        if (record.checkoutLocation) {
+          const cl = record.checkoutLocation;
+          if (cl.coordinates && cl.coordinates.length === 2) {
+            const locKey = `${cl.coordinates[1]},${cl.coordinates[0]}`; // lat,lng
+            if (!locationNamesRef.current[locKey]) {
+              newLocations[locKey] = true;
+            }
+          } else if (cl.latitude !== undefined && cl.longitude !== undefined) {
+            const lat = Number(cl.latitude);
+            const lng = Number(cl.longitude);
+            if (Number.isFinite(lat) && Number.isFinite(lng)) {
+              const locKey = `${lat},${lng}`;
+              if (!locationNamesRef.current[locKey]) {
+                newLocations[locKey] = true;
+              }
+            }
+          }
+        }
       });
 
       setUsers(userData);
@@ -377,7 +397,8 @@ const AttendanceDetailedView = () => {
         let checkInTime = '-';
         let checkOutTime = '-';
         let hoursWorked = '-';
-        let location = '-';
+        let checkInLocation = '-';
+        let checkOutLocation = '-';
 
         if (!isFuture && attendanceRecord) {
           status = attendanceRecord.status.charAt(0).toUpperCase() + attendanceRecord.status.slice(1);
@@ -394,7 +415,10 @@ const AttendanceDetailedView = () => {
           }
 
           if (attendanceRecord.location) {
-            location = getLocationName(attendanceRecord.location);
+            checkInLocation = getLocationName(attendanceRecord.location);
+          }
+          if (attendanceRecord.checkoutLocation) {
+            checkOutLocation = getLocationName(attendanceRecord.checkoutLocation);
           }
         } else if (isFuture) {
           status = 'Upcoming';
@@ -407,7 +431,8 @@ const AttendanceDetailedView = () => {
           'Check-in Time': checkInTime,
           'Check-out Time': checkOutTime,
           'Hours Worked': hoursWorked,
-          'Location': location
+          'Check-in Location': checkInLocation,
+          'Check-out Location': checkOutLocation
         });
       });
 
@@ -510,7 +535,8 @@ const AttendanceDetailedView = () => {
             let checkInTime = '-';
             let checkOutTime = '-';
             let hoursWorked = '-';
-            let location = '-';
+            let checkInLocation = '-';
+            let checkOutLocation = '-';
 
             if (!isFuture && attendanceRecord) {
               status = attendanceRecord.status.charAt(0).toUpperCase() + attendanceRecord.status.slice(1);
@@ -527,7 +553,10 @@ const AttendanceDetailedView = () => {
               }
 
               if (attendanceRecord.location) {
-                location = getLocationName(attendanceRecord.location);
+                checkInLocation = getLocationName(attendanceRecord.location);
+              }
+              if (attendanceRecord.checkoutLocation) {
+                checkOutLocation = getLocationName(attendanceRecord.checkoutLocation);
               }
             } else if (isFuture) {
               status = 'Upcoming';
@@ -543,7 +572,8 @@ const AttendanceDetailedView = () => {
               'Check-in Time': checkInTime,
               'Check-out Time': checkOutTime,
               'Hours Worked': hoursWorked,
-              'Location': location
+              'Check-in Location': checkInLocation,
+              'Check-out Location': checkOutLocation
             });
           });
           
@@ -569,7 +599,8 @@ const AttendanceDetailedView = () => {
         { wch: 15 }, // Check-in Time
         { wch: 15 }, // Check-out Time
         { wch: 15 }, // Hours Worked
-        { wch: 25 }  // Location
+        { wch: 30 }, // Check-in Location
+        { wch: 30 }  // Check-out Location
       ];
 
       XLSX.utils.book_append_sheet(workbook, worksheet, 'All Users Attendance');
@@ -777,7 +808,8 @@ const AttendanceDetailedView = () => {
                     <TableCell>Check-in</TableCell>
                     <TableCell>Check-out</TableCell>
                     <TableCell>Hours</TableCell>
-                    <TableCell>Location</TableCell>
+                    <TableCell>Check-in Location</TableCell>
+                    <TableCell>Check-out Location</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -793,7 +825,7 @@ const AttendanceDetailedView = () => {
                     const hoursWorked = attendance.sessions && attendance.sessions.length > 0 && attendance.sessions[0].checkOutTime
                       ? moment.duration(moment(attendance.sessions[0].checkOutTime).diff(moment(attendance.sessions[0].checkInTime))).asHours().toFixed(2)
                       : '-';
-
+ 
                     return (
                       <TableRow key={index} sx={{ '&:nth-of-type(odd)': { bgcolor: 'action.hover' } }}>
                         <TableCell>{moment(date).format('dddd')}</TableCell>
@@ -819,8 +851,17 @@ const AttendanceDetailedView = () => {
                         <TableCell>
                           {!isFuture && attendance.location ? (
                             <Tooltip title={getLocationName(attendance.location)}>
-                              <Typography noWrap sx={{ maxWidth: 200 }}>
+                              <Typography noWrap sx={{ maxWidth: 220 }}>
                                 {getLocationName(attendance.location)}
+                              </Typography>
+                            </Tooltip>
+                          ) : '-'}
+                        </TableCell>
+                        <TableCell>
+                          {!isFuture && attendance.checkoutLocation ? (
+                            <Tooltip title={getLocationName(attendance.checkoutLocation)}>
+                              <Typography noWrap sx={{ maxWidth: 220 }}>
+                                {getLocationName(attendance.checkoutLocation)}
                               </Typography>
                             </Tooltip>
                           ) : '-'}

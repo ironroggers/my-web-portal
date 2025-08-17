@@ -225,6 +225,38 @@ const AttendanceMapView = () => {
     const supervisorsCount = attendances.filter(a => getUserDetails(a.userId).role === 'SUPERVISOR').length;
     const surveyorsCount = attendances.length - supervisorsCount;
 
+    const popupSectionStyle = {
+      marginTop: '8px',
+      padding: '6px 8px',
+      border: '1px solid #e0e0e0',
+      borderRadius: '6px',
+      background: '#fafafa'
+    };
+
+    const addrTextStyle = {
+      whiteSpace: 'normal',
+      lineHeight: 1.3,
+      marginTop: '4px'
+    };
+
+    const smallTextStyle = {
+      color: '#666',
+      fontSize: '12px',
+      marginTop: '4px'
+    };
+
+    const formatLocationText = (loc) => {
+      if (!loc) return '-';
+      if (loc.address) return loc.address;
+      if (typeof loc.latitude !== 'undefined' && typeof loc.longitude !== 'undefined') {
+        return `${loc.latitude}, ${loc.longitude}`;
+      }
+      if (Array.isArray(loc.coordinates) && loc.coordinates.length === 2) {
+        return `${loc.coordinates[1]}, ${loc.coordinates[0]}`;
+      }
+      return '-';
+    };
+
     return (
       <MapContainer
         key="attendance-map"
@@ -339,28 +371,14 @@ const AttendanceMapView = () => {
               }}
             >
               <Popup>
-                <div style={{ padding: '5px', fontSize: '14px' }}>
-                  <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>
+                <div style={{ padding: '6px 6px 8px 6px', fontSize: '14px', maxWidth: '280px' }}>
+                  <div style={{ fontWeight: 'bold', marginBottom: '6px' }}>
                     {user.username || 'Unknown'}
                   </div>
-                  <hr style={{ margin: '5px 0', border: '0', borderTop: '1px solid #eee' }} />
-                  <div><strong>Role:</strong> {user.role || 'Unknown'}</div>
-                  {attendance.location.address && (
-                    <div>
-                      <strong>Address:</strong> {attendance.location.address}
-                    </div>
-                  )}
-                  {
-                    attendance?.location?.latitude !== undefined && attendance?.location?.longitude !== undefined && (
-                      <div>
-                        <strong>Latitude:</strong> {attendance.location.latitude}
-                        <br />
-                        <strong>Longitude:</strong> {attendance.location.longitude}
-                      </div>
-                    )
-                  }
-                  <div><strong>Status:</strong> {attendance.status}</div>
-                  <div>
+                  <hr style={{ margin: '6px 0', border: '0', borderTop: '1px solid #eee' }} />
+                  <div style={{ marginBottom: '6px' }}><strong>Role:</strong> {user.role || 'Unknown'}</div>
+                  <div style={{ marginBottom: '4px' }}><strong>Status:</strong> {attendance.status}</div>
+                  <div style={{ marginBottom: '4px' }}>
                     <strong>Check-in time:</strong> {
                       attendance.sessions && attendance.sessions.length > 0
                         ? new Date(attendance.sessions[attendance.sessions.length - 1].checkInTime).toLocaleTimeString()
@@ -373,6 +391,34 @@ const AttendanceMapView = () => {
                         ? new Date(attendance.sessions[attendance.sessions.length - 1].checkOutTime).toLocaleTimeString()
                         : 'Not checked out yet'
                     }
+                  </div>
+
+                  {/* Check-in section */}
+                  <div style={popupSectionStyle}>
+                    <div style={{ fontWeight: 600 }}>Check-in</div>
+                    <div style={addrTextStyle}>{formatLocationText(attendance.location)}</div>
+                    {attendance?.location?.latitude !== undefined && attendance?.location?.longitude !== undefined && (
+                      <div style={smallTextStyle}>
+                        Lat: {attendance.location.latitude}, Lng: {attendance.location.longitude}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Check-out section */}
+                  <div style={popupSectionStyle}>
+                    <div style={{ fontWeight: 600 }}>Check-out</div>
+                    {attendance.checkoutLocation ? (
+                      <>
+                        <div style={addrTextStyle}>{formatLocationText(attendance.checkoutLocation)}</div>
+                        {attendance.checkoutLocation.latitude !== undefined && attendance.checkoutLocation.longitude !== undefined && (
+                          <div style={smallTextStyle}>
+                            Lat: {attendance.checkoutLocation.latitude}, Lng: {attendance.checkoutLocation.longitude}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div style={smallTextStyle}>Not checked out yet</div>
+                    )}
                   </div>
                 </div>
               </Popup>
