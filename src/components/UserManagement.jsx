@@ -42,6 +42,19 @@ import EditIcon from "@mui/icons-material/Edit";
 import SearchIcon from "@mui/icons-material/Search";
 import { AUTH_URL } from "../API/api-keys.jsx";
 
+const PROJECT_OPTIONS = [
+  "BharatNet Kerala",
+  "NFS",
+  "BUIDCO",
+  "JUCDO",
+  "MPUDC",
+  "KMC",
+  "DEL Office",
+  "HDD",
+  "GAIL",
+  "Others",
+];
+
 const UserManagement = () => {
   const [formData, setFormData] = useState({
     username: "",
@@ -50,6 +63,7 @@ const UserManagement = () => {
     role: "SURVEYOR",
     reportingTo: "",
     designation: "",
+    project: "",
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -150,6 +164,9 @@ const UserManagement = () => {
           ? { reportingTo: formData.reportingTo }
           : {}),
       };
+      if (!formData.project) {
+        delete requestBody.project;
+      }
 
       const url = editMode
         ? `${AUTH_URL}/api/auth/users/${editUserId}`
@@ -181,6 +198,7 @@ const UserManagement = () => {
         role: "SURVEYOR",
         reportingTo: "",
         designation: "",
+        project: "",
       });
       setEditMode(false);
       setEditUserId(null);
@@ -223,6 +241,7 @@ const UserManagement = () => {
       role: user.role,
       reportingTo: user.reportingTo?._id || "",
       designation: user.designation || "",
+      project: user.project || "",
     });
     setEditMode(true);
     setEditUserId(user._id);
@@ -241,6 +260,7 @@ const UserManagement = () => {
       role: "SURVEYOR",
       reportingTo: "",
       designation: "",
+      project: "",
     });
     setEditMode(false);
     setEditUserId(null);
@@ -546,6 +566,27 @@ const UserManagement = () => {
                   </Grid>
 
                   <Grid item xs={12} sx={{ width: "20%" }}>
+                    <FormControl fullWidth variant="outlined" size="small">
+                      <InputLabel id="project-label">Project</InputLabel>
+                      <Select
+                        labelId="project-label"
+                        id="project"
+                        name="project"
+                        value={formData.project}
+                        onChange={handleChange}
+                        label="Project"
+                      >
+                        <MenuItem value="">
+                          <em>Select Project</em>
+                        </MenuItem>
+                        {PROJECT_OPTIONS.map((opt) => (
+                          <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+
+                  <Grid item xs={12} sx={{ width: "20%" }}>
                     <Box
                       sx={{ display: "flex", gap: 2, flexDirection: "column" }}
                     >
@@ -724,6 +765,11 @@ const UserManagement = () => {
                               </TableCell>
                               <TableCell>
                                 <Typography variant="subtitle2" fontWeight="bold">
+                                  Project
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="subtitle2" fontWeight="bold">
                                   Reporting To
                                 </Typography>
                               </TableCell>
@@ -769,6 +815,7 @@ const UserManagement = () => {
                                     />
                                   </TableCell>
                                   <TableCell>{user.designation || "-"}</TableCell>
+                                  <TableCell>{user.project || "-"}</TableCell>
                                   <TableCell>
                                     {user.reportingTo
                                       ? user.reportingTo.username
