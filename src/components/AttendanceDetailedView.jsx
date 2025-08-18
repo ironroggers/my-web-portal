@@ -41,6 +41,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import axios from 'axios';
 import moment from 'moment';
 import {ATTENDANCE_URL, AUTH_URL} from "../API/api-keys.jsx";
@@ -321,6 +322,47 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
     }
     
     return 'Unknown location';
+  };
+
+  // Distance helpers to flag large gaps between check-in and check-out
+  const getLatLngFromLocation = (location) => {
+    if (!location) return null;
+    let lat; let lng;
+    if (location.coordinates && location.coordinates.length === 2) {
+      lng = Number(location.coordinates[0]);
+      lat = Number(location.coordinates[1]);
+    } else if (
+      location.latitude !== undefined &&
+      location.longitude !== undefined
+    ) {
+      lat = Number(location.latitude);
+      lng = Number(location.longitude);
+    }
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return { lat, lng };
+    }
+    return null;
+  };
+
+  const toRadians = (degrees) => (degrees * Math.PI) / 180;
+
+  const calculateDistanceKm = (lat1, lng1, lat2, lng2) => {
+    const R = 6371; // km
+    const dLat = toRadians(lat2 - lat1);
+    const dLng = toRadians(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  const getDistanceBetweenLocationsKm = (loc1, loc2) => {
+    const a = getLatLngFromLocation(loc1);
+    const b = getLatLngFromLocation(loc2);
+    if (!a || !b) return null;
+    return calculateDistanceKm(a.lat, a.lng, b.lat, b.lng);
   };
 
   // Export-related functions
@@ -911,6 +953,12 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
       ? Math.round((presentDays + lateDays) / totalPastDays * 100) 
       : 0;
 
+    // Flag if any day has distance between check-in and check-out > 3 km
+    const hasLongDistanceIssue = userAttendance.some(record => {
+      const distanceKm = getDistanceBetweenLocationsKm(record.location, record.checkoutLocation);
+      return distanceKm !== null && distanceKm > 3;
+    });
+
     return (
       <>
         <TableRow
@@ -984,6 +1032,17 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
             {attendancePercentage + '%'}
           </TableCell>
           <TableCell align="center">
+            {hasLongDistanceIssue && (
+              <Tooltip title="Check-in and check-out locations are farther than 3 km on one or more days this week">
+                <Chip
+                  icon={<WarningAmberIcon />}
+                  label="3km+"
+                  color="error"
+                  size="small"
+                  sx={{ mr: 1 }}
+                />
+              </Tooltip>
+            )}
             <Tooltip title="Export Attendance">
               <IconButton
                 size="small"
