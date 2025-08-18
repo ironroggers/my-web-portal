@@ -48,7 +48,7 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-const AttendanceCalendarView = () => {
+const AttendanceCalendarView = ({ projectFilter = 'ALL' }) => {
   const theme = useTheme();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -128,12 +128,19 @@ const AttendanceCalendarView = () => {
       return [];
     }
 
+    // Filter users by project first
+    const eligibleUserIds = new Set(
+      projectFilter === 'ALL'
+        ? users.map(u => u._id)
+        : users.filter(u => (u.project || '') === projectFilter).map(u => u._id)
+    );
+
     // Create a map to store attendance counts by date
     const attendanceByDate = {};
 
     // Process attendance records
     attendanceData.forEach(record => {
-      if (record.status === 'present' || record.status === 'late') {
+      if ((record.status === 'present' || record.status === 'late') && eligibleUserIds.has(record.userId)) {
         const date = moment(record.date).format('YYYY-MM-DD');
 
         if (!attendanceByDate[date]) {
@@ -498,64 +505,11 @@ const AttendanceCalendarView = () => {
         ) : (
           <Box
             sx={{
-              height: '680px',
-              bgcolor: 'background.paper',
+              height: 600,
+              background: theme.palette.background.default,
               borderRadius: 2,
-              overflow: 'hidden',
+              p: 2,
               border: `1px solid ${theme.palette.divider}`,
-              boxShadow: theme.shadows[1],
-              '& .rbc-header': {
-                fontWeight: 600,
-                padding: '12px 0',
-                background: theme.palette.mode === 'dark'
-                  ? alpha(theme.palette.primary.dark, 0.3)
-                  : alpha(theme.palette.primary.light, 0.15),
-                color: theme.palette.text.primary,
-                borderBottom: `1px solid ${theme.palette.divider}`,
-                fontSize: '0.9rem'
-              },
-              '& .rbc-month-view': {
-                border: 'none',
-                backgroundColor: theme.palette.background.paper
-              },
-              '& .rbc-day-bg': {
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  backgroundColor: alpha(theme.palette.action.hover, 0.05)
-                }
-              },
-              '& .rbc-day-bg.rbc-today': {
-                backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                boxShadow: `inset 0 0 0 1px ${alpha(theme.palette.primary.main, 0.3)}`
-              },
-              '& .rbc-off-range-bg': {
-                backgroundColor: theme.palette.mode === 'dark'
-                  ? alpha(theme.palette.action.disabled, 0.1)
-                  : alpha(theme.palette.action.disabled, 0.04)
-              },
-              '& .rbc-date-cell': {
-                padding: '5px 8px',
-                textAlign: 'center',
-                fontSize: '0.9rem'
-              },
-              '& .rbc-date-cell.rbc-now': {
-                fontWeight: 'bold',
-                color: theme.palette.primary.main
-              },
-              '& .rbc-month-row': {
-                borderColor: theme.palette.divider
-              },
-              '& .rbc-row-content': {
-                paddingRight: 1
-              },
-              '& .rbc-show-more': {
-                backgroundColor: alpha(theme.palette.primary.main, 0.06),
-                color: theme.palette.primary.main,
-                fontWeight: 600,
-                borderRadius: '4px',
-                padding: '2px 8px',
-                fontSize: '0.8rem'
-              }
             }}
           >
             <Calendar
@@ -564,20 +518,13 @@ const AttendanceCalendarView = () => {
               startAccessor="start"
               endAccessor="end"
               style={{ height: '100%' }}
-              components={{
-                event: EventComponent,
-                toolbar: CustomToolbar
-              }}
-              views={['month']}
-              defaultView="month"
-              date={currentDate}
+              views={["month"]}
               onNavigate={handleNavigate}
-              popup={true}
-              eventPropGetter={() => ({
-                style: {
-                  borderRadius: '0px'
-                }
-              })}
+              components={{
+                toolbar: CustomToolbar,
+                event: EventComponent
+              }}
+              tooltipAccessor={null}
             />
           </Box>
         )}

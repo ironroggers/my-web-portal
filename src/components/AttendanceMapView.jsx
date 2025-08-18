@@ -45,7 +45,7 @@ const MapFlyTo = ({ position, zoom = 16 }) => {
   return null;
 };
 
-const AttendanceMapView = () => {
+const AttendanceMapView = ({ projectFilter = 'ALL' }) => {
   const [loading, setLoading] = useState(true);
   const [attendances, setAttendances] = useState([]);
   const [users, setUsers] = useState([]);
@@ -165,18 +165,27 @@ const AttendanceMapView = () => {
     return users.find(user => user._id === userId) || {};
   };
 
+  // Apply project filter to attendances using user.project
+  const filteredAttendances = useMemo(() => {
+    if (projectFilter === 'ALL') return attendances;
+    const userIdsInProject = new Set(
+      users.filter(u => (u.project || '') === projectFilter).map(u => u._id)
+    );
+    return attendances.filter(a => userIdsInProject.has(a.userId));
+  }, [attendances, users, projectFilter]);
+
   // Derived data for map
   const positions = useMemo(() => (
-    attendances.map(a => [a.location.latitude, a.location.longitude])
-  ), [attendances]);
+    filteredAttendances.map(a => [a.location.latitude, a.location.longitude])
+  ), [filteredAttendances]);
 
   const selectedAttendance = useMemo(() => (
-    attendances.find(a => a.userId === selectedUserId) || null
-  ), [attendances, selectedUserId]);
+    filteredAttendances.find(a => a.userId === selectedUserId) || null
+  ), [filteredAttendances, selectedUserId]);
 
   const searchOptions = useMemo(() => {
     const uniqueByUser = new Map();
-    attendances.forEach(a => {
+    filteredAttendances.forEach(a => {
       if (!uniqueByUser.has(a.userId)) {
         const user = getUserDetails(a.userId);
         uniqueByUser.set(a.userId, {
@@ -188,21 +197,21 @@ const AttendanceMapView = () => {
       }
     });
     return Array.from(uniqueByUser.values());
-  }, [attendances, users]);
+  }, [filteredAttendances, users]);
 
   // Find center of map based on all locations
   const getCenter = () => {
-    if (attendances.length > 0) {
-      const totalLat = attendances.reduce((sum, a) => sum + a.location.latitude, 0);
-      const totalLng = attendances.reduce((sum, a) => sum + a.location.longitude, 0);
-      return [totalLat / attendances.length, totalLng / attendances.length];
+    if (filteredAttendances.length > 0) {
+      const totalLat = filteredAttendances.reduce((sum, a) => sum + a.location.latitude, 0);
+      const totalLng = filteredAttendances.reduce((sum, a) => sum + a.location.longitude, 0);
+      return [totalLat / filteredAttendances.length, totalLng / filteredAttendances.length];
     }
     return defaultCenter;
   };
 
   // Render map only when we have data and not loading
   const renderMap = () => {
-    if (!attendances.length) {
+    if (!filteredAttendances.length) {
       return (
         <Box sx={{
           display: 'flex',
@@ -220,10 +229,10 @@ const AttendanceMapView = () => {
 
     const center = getCenter();
     console.log('Map center:', center);
-    console.log('Attendances to show:', attendances.length);
+    console.log('Attendances to show:', filteredAttendances.length);
 
-    const supervisorsCount = attendances.filter(a => getUserDetails(a.userId).role === 'SUPERVISOR').length;
-    const surveyorsCount = attendances.length - supervisorsCount;
+    const supervisorsCount = filteredAttendances.filter(a => getUserDetails(a.userId).role === 'SUPERVISOR').length;
+    const surveyorsCount = filteredAttendances.length - supervisorsCount;
 
     const popupSectionStyle = {
       marginTop: '8px',
@@ -261,7 +270,7 @@ const AttendanceMapView = () => {
       <MapContainer
         key="attendance-map"
         center={center}
-        zoom={attendances.length > 1 ? 10 : 14}
+        zoom={filteredAttendances.length > 1 ? 10 : 14}
         style={{ height: '100%', width: '100%' }}
       >
         <TileLayer
@@ -291,7 +300,7 @@ const AttendanceMapView = () => {
               getOptionLabel={(option) => option.label}
               value={(() => {
                 if (!selectedUserId) return null;
-                const user = attendances.find(a => a.userId === selectedUserId);
+                const user = filteredAttendances.find(a => a.userId === selectedUserId);
                 if (!user) return null;
                 const details = getUserDetails(selectedUserId);
                 return {
@@ -301,11 +310,15 @@ const AttendanceMapView = () => {
                   longitude: user.location.longitude,
                 };
               })()}
-              onChange={(e, value) => {
-                setSelectedUserId(value ? value.userId : null);
+              onChange={(event, newValue) => {
+                if (newValue) {
+                  setSelectedUserId(newValue.userId);
+                } else {
+                  setSelectedUserId(null);
+                }
               }}
               renderInput={(params) => (
-                <TextField {...params} placeholder="Search user..." />
+                <TextField {...params} label="Search user on map" variant="outlined" />
               )}
             />
           </Paper>
@@ -349,7 +362,7 @@ const AttendanceMapView = () => {
           </div>
         </div>
 
-        {attendances.map((attendance, index) => {
+        {filteredAttendances.map((attendance, index) => {
           const user = getUserDetails(attendance.userId);
           const isSupervisor = user.role === 'SUPERVISOR';
           const markerColor = isSupervisor ? '#ff5722' : '#2196f3'; // Orange for supervisors, blue for surveyors
@@ -429,60 +442,24 @@ const AttendanceMapView = () => {
     );
   };
 
-  return (
-    <div>
-      <Typography variant="h6" component="h2" sx={{ mb: 1 }}>
-        Attendance Map View
-      </Typography>
-      <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-        Showing locations of supervisors and surveyors present today
-      </Typography>
-
-      <Box
-        sx={{
-          height: '500px',
-          width: '100%',
-          borderRadius: '4px',
-          mt: 2,
-          overflow: 'hidden',
-          border: '1px solid #e0e0e0'
-        }}
-      >
-        {loading ? (
-          <Box sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            height: '100%',
-            flexDirection: 'column',
-            gap: '10px'
-          }}>
-            <CircularProgress />
-            <Typography variant="body2" color="textSecondary">
-              Loading attendance data...
-            </Typography>
-          </Box>
-        ) : error ? (
-          <Box sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            height: '100%',
-            p: 3
-          }}>
-            <Alert severity="error" sx={{ width: '100%' }}>
-              {error}
-              <br />
-              <Typography variant="body2" sx={{ mt: 1 }}>
-                Please check your internet connection and API endpoints.
-              </Typography>
-            </Alert>
-          </Box>
-        ) : (
-          renderMap()
-        )}
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
+        <CircularProgress />
       </Box>
-    </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert severity="error">{error}</Alert>
+    );
+  }
+
+  return (
+    <Box sx={{ height: '70vh', position: 'relative' }}>
+      {renderMap()}
+    </Box>
   );
 };
 

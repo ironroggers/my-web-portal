@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Paper, Typography, Tabs, Tab, Box } from '@mui/material';
+import { Paper, Typography, Tabs, Tab, Box, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import MapIcon from '@mui/icons-material/Map';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
@@ -34,8 +34,22 @@ function a11yProps(index) {
   };
 }
 
+const PROJECT_OPTIONS = [
+  'BharatNet Kerala',
+  'NFS',
+  'BUIDCO',
+  'JUCDO',
+  'MPUDC',
+  'KMC',
+  'DEL Office',
+  'HDD',
+  'GAIL',
+  'Others',
+];
+
 const AttendancePage = () => {
   const [tabValue, setTabValue] = useState(0);
+  const [projectFilter, setProjectFilter] = useState('ALL');
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -58,16 +72,31 @@ const AttendancePage = () => {
           backgroundColor: "#f5f5f5"
         }}
       >
-        <Typography 
-          variant="h5" 
-          component="h1" 
-          sx={{ 
-            p: 2, 
-            fontWeight: 500 
-          }}
-        >
-          Attendance Management
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, pt: 2 }}>
+          <Typography 
+            variant="h5" 
+            component="h1" 
+            sx={{ 
+              fontWeight: 500 
+            }}
+          >
+            Attendance Management
+          </Typography>
+          <FormControl size="small" sx={{ width: 220 }}>
+            <InputLabel id="attendance-project-filter-label">Project</InputLabel>
+            <Select
+              labelId="attendance-project-filter-label"
+              value={projectFilter}
+              label="Project"
+              onChange={(e) => setProjectFilter(e.target.value)}
+            >
+              <MenuItem value="ALL">All</MenuItem>
+              {PROJECT_OPTIONS.map((opt) => (
+                <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
         <Tabs 
           value={tabValue} 
           onChange={handleTabChange} 
@@ -75,6 +104,7 @@ const AttendancePage = () => {
           centered
           sx={{
             backgroundColor: "#fff",
+            mt: 2,
             "& .MuiTab-root": {
               minHeight: "54px",
               fontSize: "0.95rem"
@@ -103,15 +133,15 @@ const AttendancePage = () => {
       </Box>
       
       <TabPanel value={tabValue} index={0}>
-        <AttendanceMapView />
+        <AttendanceMapView projectFilter={projectFilter} />
       </TabPanel>
       
       <TabPanel value={tabValue} index={1}>
-        <AttendanceCalendarView />
+        <AttendanceCalendarView projectFilter={projectFilter} />
       </TabPanel>
 
       <TabPanel value={tabValue} index={2}>
-        <AttendanceDetailedView />
+        <AttendanceDetailedView projectFilter={projectFilter} />
       </TabPanel>
     </Paper>
   );

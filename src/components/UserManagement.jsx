@@ -80,6 +80,7 @@ const UserManagement = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("ALL");
   const [managerFilter, setManagerFilter] = useState("ALL");
+  const [projectFilter, setProjectFilter] = useState("ALL");
 
   useEffect(() => {
     fetchPotentialManagers();
@@ -96,7 +97,7 @@ const UserManagement = () => {
   // Reset pagination whenever filters/search change
   useEffect(() => {
     setPage(0);
-  }, [searchQuery, roleFilter, managerFilter]);
+  }, [searchQuery, roleFilter, managerFilter, projectFilter]);
 
   const fetchAllUsers = async () => {
     try {
@@ -303,8 +304,12 @@ const UserManagement = () => {
       }
     }
 
+    if (projectFilter !== "ALL") {
+      data = data.filter((u) => (u.project || "") === projectFilter);
+    }
+
     return data;
-  }, [users, searchQuery, roleFilter, managerFilter]);
+  }, [users, searchQuery, roleFilter, managerFilter, projectFilter]);
 
   // Handle table pagination
   const handleChangePage = (event, newPage) => {
@@ -675,6 +680,7 @@ const UserManagement = () => {
                           placeholder="Search by name, email, or designation"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
+                          sx={{ width: 320 }}
                           InputProps={{
                             startAdornment: (
                               <InputAdornment position="start">
@@ -685,7 +691,7 @@ const UserManagement = () => {
                         />
                       </Grid>
                       <Grid item xs={6} md={3}>
-                        <FormControl fullWidth size="small">
+                        <FormControl fullWidth size="small" sx={{ width: 220 }}>
                           <InputLabel id="filter-role-label">Role</InputLabel>
                           <Select
                             labelId="filter-role-label"
@@ -701,7 +707,7 @@ const UserManagement = () => {
                         </FormControl>
                       </Grid>
                       <Grid item xs={6} md={3}>
-                        <FormControl fullWidth size="small">
+                        <FormControl fullWidth size="small" sx={{ width: 220 }}>
                           <InputLabel id="filter-manager-label">Manager</InputLabel>
                           <Select
                             labelId="filter-manager-label"
@@ -720,6 +726,22 @@ const UserManagement = () => {
                           </Select>
                         </FormControl>
                       </Grid>
+                      <Grid item xs={6} md={3}>
+                        <FormControl fullWidth size="small" sx={{ width: 220 }}>
+                          <InputLabel id="filter-project-label">Project</InputLabel>
+                          <Select
+                            labelId="filter-project-label"
+                            value={projectFilter}
+                            label="Project"
+                            onChange={(e) => setProjectFilter(e.target.value)}
+                          >
+                            <MenuItem value="ALL">All</MenuItem>
+                            {PROJECT_OPTIONS.map((opt) => (
+                              <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
                       <Grid item xs={12} md={12}>
                         <Box sx={{ display: "flex", gap: 1, justifyContent: { xs: "stretch", md: "flex-end" } }}>
                           <Button
@@ -728,6 +750,7 @@ const UserManagement = () => {
                               setSearchQuery("");
                               setRoleFilter("ALL");
                               setManagerFilter("ALL");
+                              setProjectFilter("ALL");
                             }}
                           >
                             Clear filters

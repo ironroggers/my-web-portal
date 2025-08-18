@@ -51,7 +51,7 @@ import * as XLSX from 'xlsx';
 const ATTENDANCE_API_URL = ATTENDANCE_URL+'/api';
 const AUTH_API_URL = AUTH_URL+'/api';
 
-const AttendanceDetailedView = () => {
+const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
   const theme = useTheme();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -229,13 +229,15 @@ const AttendanceDetailedView = () => {
     setSelectedUser(selectedUser === userId ? null : userId);
   };
 
-  // Filter users based on tab selection
-  const filteredUsers = users.filter(user => {
-    if (userType === 'all') return true;
-    if (userType === 'supervisors') return user.role === 'SUPERVISOR';
-    if (userType === 'surveyors') return user.role === 'SURVEYOR';
-    return true;
-  });
+  // Filter users based on tab selection and project filter
+  const filteredUsers = users
+    .filter(user => projectFilter === 'ALL' ? true : (user.project || '') === projectFilter)
+    .filter(user => {
+      if (userType === 'all') return true;
+      if (userType === 'supervisors') return user.role === 'SUPERVISOR';
+      if (userType === 'surveyors') return user.role === 'SURVEYOR';
+      return true;
+    });
 
   // Get status color
   const getStatusColor = (status) => {
