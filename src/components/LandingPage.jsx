@@ -196,6 +196,7 @@ const LandingPage = () => {
     present: 0,
     absent: 0,
     late: 0,
+    overtime: 0,
     total: 0,
     loading: true
   });
@@ -330,6 +331,7 @@ const LandingPage = () => {
       // Count by status
       const present = todayRecords.filter(record => record.status === 'present').length;
       const late = todayRecords.filter(record => record.status === 'late').length;
+      const overtime = todayRecords.filter(record => record.status === 'overtime').length;
       const absent = todayRecords.filter(record => record.status === 'absent').length;
 
       // Set attendance stats
@@ -337,6 +339,7 @@ const LandingPage = () => {
         present,
         absent,
         late,
+        overtime,
         total: users.length, // Assuming every user should have an attendance record
         loading: false
       });
@@ -380,6 +383,7 @@ const LandingPage = () => {
         present: 0,
         absent: 0,
         late: 0,
+        overtime: 0,
         total: 0,
         loading: false
       });
@@ -498,6 +502,8 @@ const LandingPage = () => {
         return <Chip size="small" label="Absent" color="error" />;
       case 'late':
         return <Chip size="small" label="Late" color="warning" />;
+      case 'overtime':
+        return <Chip size="small" label="Overtime" color="info" />;
       default:
         return <Chip size="small" label={status} color="default" />;
     }
@@ -506,7 +512,7 @@ const LandingPage = () => {
   // Calculate attendance percentage
   const calculateAttendancePercentage = () => {
     if (attendanceStats.total === 0) return 0;
-    return Math.round(((attendanceStats.present + attendanceStats.late) / attendanceStats.total) * 100);
+    return Math.round(((attendanceStats.present + attendanceStats.late + attendanceStats.overtime) / attendanceStats.total) * 100);
   };
 
   return (
@@ -1325,7 +1331,8 @@ const LandingPage = () => {
                               fontWeight: 'bold',
                               bgcolor:
                                 activity.status === 'present' ? 'success.main' :
-                                activity.status === 'late' ? 'warning.main' : 'error.main'
+                                activity.status === 'late' ? 'warning.main' :
+                                activity.status === 'overtime' ? 'info.main' : 'error.main'
                             }}
                           >
                             {activity.username.charAt(0).toUpperCase()}

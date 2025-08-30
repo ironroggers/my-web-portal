@@ -6,19 +6,21 @@ import {
   Alert,
   Paper,
   useTheme,
-  alpha,
+  IconButton,
   Chip,
-  Tooltip
+  Tooltip,
+  Card
 } from '@mui/material';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
 import axios from 'axios';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
-import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import TodayIcon from '@mui/icons-material/Today';
+import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
+import PersonIcon from '@mui/icons-material/Person';
 import {AUTH_URL, ATTENDANCE_URL} from "../API/api-keys.jsx";
 
 // Create a localizer for the calendar
@@ -140,7 +142,7 @@ const AttendanceCalendarView = ({ projectFilter = 'ALL' }) => {
 
     // Process attendance records
     attendanceData.forEach(record => {
-      if ((record.status === 'present' || record.status === 'late') && eligibleUserIds.has(record.userId)) {
+      if ((record.status === 'present' || record.status === 'late' || record.status === 'overtime') && eligibleUserIds.has(record.userId)) {
         const date = moment(record.date).format('YYYY-MM-DD');
 
         if (!attendanceByDate[date]) {
@@ -177,125 +179,48 @@ const AttendanceCalendarView = ({ projectFilter = 'ALL' }) => {
     }));
   };
 
-  // Custom event component to display attendance counts
+  // Simplified event component to display attendance counts
   const EventComponent = ({ event }) => {
-    // Calculate color intensity based on attendance counts
-    const maxSupervisors = 10; // Adjust based on your expected maximum
-    const maxSurveyors = 20; // Adjust based on your expected maximum
-
-    // Separate intensity for each role type for better visualization
-    const supervisorIntensity = Math.min(event.supervisors / maxSupervisors, 1) * 0.7 + 0.3;
-    const surveyorIntensity = Math.min(event.surveyors / maxSurveyors, 1) * 0.7 + 0.3;
-
     return (
       <Tooltip
-        title={
-          <Box sx={{ p: 0.5 }}>
-            <Typography variant="caption" sx={{ fontWeight: 600 }}>
-              Total Attendance: {event.total}
-            </Typography>
-            <Box component="div" sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 0.5 }}>
-              <Typography variant="caption">
-                Supervisors: {event.supervisors}
-              </Typography>
-              <Typography variant="caption">
-                Surveyors: {event.surveyors}
-              </Typography>
-            </Box>
-          </Box>
-        }
+        title={`Total: ${event.total} (${event.supervisors} Supervisors, ${event.surveyors} Surveyors)`}
         arrow
-        placement="top"
       >
-        <Box
+        <Card
           sx={{
-            fontSize: '0.85rem',
-            padding: '8px',
-            background: theme.palette.background.paper,
-            border: `1px solid ${theme.palette.divider}`,
-            borderLeft: `4px solid ${theme.palette.primary.main}`,
-            borderRadius: '6px',
+            p: 1,
             height: '100%',
-            boxShadow: theme.shadows[1],
+            minHeight: 40,
             display: 'flex',
-            flexDirection: 'column',
+            alignItems: 'center',
             justifyContent: 'center',
-            gap: '6px',
-            transition: 'all 0.2s ease',
+            gap: 1,
+            cursor: 'pointer',
             '&:hover': {
-              boxShadow: theme.shadows[2],
-              transform: 'translateY(-1px)',
-              borderColor: theme.palette.primary.main,
+              boxShadow: 2,
             }
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Box
-                sx={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  backgroundColor: theme.palette.primary.main
-                }}
-              />
-              <Typography variant="caption" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
-                Supervisors
-              </Typography>
-            </Box>
-            <Box
-              sx={{
-                backgroundColor: theme.palette.primary.main,
-                color: '#fff',
-                borderRadius: '4px',
-                padding: '2px 6px',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                minWidth: '24px',
-                textAlign: 'center',
-                boxShadow: `0 0 0 ${Math.round(supervisorIntensity * 6)}px ${alpha(theme.palette.primary.main, 0.15)}`
-              }}
-            >
-              {event.supervisors}
-            </Box>
-          </Box>
-
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Box
-                sx={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  backgroundColor: theme.palette.secondary.main
-                }}
-              />
-              <Typography variant="caption" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
-                Surveyors
-              </Typography>
-            </Box>
-            <Box
-              sx={{
-                backgroundColor: theme.palette.secondary.main,
-                color: '#fff',
-                borderRadius: '4px',
-                padding: '2px 6px',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                minWidth: '24px',
-                textAlign: 'center',
-                boxShadow: `0 0 0 ${Math.round(surveyorIntensity * 6)}px ${alpha(theme.palette.secondary.main, 0.15)}`
-              }}
-            >
-              {event.surveyors}
-            </Box>
-          </Box>
-        </Box>
+          <Chip
+            icon={<SupervisorAccountIcon />}
+            label={event.supervisors}
+            size="small"
+            color="primary"
+            variant="filled"
+          />
+          <Chip
+            icon={<PersonIcon />}
+            label={event.surveyors}
+            size="small"
+            color="secondary"
+            variant="filled"
+          />
+        </Card>
       </Tooltip>
     );
   };
 
-  // Custom toolbar formatter for better month display
+  // Simplified custom toolbar
   const CustomToolbar = (toolbar) => {
     const goToBack = () => {
       toolbar.onNavigate('PREV');
@@ -314,112 +239,37 @@ const AttendanceCalendarView = ({ projectFilter = 'ALL' }) => {
       toolbar.onNavigate('TODAY');
     };
 
-    const label = () => {
-      const date = moment(toolbar.date);
-      return (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <CalendarMonthIcon color="primary" />
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            {date.format('MMMM YYYY')}
-          </Typography>
-        </Box>
-      );
-    };
-
     return (
       <Box
         sx={{
           display: 'flex',
           alignItems: 'center',
-          mb: 2,
           justifyContent: 'space-between',
-          px: 1.5,
-          py: 1.5,
-          borderRadius: 1.5,
-          background: theme.palette.mode === 'dark'
-            ? alpha(theme.palette.background.paper, 0.6)
-            : alpha(theme.palette.primary.main, 0.02),
-          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.8)}`
+          mb: 2,
+          pb: 2,
+          borderBottom: 1,
+          borderColor: 'divider'
         }}
       >
-        <Box>
-          {label()}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <CalendarMonthIcon color="primary" />
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            {moment(toolbar.date).format('MMMM YYYY')}
+          </Typography>
         </Box>
+        
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Tooltip title="Previous Month" arrow>
-            <Box
-              onClick={goToBack}
-              sx={{
-                border: `1px solid ${theme.palette.divider}`,
-                backgroundColor: theme.palette.background.paper,
-                borderRadius: '8px',
-                padding: '6px',
-                cursor: 'pointer',
-                color: theme.palette.text.primary,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s',
-                '&:hover': {
-                  backgroundColor: alpha(theme.palette.action.hover, 0.1),
-                  borderColor: theme.palette.divider
-                }
-              }}
-            >
-              <NavigateBeforeIcon fontSize="small" />
-            </Box>
-          </Tooltip>
-
-          <Tooltip title="Today" arrow>
-            <Box
-              onClick={goToCurrent}
-              sx={{
-                border: `1px solid ${theme.palette.primary.main}`,
-                background: theme.palette.primary.main,
-                borderRadius: '8px',
-                padding: '6px 12px',
-                cursor: 'pointer',
-                color: theme.palette.primary.contrastText,
-                fontWeight: 500,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                boxShadow: theme.shadows[1],
-                transition: 'all 0.2s',
-                '&:hover': {
-                  background: theme.palette.primary.dark,
-                  boxShadow: theme.shadows[2]
-                }
-              }}
-            >
-              <TodayIcon fontSize="small" />
-              <Typography variant="button" sx={{ fontWeight: 600 }}>Today</Typography>
-            </Box>
-          </Tooltip>
-
-          <Tooltip title="Next Month" arrow>
-            <Box
-              onClick={goToNext}
-              sx={{
-                border: `1px solid ${theme.palette.divider}`,
-                backgroundColor: theme.palette.background.paper,
-                borderRadius: '8px',
-                padding: '6px',
-                cursor: 'pointer',
-                color: theme.palette.text.primary,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s',
-                '&:hover': {
-                  backgroundColor: alpha(theme.palette.action.hover, 0.1),
-                  borderColor: theme.palette.divider
-                }
-              }}
-            >
-              <NavigateNextIcon fontSize="small" />
-            </Box>
-          </Tooltip>
+          <IconButton onClick={goToBack} size="small">
+            <NavigateBeforeIcon />
+          </IconButton>
+          
+          <IconButton onClick={goToCurrent} size="small" color="primary">
+            <TodayIcon />
+          </IconButton>
+          
+          <IconButton onClick={goToNext} size="small">
+            <NavigateNextIcon />
+          </IconButton>
         </Box>
       </Box>
     );
@@ -427,91 +277,47 @@ const AttendanceCalendarView = ({ projectFilter = 'ALL' }) => {
 
   return (
     <ErrorBoundary>
-      <Paper
-        elevation={1}
-        sx={{
-          p: 3,
-          borderRadius: 2,
-          backgroundColor: theme.palette.background.paper,
-          border: `1px solid ${theme.palette.divider}`,
-          boxShadow: theme.shadows[1],
-          overflow: 'hidden'
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-          <PeopleAltIcon color="primary" sx={{ fontSize: 28 }} />
-          <Typography
-            variant="h5"
-            component="h1"
-            sx={{
-              fontWeight: 700,
-              color: theme.palette.text.primary,
-              display: 'flex',
-              alignItems: 'center',
-            }}
-          >
-            Attendance Calendar
-          </Typography>
+      <Box sx={{ p: 2 }}>
+        <Typography variant="h5" sx={{ mb: 1, fontWeight: 600 }}>
+          Attendance Calendar
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Daily attendance overview for supervisors and surveyors
+        </Typography>
+        
+        {/* Simple Legend */}
+        <Box sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'center' }}>
+          <Typography variant="caption" color="text.secondary">Legend:</Typography>
+          <Chip
+            icon={<SupervisorAccountIcon />}
+            label="Supervisors"
+            size="small"
+            color="primary"
+            variant="outlined"
+          />
+          <Chip
+            icon={<PersonIcon />}
+            label="Surveyors"
+            size="small"
+            color="secondary"
+            variant="outlined"
+          />
         </Box>
 
-        <Typography
-          variant="body2"
-          color="textSecondary"
-          sx={{
-            mb: 3,
-            maxWidth: '90%',
-            lineHeight: 1.5
-          }}
-        >
-          This calendar displays daily attendance records showing the number of supervisors and surveyors present each day.
-        </Typography>
-
         {loading ? (
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              flexDirection: 'column',
-              p: 8,
-              gap: 2
-            }}
-          >
-            <CircularProgress size={40} thickness={4} color="primary" />
-            <Typography variant="body2" color="textSecondary">Loading attendance data...</Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress />
           </Box>
         ) : error ? (
-          <Alert
-            severity="error"
-            sx={{
-              mt: 2,
-              borderRadius: 2,
-              boxShadow: theme.shadows[1]
-            }}
-          >
+          <Alert severity="error" sx={{ my: 2 }}>
             {error}
           </Alert>
         ) : (!attendanceData || !users || attendanceData.length === 0 || users.length === 0) ? (
-          <Alert
-            severity="info"
-            sx={{
-              mt: 2,
-              borderRadius: 2,
-              boxShadow: theme.shadows[1]
-            }}
-          >
+          <Alert severity="info" sx={{ my: 2 }}>
             No attendance data available for the selected period.
           </Alert>
         ) : (
-          <Box
-            sx={{
-              height: 600,
-              background: theme.palette.background.default,
-              borderRadius: 2,
-              p: 2,
-              border: `1px solid ${theme.palette.divider}`,
-            }}
-          >
+          <Paper sx={{ p: 2, height: 600 }}>
             <Calendar
               localizer={localizer}
               events={getCalendarEvents()}
@@ -526,9 +332,9 @@ const AttendanceCalendarView = ({ projectFilter = 'ALL' }) => {
               }}
               tooltipAccessor={null}
             />
-          </Box>
+          </Paper>
         )}
-      </Paper>
+      </Box>
     </ErrorBoundary>
   );
 };

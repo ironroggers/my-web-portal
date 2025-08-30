@@ -31,7 +31,9 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  TextField,
+  InputAdornment
 } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
@@ -42,6 +44,8 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon from '@mui/icons-material/Clear';
 import axios from 'axios';
 import moment from 'moment';
 import {ATTENDANCE_URL, AUTH_URL} from "../API/api-keys.jsx";
@@ -74,6 +78,9 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
   const [globalExportDialogOpen, setGlobalExportDialogOpen] = useState(false);
   const [globalSelectedMonth, setGlobalSelectedMonth] = useState(moment().format('YYYY-MM'));
   const [globalExportLoading, setGlobalExportLoading] = useState(false);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Update ref when locationNames changes
   useEffect(() => {
@@ -115,7 +122,18 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
       const attendanceByUser = {};
       const newLocations = {};
       
+      // Debug: Log attendance data to see statuses
+      console.log('Attendance Data Debug:', attendanceResponse.data.data);
+      
       (attendanceResponse.data.data || []).forEach(record => {
+        // Debug: Log each record's status
+        console.log('Attendance Record:', {
+          userId: record.userId,
+          date: record.date,
+          status: record.status,
+          sessions: record.sessions
+        });
+        
         if (!attendanceByUser[record.userId]) {
           attendanceByUser[record.userId] = [];
         }
@@ -223,6 +241,8 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
   const handleTabChange = (event, newValue) => {
     setUserType(newValue);
     setSelectedUser(null); // Reset selected user when changing tabs
+    // Optionally clear search when changing tabs - uncomment if desired
+    // setSearchQuery('');
   };
 
   // Handle user selection
@@ -230,14 +250,32 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
     setSelectedUser(selectedUser === userId ? null : userId);
   };
 
-  // Filter users based on tab selection and project filter
-  const filteredUsers = users
-    .filter(user => projectFilter === 'ALL' ? true : (user.project || '') === projectFilter)
+  // Filter users based on project filter first
+  const projectFilteredUsers = users
+    .filter(user => projectFilter === 'ALL' ? true : (user.project || '') === projectFilter);
+
+  // Calculate counts for each user type
+  const allUsersCount = projectFilteredUsers.length;
+  const supervisorsCount = projectFilteredUsers.filter(user => user.role === 'SUPERVISOR').length;
+  const surveyorsCount = projectFilteredUsers.filter(user => user.role === 'SURVEYOR').length;
+
+  // Filter users based on tab selection, project filter, and search query
+  const filteredUsers = projectFilteredUsers
     .filter(user => {
       if (userType === 'all') return true;
       if (userType === 'supervisors') return user.role === 'SUPERVISOR';
       if (userType === 'surveyors') return user.role === 'SURVEYOR';
       return true;
+    })
+    .filter(user => {
+      if (!searchQuery.trim()) return true;
+      const query = searchQuery.toLowerCase().trim();
+      return (
+        (user.username || '').toLowerCase().includes(query) ||
+        (user.email || '').toLowerCase().includes(query) ||
+        (user.role || '').toLowerCase().includes(query) ||
+        (user.project || '').toLowerCase().includes(query)
+      );
     });
 
   // Get status color
@@ -246,6 +284,8 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
       case 'present': return theme.palette.success.main;
       case 'absent': return theme.palette.error.main;
       case 'late': return theme.palette.warning.main;
+      case 'overtime': return theme.palette.info.main;
+      case 'holiday': return theme.palette.grey[400];
       default: return theme.palette.grey[500];
     }
   };
@@ -256,6 +296,8 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
       case 'present': return <CheckCircleIcon fontSize="small" />;
       case 'absent': return <CancelIcon fontSize="small" />;
       case 'late': return <ScheduleIcon fontSize="small" />;
+      case 'overtime': return <ScheduleIcon fontSize="small" />;
+      case 'holiday': return <ScheduleIcon fontSize="small" />;
       default: return null;
     }
   };
@@ -264,9 +306,17 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
   const getUserAttendanceForDate = (userId, date) => {
     const formattedDate = moment(date).format('YYYY-MM-DD');
     const userAttendance = attendanceData[userId] || [];
-    return userAttendance.find(record =>
+    const attendanceRecord = userAttendance.find(record =>
       moment(record.date).format('YYYY-MM-DD') === formattedDate
-    ) || { status: 'absent' };
+    );
+    
+    // If no record found, check if it's Sunday (holiday)
+    if (!attendanceRecord) {
+      const dayOfWeek = moment(date).day(); // 0 = Sunday
+      return { status: dayOfWeek === 0 ? 'holiday' : 'absent' };
+    }
+    
+    return attendanceRecord;
   };
 
   // Generate dates for the current week
@@ -466,6 +516,12 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
           }
         } else if (isFuture) {
           status = 'Upcoming';
+        } else {
+          // Check if it's Sunday (holiday)
+          const dayOfWeek = day.day(); // 0 = Sunday
+          if (dayOfWeek === 0) {
+            status = 'Holiday';
+          }
         }
 
         exportData.push({
@@ -557,8 +613,13 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
       // Combined data for all users
       const allUsersData = [];
 
-      // Process each user and add to combined data
-      for (const user of users) {
+      // Filter users based on project filter before processing
+      const usersToExport = users.filter(user => 
+        projectFilter === 'ALL' ? true : (user.project || '') === projectFilter
+      );
+
+      // Process each filtered user and add to combined data
+      for (const user of usersToExport) {
         try {
           // Fetch monthly attendance data for this user
           const monthlyData = await fetchMonthlyAttendanceData(user._id, globalSelectedMonth);
@@ -604,12 +665,19 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
               }
             } else if (isFuture) {
               status = 'Upcoming';
+            } else {
+              // Check if it's Sunday (holiday)
+              const dayOfWeek = day.day(); // 0 = Sunday
+              if (dayOfWeek === 0) {
+                status = 'Holiday';
+              }
             }
 
             // Add user data to combined array
             allUsersData.push({
               'Name': user.username || 'Unknown',
               'Role': user.role || 'Unknown',
+              'Project': user.project || 'Unassigned',
               'Day': dayName,
               'Date': dateString,
               'Status': status,
@@ -637,6 +705,7 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
       worksheet['!cols'] = [
         { wch: 15 }, // Name
         { wch: 12 }, // Role
+        { wch: 15 }, // Project
         { wch: 10 }, // Day
         { wch: 15 }, // Date
         { wch: 10 }, // Status
@@ -651,6 +720,8 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
 
       // Generate filename
       const monthName = moment(globalSelectedMonth).format('MMMM_YYYY');
+      const projectSuffix = projectFilter === 'ALL' ? 'All_Projects' : projectFilter.replace(/\s+/g, '_');
+      const filename = `${projectSuffix}_Attendance_${monthName}.xlsx`;
 
       // Generate Excel file buffer
       const excelBuffer = XLSX.write(workbook, {
@@ -669,7 +740,7 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
       link.href = url;
       link.setAttribute(
         "download",
-        `All_Users_Attendance_${monthName}.xlsx`
+        filename
       );
 
       document.body.appendChild(link);
@@ -743,17 +814,27 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
     // Get user attendance for a specific date from the fetched data
     const getUserAttendanceForDateDetail = (date) => {
       const formattedDate = moment(date).format('YYYY-MM-DD');
-      return userAttendanceData.find(record =>
+      const attendanceRecord = userAttendanceData.find(record =>
         moment(record.date).format('YYYY-MM-DD') === formattedDate
-      ) || { status: 'absent' };
+      );
+      
+      // If no record found, check if it's Sunday (holiday)
+      if (!attendanceRecord) {
+        const dayOfWeek = moment(date).day(); // 0 = Sunday
+        return { status: dayOfWeek === 0 ? 'holiday' : 'absent' };
+      }
+      
+      return attendanceRecord;
     };
 
-    // Calculate attendance stats (only count past dates)
+    // Calculate attendance stats (only count past dates, exclude Sundays)
     const pastDates = weekDates.filter(date => moment(date).isSameOrBefore(today));
-    const totalPastDays = pastDates.length;
+    const workingDays = pastDates.filter(date => moment(date).day() !== 0); // Exclude Sundays
+    const totalWorkingDays = workingDays.length;
     
     let presentDays = 0;
     let lateDays = 0;
+    let overtimeDays = 0;
     
     pastDates.forEach(date => {
       const formattedDate = moment(date).format('YYYY-MM-DD');
@@ -764,10 +845,11 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
       if (attendance) {
         if (attendance.status === 'present') presentDays++;
         if (attendance.status === 'late') lateDays++;
+        if (attendance.status === 'overtime') overtimeDays++;
       }
     });
     
-    const absentDays = totalPastDays - presentDays - lateDays;
+    const absentDays = totalWorkingDays - presentDays - lateDays;
 
     if (detailLoading) {
       return (
@@ -870,6 +952,14 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
                       ? moment.duration(moment(attendance.sessions[0].checkOutTime).diff(moment(attendance.sessions[0].checkInTime))).asHours().toFixed(2)
                       : '-';
  
+                    // Debug: Log attendance status for this date
+                    console.log('Date attendance debug:', {
+                      date: moment(date).format('YYYY-MM-DD'),
+                      attendance: attendance,
+                      status: attendance.status,
+                      isFuture: isFuture
+                    });
+
                     return (
                       <TableRow key={index} sx={{ '&:nth-of-type(odd)': { bgcolor: 'action.hover' } }}>
                         <TableCell>{moment(date).format('dddd')}</TableCell>
@@ -928,13 +1018,15 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
     const userAttendance = attendanceData[user._id] || [];
     const today = moment().startOf('day');
     
-    // Get all dates in the current week that are not in the future
+    // Get all dates in the current week that are not in the future, exclude Sundays for calculation
     const pastDates = getWeekDates().filter(date => moment(date).isSameOrBefore(today));
-    const totalPastDays = pastDates.length;
+    const workingDays = pastDates.filter(date => moment(date).day() !== 0); // Exclude Sundays
+    const totalWorkingDays = workingDays.length;
     
     // Calculate attendance stats only for past dates
     let presentDays = 0;
     let lateDays = 0;
+    let overtimeDays = 0;
     
     pastDates.forEach(date => {
       const formattedDate = moment(date).format('YYYY-MM-DD');
@@ -945,12 +1037,13 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
       if (attendance) {
         if (attendance.status === 'present') presentDays++;
         if (attendance.status === 'late') lateDays++;
+        if (attendance.status === 'overtime') overtimeDays++;
       }
     });
     
-    const absentDays = totalPastDays - presentDays - lateDays;
-    const attendancePercentage = totalPastDays > 0 
-      ? Math.round((presentDays + lateDays) / totalPastDays * 100) 
+    const absentDays = totalWorkingDays - presentDays - lateDays;
+    const attendancePercentage = totalWorkingDays > 0 
+      ? Math.round((presentDays + lateDays) / totalWorkingDays * 100) 
       : 0;
 
     // Flag if any day has distance between check-in and check-out > 3 km
@@ -1088,13 +1181,46 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
           Weekly attendance records for supervisors and surveyors
         </Typography>
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, flexWrap: 'wrap', gap: 2 }}>
           <Box>
             <Tabs value={userType} onChange={handleTabChange}>
-              <Tab value="all" label="All" />
-              <Tab value="supervisors" label="Supervisors" />
-              <Tab value="surveyors" label="Surveyors" />
+              <Tab value="all" label={`All (${allUsersCount})`} />
+              <Tab value="supervisors" label={`Supervisors (${supervisorsCount})`} />
+              <Tab value="surveyors" label={`Surveyors (${surveyorsCount})`} />
             </Tabs>
+          </Box>
+          
+          {/* Search Field */}
+          <Box sx={{ minWidth: 250 }}>
+            <TextField
+              size="small"
+              placeholder="Search users..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon color="action" />
+                  </InputAdornment>
+                ),
+                endAdornment: searchQuery && (
+                  <InputAdornment position="end">
+                    <IconButton
+                      size="small"
+                      onClick={() => setSearchQuery('')}
+                      edge="end"
+                    >
+                      <ClearIcon />
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: 'background.paper',
+                }
+              }}
+            />
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -1137,8 +1263,22 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
         </Box>
       </Box>
 
+      {/* Search Results Info */}
+      {searchQuery.trim() && (
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            {filteredUsers.length === 0 
+              ? `No users found matching "${searchQuery}"`
+              : `Showing ${filteredUsers.length} user${filteredUsers.length !== 1 ? 's' : ''} matching "${searchQuery}"`
+            }
+          </Typography>
+        </Box>
+      )}
+
       {filteredUsers.length === 0 ? (
-        <Alert severity="info">No users found</Alert>
+        <Alert severity="info">
+          {searchQuery.trim() ? `No users found matching "${searchQuery}"` : 'No users found'}
+        </Alert>
       ) : (
         <TableContainer component={Paper} variant="outlined">
           <Table aria-label="attendance table">
@@ -1221,7 +1361,10 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
         <DialogTitle>
           Export All Users Attendance Report
           <Typography variant="body2" color="textSecondary">
-            This will export attendance data for all users with individual sheets per user plus a summary sheet.
+            {projectFilter === 'ALL' 
+              ? 'This will export attendance data for all users across all projects.'
+              : `This will export attendance data for users in the "${projectFilter}" project only.`
+            }
           </Typography>
         </DialogTitle>
         <DialogContent>
@@ -1241,9 +1384,10 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
               </Select>
             </FormControl>
             
-            {users.length > 0 && (
+            {filteredUsers.length > 0 && (
               <Typography variant="body2" color="textSecondary" sx={{ mt: 2 }}>
-                Will export data for {users.length} user(s)
+                Will export data for {filteredUsers.length} user(s)
+                {projectFilter !== 'ALL' && ` from the "${projectFilter}" project`}
               </Typography>
             )}
           </Box>
