@@ -233,6 +233,9 @@ const MapViewPage = () => {
             routeInfo: matchingRoute.routeInfo,
             directions: matchingRoute.directions,
             error: matchingRoute.error,
+            // carry over chunk metadata for rendering/export when present
+            isChunked: matchingRoute.isChunked,
+            chunks: matchingRoute.chunks,
           },
         ]);
       }
@@ -459,79 +462,162 @@ const MapViewPage = () => {
     return uniquePoints;
   };
 
+  // ---- Global route optimization helpers (supports arbitrary number of points) ----
+  const haversineDistance = (a, b) => {
+    const toRad = (deg) => (deg * Math.PI) / 180;
+    const R = 6371e3; // meters
+    const dLat = toRad(b.lat - a.lat);
+    const dLng = toRad(b.lng - a.lng);
+    const lat1 = toRad(a.lat);
+    const lat2 = toRad(b.lat);
+    const sinDLat = Math.sin(dLat / 2);
+    const sinDLng = Math.sin(dLng / 2);
+    const aVal =
+      sinDLat * sinDLat + Math.cos(lat1) * Math.cos(lat2) * sinDLng * sinDLng;
+    const c = 2 * Math.atan2(Math.sqrt(aVal), Math.sqrt(1 - aVal));
+    return R * c;
+  };
+
+  const nearestNeighborOrder = (points) => {
+    if (points.length <= 2) return [...points];
+    const remaining = points.map((p, i) => ({ idx: i, p }));
+    const order = [];
+    // Anchor start at first point to preserve chosen start
+    let current = remaining.shift();
+    order.push(current.p);
+    while (remaining.length) {
+      let bestIndex = 0;
+      let bestDist = Infinity;
+      for (let i = 0; i < remaining.length; i++) {
+        const d = haversineDistance(current.p, remaining[i].p);
+        if (d < bestDist) {
+          bestDist = d;
+          bestIndex = i;
+        }
+      }
+      current = remaining.splice(bestIndex, 1)[0];
+      order.push(current.p);
+    }
+    return order;
+  };
+
+  const twoOptImprove = (ordered) => {
+    if (ordered.length <= 3) return ordered;
+    const path = [...ordered];
+    let improved = true;
+    const distanceAt = (i, j) => haversineDistance(path[i], path[j]);
+    while (improved) {
+      improved = false;
+      for (let i = 1; i < path.length - 2; i++) {
+        for (let k = i + 1; k < path.length - 1; k++) {
+          const delta =
+            distanceAt(i - 1, i) + distanceAt(k, k + 1) -
+            (distanceAt(i - 1, k) + distanceAt(i, k + 1));
+          if (delta > 1e-6) {
+            // Reverse the segment [i, k]
+            const segment = path.slice(i, k + 1).reverse();
+            path.splice(i, k - i + 1, ...segment);
+            improved = true;
+          }
+        }
+      }
+    }
+    return path;
+  };
+
+  const optimizeRouteOrder = (points) => {
+    if (!Array.isArray(points) || points.length <= 2) return points;
+    const nn = nearestNeighborOrder(points);
+    const improved = twoOptImprove(nn);
+    return improved;
+  };
+
+  const buildChunks = (points, maxWaypointsPerRequest = 9) => {
+    // Each request: origin + waypoints (<= maxWaypointsPerRequest) + destination
+    // We include overlapping endpoints so polylines connect.
+    const chunkSize = Math.max(2, maxWaypointsPerRequest);
+    const chunks = [];
+    for (let i = 0; i < points.length; i += chunkSize - 1) {
+      if (i + chunkSize >= points.length) {
+        chunks.push(points.slice(i));
+      } else {
+        chunks.push(points.slice(i, i + chunkSize));
+      }
+    }
+    return chunks;
+  };
+
+  const runWithConcurrency = async (items, worker, limit = 3) => {
+    const results = new Array(items.length);
+    let current = 0;
+    const runners = new Array(Math.min(limit, items.length)).fill(0).map(async () => {
+      while (current < items.length) {
+        const idx = current++;
+        try {
+          results[idx] = await worker(items[idx], idx);
+        } catch (e) {
+          results[idx] = null;
+        }
+      }
+    });
+    await Promise.all(runners);
+    return results.filter(Boolean);
+  };
+
   // Function to handle routes with more than 10 waypoints
   const getChunkedRoutes = async (points, location) => {
     const directionsService = new window.google.maps.DirectionsService();
 
-    // Split points into chunks (max 9 waypoints per chunk to allow for start/end points)
-    // We use 9 instead of 10 to ensure we have room for start and end points
-    const chunkSize = 9;
-    const chunks = [];
+    // 1) Compute a globally-optimized visit order (start anchored at first point)
+    const optimizedPoints = optimizeRouteOrder(points);
 
-    // First collect all the chunks, using overlapping points so routes connect
-    for (let i = 0; i < points.length; i += chunkSize - 1) {
-      if (i + chunkSize >= points.length) {
-        // Last chunk - include all remaining points
-        chunks.push(points.slice(i));
-      } else {
-        // Regular chunk with chunkSize points
-        chunks.push(points.slice(i, i + chunkSize));
-      }
-    }
+    // 2) Split optimized path into API-sized chunks with overlap
+    const MAX_WAYPOINTS = 9; // keep conservative to avoid provider limits
+    const chunks = buildChunks(optimizedPoints, MAX_WAYPOINTS);
 
-    console.log(`Split ${points.length} points into ${chunks.length} chunks`);
+    console.log(
+      `Optimized ${points.length} points and split into ${chunks.length} chunks`
+    );
 
     // Now get directions for each chunk
-    const chunkResults = [];
+    const chunkResults = await runWithConcurrency(
+      chunks,
+      async (chunkPoints, i) => {
+        const origin = chunkPoints[0];
+        const destination = chunkPoints[chunkPoints.length - 1];
+        const waypoints = chunkPoints
+          .slice(1, chunkPoints.length - 1)
+          .map((p) => ({ location: p, stopover: true }));
 
-    for (let i = 0; i < chunks.length; i++) {
-      const chunkPoints = chunks[i];
-      const origin = chunkPoints[0];
-      const destination = chunkPoints[chunkPoints.length - 1];
-      const waypoints = chunkPoints
-        .slice(1, chunkPoints.length - 1)
-        .map((p) => ({
-          location: p,
-          stopover: true,
-        }));
-
-      try {
-        const result = await new Promise((resolve, reject) => {
+        return await new Promise((resolve, reject) => {
           directionsService.route(
             {
               origin,
               destination,
               waypoints,
               travelMode: window.google.maps.TravelMode.WALKING,
-              optimizeWaypoints: false, // Don't optimize order as we want to follow the exact order
+              optimizeWaypoints: false, // preserve globally-optimized order
             },
             (result, status) => {
               if (status === "OK") {
                 resolve(result);
               } else {
                 console.error(`Chunk ${i} failed with status: ${status}`);
-                reject(
-                  new Error(
-                    `Failed to get directions for chunk ${i}: ${status}`
-                  )
-                );
+                reject(new Error(`Failed to get directions for chunk ${i}: ${status}`));
               }
             }
           );
         });
-
-        chunkResults.push(result);
-      } catch (error) {
-        console.error(`Error getting directions for chunk ${i}:`, error);
-      }
-    }
+      },
+      3
+    );
 
     // Add final segment to connect back to the starting point
     if (points.length >= 2 && chunkResults.length > 0) {
       try {
         // Get the last point from the last chunk and connect it back to the first point
-        const lastPoint = points[points.length - 1];
-        const firstPoint = points[0];
+        const lastPoint = optimizedPoints[optimizedPoints.length - 1];
+        const firstPoint = optimizedPoints[0];
 
         // Skip if the last point is already the same as the first point
         if (
@@ -610,14 +696,14 @@ const MapViewPage = () => {
 
     // Return the chunked results
     return {
-      points,
+      points: optimizedPoints,
       directions: chunkResults[0], // We'll use the first chunk for the main directions object
       routeInfo: {
         distance: totalDistance,
         time: totalDuration,
         legs: totalLegs,
       },
-      mapCenter: points[0],
+      mapCenter: optimizedPoints[0],
       error: null,
       location,
       chunks: chunkResults, // Store all chunks to render separately
@@ -654,75 +740,60 @@ const MapViewPage = () => {
 
       // If we have too many points, use the chunking approach
       if (points.length > 11) {
-        // More than 10 waypoints plus origin
         try {
-          // Apply similar chunking as in getAllLocationRoutes
-          const chunkSize = 9;
-          const chunks = [];
+          // Global optimization and chunking similar to desktop route
+          const optimizedPoints = optimizeRouteOrder(points);
+          const MAX_WAYPOINTS = 9;
+          const chunks = buildChunks(optimizedPoints, MAX_WAYPOINTS);
 
-          for (let i = 0; i < points.length; i += chunkSize - 1) {
-            if (i + chunkSize >= points.length) {
-              chunks.push(points.slice(i));
-            } else {
-              chunks.push(points.slice(i, i + chunkSize));
-            }
-          }
-
-          const chunkResults = [];
           let totalDistance = 0;
+          const chunkResults = await runWithConcurrency(
+            chunks,
+            async (chunkPoints, i) => {
+              const origin = chunkPoints[0];
+              const destination = chunkPoints[chunkPoints.length - 1];
+              const waypoints = chunkPoints
+                .slice(1, chunkPoints.length - 1)
+                .map((p) => ({ location: p, stopover: true }));
 
-          for (let i = 0; i < chunks.length; i++) {
-            const chunkPoints = chunks[i];
-            const origin = chunkPoints[0];
-            const destination = chunkPoints[chunkPoints.length - 1];
-            const waypoints = chunkPoints
-              .slice(1, chunkPoints.length - 1)
-              .map((p) => ({
-                location: p,
-                stopover: true,
-              }));
-
-            const result = await new Promise((resolve) => {
-              directionsService.route(
-                {
-                  origin,
-                  destination,
-                  waypoints,
-                  travelMode: window.google.maps.TravelMode.WALKING,
-                  optimizeWaypoints: false,
-                },
-                (result, status) => {
-                  if (status === "OK") {
-                    // Add up the distance
-                    if (
-                      result.routes &&
-                      result.routes[0] &&
-                      result.routes[0].legs
-                    ) {
-                      result.routes[0].legs.forEach((leg) => {
-                        totalDistance += leg.distance.value;
-                      });
+              return await new Promise((resolve) => {
+                directionsService.route(
+                  {
+                    origin,
+                    destination,
+                    waypoints,
+                    travelMode: window.google.maps.TravelMode.WALKING,
+                    optimizeWaypoints: false,
+                  },
+                  (result, status) => {
+                    if (status === "OK") {
+                      if (
+                        result.routes &&
+                        result.routes[0] &&
+                        result.routes[0].legs
+                      ) {
+                        result.routes[0].legs.forEach((leg) => {
+                          totalDistance += leg.distance.value;
+                        });
+                      }
+                      resolve(result);
+                    } else {
+                      console.error(`Survey chunk ${i} failed: ${status}`);
+                      resolve(null);
                     }
-                    resolve(result);
-                  } else {
-                    console.error(`Survey chunk ${i} failed: ${status}`);
-                    resolve(null);
                   }
-                }
-              );
-            });
-
-            if (result) chunkResults.push(result);
-          }
+                );
+              });
+            },
+            3
+          );
 
           if (chunkResults.length > 0) {
             // Add final segment to connect back to the starting point (for physical survey routes)
             try {
-              // Get the last point and connect it back to the first point
-              const lastPoint = points[points.length - 1];
-              const firstPoint = points[0];
+              const lastPoint = optimizedPoints[optimizedPoints.length - 1];
+              const firstPoint = optimizedPoints[0];
 
-              // Skip if the last point is already the same as the first point
               if (
                 lastPoint.lat !== firstPoint.lat ||
                 lastPoint.lng !== firstPoint.lng
@@ -737,7 +808,6 @@ const MapViewPage = () => {
                     },
                     (result, status) => {
                       if (status === "OK") {
-                        // Add up the distance for this final segment
                         if (
                           result.routes &&
                           result.routes[0] &&
@@ -760,9 +830,6 @@ const MapViewPage = () => {
 
                 if (result) {
                   chunkResults.push(result);
-                  console.log(
-                    "Added final segment to close the survey route loop"
-                  );
                 }
               }
             } catch (error) {
@@ -774,7 +841,7 @@ const MapViewPage = () => {
 
             results.push({
               locationId: location._id,
-              directions: chunkResults[0], // First chunk for main directions
+              directions: chunkResults[0],
               chunks: chunkResults,
               isChunked: true,
               totalDistance: totalDistance,

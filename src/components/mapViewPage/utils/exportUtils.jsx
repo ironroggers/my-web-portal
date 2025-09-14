@@ -1,5 +1,5 @@
 import generateKMLContent from "./generateKMLContent.jsx";
-import getDirections from "./getDirections.js";
+// We rely on precomputed directions from the map (including chunked results)
 
 const extractRoutePathFromDirections = (directions) => {
   let routePath = [];
@@ -55,25 +55,26 @@ const createRoutePathFromPoints = (routePoints) => {
 };
 
 const processDesktopRoute = async (selectedLocations, setSnackbar, type) => {
-  let directions = selectedLocations[0].directions;
-
-  directions = await getDirections(selectedLocations[0], type);
+  const selected = selectedLocations[0];
+  let directions = selected?.directions;
 
   const routePoints = selectedLocations
     .map((loc) => loc.location.route || [])
     .flat()
     .filter((point) => !point.isTemporary && point.type !== "others");
 
-  if (!directions) {
-    setSnackbar({
-      open: true,
-      message: "Error: No route data available for export",
-      severity: "error",
+  let routePath = [];
+  if (selected?.isChunked && Array.isArray(selected?.chunks)) {
+    selected.chunks.forEach((chunk) => {
+      const chunkPath = extractRoutePathFromDirections(chunk);
+      if (chunkPath.length > 0) {
+        if (routePath.length > 0) routePath.pop();
+        routePath = routePath.concat(chunkPath);
+      }
     });
-    return { routePath: [], waypoints: [] };
+  } else if (directions) {
+    routePath = extractRoutePathFromDirections(directions);
   }
-
-  let routePath = extractRoutePathFromDirections(directions);
 
   if (routePath.length === 0) {
     routePath = createRoutePathFromPoints(routePoints);
