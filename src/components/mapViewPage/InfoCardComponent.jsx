@@ -358,6 +358,22 @@ const InfoCardComponent = ({
                         navigate(`/hoto-details/${location.location?._id}`)
                       }
                     />
+                    <Chip
+                      label="View Sections"
+                      color="default"
+                      sx={{
+                        fontWeight: 500,
+                        cursor: "pointer",
+                        "&:hover": {
+                          transform: "translateY(-1px)",
+                          boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
+                        },
+                        transition: "all 0.2s ease",
+                      }}
+                      onClick={() =>
+                        navigate(`/location/${location.location?._id}/sections`)
+                      }
+                    />
                   </Box>
                 )}
               </CardContent>

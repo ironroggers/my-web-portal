@@ -80,6 +80,8 @@ const Navigation = () => {
       ADMIN: "Admin",
       SUPERVISOR: "Supervisor",
       SURVEYOR: "Surveyor",
+      "EXECUTION ENGINEER": "Execution Engineer",
+      VIEWER: "Viewer",
     };
 
     return roleMap[user.role] || user.role;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useJsApiLoader } from "@react-google-maps/api";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation as useRouterLocation } from "react-router-dom";
 import {
   Box,
   Typography,
@@ -80,6 +80,7 @@ const surveyRouteColor = "#f59e0b"; // More vibrant yellow
 
 const MapViewPage = () => {
   const navigate = useNavigate();
+  const routerLocation = useRouterLocation();
   const [locations, setLocations] = useState([]);
   const [locationRoutes, setLocationRoutes] = useState([]); // [{points, directions, routeInfo, mapCenter, error}]
   const [surveyRoutes, setSurveyRoutes] = useState([]); // [{locationId, directions}]
@@ -199,6 +200,31 @@ const MapViewPage = () => {
     fetchLocations();
     fetchSurveys();
   }, []);
+
+  // Preselect a location when coming back from Sections page
+  useEffect(() => {
+    const state = routerLocation.state;
+    const preselectId = state && state.preselectLocationId;
+    if (!preselectId) return;
+    if (!locations || locations.length === 0) return;
+    if (selectedLocations.length > 0) return; // don't override existing selection
+
+    const selectedLocation = locations.find((l) => l._id === preselectId);
+    if (selectedLocation) {
+      const routeObj = {
+        points: getPointsForLocation(selectedLocation),
+        directions: null,
+        routeInfo: null,
+        mapCenter:
+          getPointsForLocation(selectedLocation)[0] || defaultCenter,
+        error: null,
+        location: selectedLocation,
+      };
+      setSelectedLocations([routeObj]);
+      setRecentlySelectedLocation(routeObj);
+      setMapZoom(15);
+    }
+  }, [routerLocation.state, locations]);
 
   // Only process selected locations - no batch processing
   useEffect(() => {

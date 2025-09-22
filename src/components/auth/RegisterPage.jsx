@@ -231,6 +231,8 @@ const RegisterPage = () => {
                 >
                   <MenuItem value="SURVEYOR">Surveyor</MenuItem>
                   <MenuItem value="SUPERVISOR">Supervisor</MenuItem>
+                  <MenuItem value="PERFORMER">Performer</MenuItem>
+                  <MenuItem value="VIEWER">Viewer</MenuItem>
                   <MenuItem value="ADMIN">Admin</MenuItem>
                 </Select>
               </FormControl>

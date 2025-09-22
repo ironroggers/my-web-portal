@@ -30,6 +30,9 @@ import HotoPage from "./components/hotoPage/hotoPage";
 import SurveysPage from "./components/SurveysPage";
 import LocationDetailsPage from "./components/LocationDetailsPage";
 import HotoDetailsPage from "./components/HotoDetailsPage";
+import LocationSectionsPage from "./components/LocationSectionsPage";
+import SubsectionsPage from "./components/SubsectionsPage";
+import TrenchingPage from "./components/TrenchingPage";
 
 // Auth Provider
 import { AuthProvider } from "./context/AuthContext";
@@ -154,6 +157,30 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <HotoDetailsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/location/:locationId/sections"
+                  element={
+                    <ProtectedRoute>
+                      <LocationSectionsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/sections/:sectionId/subsections"
+                  element={
+                    <ProtectedRoute>
+                      <SubsectionsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/subsections/:subSectionId/trenching"
+                  element={
+                    <ProtectedRoute>
+                      <TrenchingPage />
                     </ProtectedRoute>
                   }
                 />

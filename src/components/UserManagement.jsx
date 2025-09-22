@@ -500,6 +500,38 @@ const UserManagement = () => {
                             />
                           </Box>
                         </MenuItem>
+                        <MenuItem value="EXECUTION ENGINEER">
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                            }}
+                          >
+                            <Chip
+                              label="Execution Engineer"
+                              size="small"
+                              color="info"
+                              sx={{ height: 24 }}
+                            />
+                          </Box>
+                        </MenuItem>
+                        <MenuItem value="VIEWER">
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                            }}
+                          >
+                            <Chip
+                              label="Viewer"
+                              size="small"
+                              color="default"
+                              sx={{ height: 24 }}
+                            />
+                          </Box>
+                        </MenuItem>
                         <MenuItem value="ADMIN">
                           <Box
                             sx={{
@@ -704,6 +736,8 @@ const UserManagement = () => {
                             <MenuItem value="ADMIN">Admin</MenuItem>
                             <MenuItem value="SUPERVISOR">Supervisor</MenuItem>
                             <MenuItem value="SURVEYOR">Surveyor</MenuItem>
+                            <MenuItem value="EXECUTION ENGINEER">Execution Engineer</MenuItem>
+                            <MenuItem value="VIEWER">Viewer</MenuItem>
                           </Select>
                         </FormControl>
                       </Grid>
@@ -833,7 +867,11 @@ const UserManagement = () => {
                                           ? "error"
                                           : user.role === "SUPERVISOR"
                                           ? "warning"
-                                          : "success"
+                                          : user.role === "SURVEYOR"
+                                          ? "success"
+                                          : user.role === "EXECUTION ENGINEER"
+                                          ? "info"
+                                          : "default"
                                       }
                                       variant="outlined"
                                     />
