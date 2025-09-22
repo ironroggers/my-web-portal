@@ -270,6 +270,7 @@ const TrenchingPage = () => {
         { header: "Depth (m)", dataKey: "depth" },
         { header: "Latitude", dataKey: "latitude" },
         { header: "Longitude", dataKey: "longitude" },
+        { header: "Rod Length", dataKey: "rodLength" },
         { header: "Angle (°)", dataKey: "angleDeg" },
       ];
       const body = rows.map((r, idx) => {
@@ -282,6 +283,7 @@ const TrenchingPage = () => {
           depth: Number(r.depth || 0).toFixed(2),
           latitude: r.latitude || "",
           longitude: r.longitude || "",
+          rodLength: 3,
           angleDeg: prev ? angleDeg.toFixed(2) : "",
         };
       });
@@ -408,36 +410,46 @@ const TrenchingPage = () => {
                   <TableCell sx={{ fontWeight: 600 }}>Depth</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Latitude</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Longitude</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Rod Length</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Angle (°)</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Photo</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {rows.map((r, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell>{r.distance}</TableCell>
-                    <TableCell>{Number(r.depth).toFixed(2)}</TableCell>
-                    <TableCell>{r.latitude}</TableCell>
-                    <TableCell>{r.longitude}</TableCell>
-                    <TableCell>
-                      <IconButton
-                        size="small"
-                        onClick={() => setPreview({
-                          photoUrl: r.photoUrl,
-                          lat: parseFloat(r.latitude),
-                          lng: parseFloat(r.longitude),
-                          place: r.place,
-                          accuracy: r.accuracy,
-                          deviceName: r.deviceName,
-                          time: r.uploadedAt,
-                        })}
-                        disabled={!r.photoUrl}
-                        color={r.photoUrl ? 'primary' : 'default'}
-                      >
-                        <PhotoIcon />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {rows.map((r, idx) => {
+                  const prev = idx > 0 ? rows[idx - 1] : null;
+                  const deltaDepth = prev ? Number(r.depth || 0) - Number(prev.depth || 0) : 0;
+                  const deltaDist = prev ? Number(r.distance || 0) - Number(prev.distance || 0) : 0;
+                  const angleDeg = deltaDist ? (Math.atan2(deltaDepth, deltaDist) * 180) / Math.PI : 0;
+                  return (
+                    <TableRow key={idx}>
+                      <TableCell>{r.distance}</TableCell>
+                      <TableCell>{Number(r.depth).toFixed(2)}</TableCell>
+                      <TableCell>{r.latitude}</TableCell>
+                      <TableCell>{r.longitude}</TableCell>
+                      <TableCell>{3}</TableCell>
+                      <TableCell>{prev ? angleDeg.toFixed(2) : ''}</TableCell>
+                      <TableCell>
+                        <IconButton
+                          size="small"
+                          onClick={() => setPreview({
+                            photoUrl: r.photoUrl,
+                            lat: parseFloat(r.latitude),
+                            lng: parseFloat(r.longitude),
+                            place: r.place,
+                            accuracy: r.accuracy,
+                            deviceName: r.deviceName,
+                            time: r.uploadedAt,
+                          })}
+                          disabled={!r.photoUrl}
+                          color={r.photoUrl ? 'primary' : 'default'}
+                        >
+                          <PhotoIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </Paper>
