@@ -41,6 +41,7 @@ import {
   LOCATION_URL,
   SURVEY_URL,
 } from "../../API/api-keys.jsx";
+import { useAuth } from '../../context/AuthContext';
 import surveyService from "../../services/surveyService.jsx";
 import physicalSurveyExport from "../../utils/physicalSurveyExport.util.jsx";
 import { exportToKML } from "./utils/exportUtils.jsx";
@@ -81,6 +82,8 @@ const surveyRouteColor = "#f59e0b"; // More vibrant yellow
 const MapViewPage = () => {
   const navigate = useNavigate();
   const routerLocation = useRouterLocation();
+  const { user } = useAuth();
+  const isViewer = user && user.role === 'VIEWER';
   const [locations, setLocations] = useState([]);
   const [locationRoutes, setLocationRoutes] = useState([]); // [{points, directions, routeInfo, mapCenter, error}]
   const [surveyRoutes, setSurveyRoutes] = useState([]); // [{locationId, directions}]
@@ -1018,6 +1021,7 @@ const MapViewPage = () => {
 
   // Handle open/close of create dialog
   const handleOpenCreateDialog = () => {
+    if (isViewer) return;
     setOpenCreateDialog(true);
   };
 
@@ -1097,6 +1101,7 @@ const MapViewPage = () => {
 
   // Create location by sending data to API
   const handleCreateLocation = async () => {
+    if (isViewer) return;
     try {
       setCreatingLocation(true);
 
@@ -1200,6 +1205,7 @@ const MapViewPage = () => {
 
   // Handle open/close of edit dialog
   const handleOpenEditDialog = () => {
+    if (isViewer) return;
     if (!selectedLocations || selectedLocations.length === 0) {
       setSnackbar({
         open: true,
@@ -1307,6 +1313,7 @@ const MapViewPage = () => {
 
   // Update location by sending data to API
   const handleUpdateLocation = async () => {
+    if (isViewer) return;
     try {
       setUpdatingLocation(true);
 
@@ -1526,6 +1533,7 @@ const MapViewPage = () => {
 
   // Add map click handler
   const handleMapClick = (event) => {
+    if (isViewer) return;
     // Only allow adding points if a location is selected
     if (selectedLocations.length === 0) {
       setSnackbar({
@@ -1740,12 +1748,18 @@ const MapViewPage = () => {
             color="primary"
             startIcon={<AddIcon />}
             onClick={handleOpenCreateDialog}
+            disabled={isViewer}
             sx={{
               borderRadius: "8px",
               px: 3,
               py: 1,
               fontWeight: 600,
               boxShadow: "0 4px 6px rgba(37, 99, 235, 0.2)",
+              '&.Mui-disabled': {
+                bgcolor: '#bdbdbd',
+                color: '#ffffff',
+                boxShadow: 'none'
+              }
             }}
           >
             Create New Location
@@ -1812,7 +1826,14 @@ const MapViewPage = () => {
                 color="primary"
                 startIcon={<EditIcon />}
                 onClick={handleOpenEditDialog}
-                sx={{ borderRadius: "8px", fontWeight: 500, flex: 1 }}
+                disabled={isViewer}
+                sx={{ borderRadius: "8px", fontWeight: 500, flex: 1,
+                  '&.Mui-disabled': {
+                    bgcolor: '#eeeeee',
+                    color: '#9e9e9e',
+                    borderColor: '#bdbdbd'
+                  }
+                }}
               >
                 Edit
               </Button>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Paper, Typography, Tabs, Tab, Box, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import MapIcon from '@mui/icons-material/Map';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
@@ -6,6 +6,7 @@ import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
 import AttendanceMapView from './AttendanceMapView';
 import AttendanceCalendarView from './AttendanceCalendarView';
 import AttendanceDetailedView from './AttendanceDetailedView';
+import { useAuth } from '../context/AuthContext';
 
 function TabPanel(props) {
   const { children, value, index, ...other } = props;
@@ -51,6 +52,16 @@ const PROJECT_OPTIONS = [
 const AttendancePage = () => {
   const [tabValue, setTabValue] = useState(0);
   const [projectFilter, setProjectFilter] = useState('ALL');
+  const { user } = useAuth();
+  const isViewer = user && user.role === 'VIEWER';
+
+  // Freeze project filter for Viewer role to assigned project
+  useEffect(() => {
+    if (isViewer) {
+      const assignedProject = user && user.project ? user.project : 'ALL';
+      setProjectFilter(assignedProject);
+    }
+  }, [isViewer, user]);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -90,6 +101,7 @@ const AttendancePage = () => {
               value={projectFilter}
               label="Project"
               onChange={(e) => setProjectFilter(e.target.value)}
+              disabled={isViewer}
             >
               <MenuItem value="ALL">All</MenuItem>
               {PROJECT_OPTIONS.map((opt) => (

@@ -37,8 +37,21 @@ export function AuthProvider({ children }) {
     const storedToken = localStorage.getItem('token');
 
     if (storedUser && storedToken) {
-      setUser(JSON.parse(storedUser));
-      setToken(storedToken);
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        const allowedRoles = ['ADMIN', 'VIEWER'];
+        if (parsedUser && allowedRoles.includes(parsedUser.role)) {
+          setUser(parsedUser);
+          setToken(storedToken);
+        } else {
+          // If stored session is for a disallowed role, clear it
+          localStorage.removeItem('user');
+          localStorage.removeItem('token');
+        }
+      } catch (_) {
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+      }
     }
 
     setLoading(false);
@@ -50,6 +63,12 @@ export function AuthProvider({ children }) {
     try {
       const response = await api.post('/auth/login', { email, password });
       const { user: userData, token: authToken } = response.data.data;
+
+      // Only allow ADMIN and VIEWER roles to log in
+      const allowedRoles = ['ADMIN', 'VIEWER'];
+      if (!userData || !allowedRoles.includes(userData.role)) {
+        throw new Error('Access denied: Only Admin and Viewer roles are allowed to login');
+      }
 
       // Save to state
       setUser(userData);

@@ -7,6 +7,7 @@ import L from 'leaflet';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import {ATTENDANCE_URL, AUTH_URL} from "../API/api-keys.jsx";
+import { useAuth } from '../context/AuthContext';
 
 // Fix the default icon issue in Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -51,6 +52,8 @@ const AttendanceMapView = ({ projectFilter = 'ALL' }) => {
   const [users, setUsers] = useState([]);
   const [error, setError] = useState(null);
   const [selectedUserId, setSelectedUserId] = useState(null);
+  const { user } = useAuth();
+  const isViewer = user && user.role === 'VIEWER';
 
   // Default center position (can be adjusted based on your requirements)
   const defaultCenter = [0, 0];
@@ -272,6 +275,11 @@ const AttendanceMapView = ({ projectFilter = 'ALL' }) => {
         center={center}
         zoom={filteredAttendances.length > 1 ? 10 : 14}
         style={{ height: '100%', width: '100%' }}
+        scrollWheelZoom={!isViewer}
+        doubleClickZoom={!isViewer}
+        dragging={!isViewer}
+        zoomControl={!isViewer}
+        keyboard={!isViewer}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -281,7 +289,7 @@ const AttendanceMapView = ({ projectFilter = 'ALL' }) => {
         {/* Fit bounds on data load/update */}
         <MapFitBounds positions={positions} />
         {/* Fly to when user is selected */}
-        {selectedAttendance && (
+        {!isViewer && selectedAttendance && (
           <MapFlyTo position={[selectedAttendance.location.latitude, selectedAttendance.location.longitude]} />
         )}
 
@@ -379,10 +387,12 @@ const AttendanceMapView = ({ projectFilter = 'ALL' }) => {
                 color: isSelected ? '#000' : '#fff',
                 weight: isSelected ? 2 : 1
               }}
-              eventHandlers={{
+              interactive={!isViewer}
+              eventHandlers={isViewer ? {} : {
                 click: () => setSelectedUserId(attendance.userId),
               }}
             >
+              {!isViewer && (
               <Popup>
                 <div style={{ padding: '6px 6px 8px 6px', fontSize: '14px', maxWidth: '280px' }}>
                   <div style={{ fontWeight: 'bold', marginBottom: '6px' }}>
@@ -435,6 +445,7 @@ const AttendanceMapView = ({ projectFilter = 'ALL' }) => {
                   </div>
                 </div>
               </Popup>
+              )}
             </CircleMarker>
           );
         })}

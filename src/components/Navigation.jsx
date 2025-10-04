@@ -121,12 +121,15 @@ const Navigation = () => {
         return null;
       }
 
+      const isDisabled = item.to === "/users" && user && user.role === "VIEWER";
+
       if (mobile) {
         return (
           <ListItem
             key={item.to}
-            component={NavLink}
-            to={item.to}
+            component={isDisabled ? "div" : NavLink}
+            to={isDisabled ? undefined : item.to}
+            disabled={isDisabled}
             onClick={() => setMobileMenuOpen(false)}
             sx={{
               color: "inherit",
@@ -150,6 +153,7 @@ const Navigation = () => {
           to={item.to}
           color="inherit"
           startIcon={item.icon}
+          disabled={isDisabled}
           end
         >
           {item.label}

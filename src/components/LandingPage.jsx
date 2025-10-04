@@ -60,6 +60,7 @@ import RouteIcon from '@mui/icons-material/Route';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import './LandingPage.css';
 import {ATTENDANCE_URL, AUTH_URL, LOCATION_URL} from "../API/api-keys.jsx";
+import { useAuth } from '../context/AuthContext';
 import surveyService from '../services/surveyService';
 
 // Styled components
@@ -187,6 +188,8 @@ const LocationStatusCard = styled(Box)(({ theme, statusColor = 'primary.main' })
 }));
 
 const LandingPage = () => {
+  const { user } = useAuth();
+  const isViewer = user && user.role === 'VIEWER';
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
@@ -295,14 +298,16 @@ const LandingPage = () => {
       }
 
       const users = usersData.data;
-      const supervisors = users.filter(user => user.role === 'SUPERVISOR').length;
-      const surveyors = users.filter(user => user.role === 'SURVEYOR').length;
+      const viewerProject = (isViewer && user && user.project) ? user.project : null;
+      const usersForStats = viewerProject ? users.filter(u => (u.project || '') === viewerProject) : users;
+      const supervisors = usersForStats.filter(u => u.role === 'SUPERVISOR').length;
+      const surveyors = usersForStats.filter(u => u.role === 'SURVEYOR').length;
 
       // Set user stats
       setUserStats({
         supervisors,
         surveyors,
-        total: users.length,
+        total: usersForStats.length,
         loading: false
       });
 
@@ -328,11 +333,17 @@ const LandingPage = () => {
         return recordDate.toISOString().split('T')[0] === todayStr;
       });
 
+      // If viewer has a project, restrict attendance to users in that project
+      const allowedUserIds = viewerProject ? new Set(usersForStats.map(u => u._id)) : null;
+      const filteredTodayRecords = allowedUserIds
+        ? todayRecords.filter(record => allowedUserIds.has(record.userId))
+        : todayRecords;
+
       // Count by status
-      const present = todayRecords.filter(record => record.status === 'present').length;
-      const late = todayRecords.filter(record => record.status === 'late').length;
-      const overtime = todayRecords.filter(record => record.status === 'overtime').length;
-      const absent = todayRecords.filter(record => record.status === 'absent').length;
+      const present = filteredTodayRecords.filter(record => record.status === 'present').length;
+      const late = filteredTodayRecords.filter(record => record.status === 'late').length;
+      const overtime = filteredTodayRecords.filter(record => record.status === 'overtime').length;
+      const absent = filteredTodayRecords.filter(record => record.status === 'absent').length;
 
       // Set attendance stats
       setAttendanceStats({
@@ -340,7 +351,7 @@ const LandingPage = () => {
         absent,
         late,
         overtime,
-        total: users.length, // Assuming every user should have an attendance record
+        total: usersForStats.length,
         loading: false
       });
 
@@ -441,6 +452,9 @@ const LandingPage = () => {
       }
 
       const users = usersData.data;
+      const viewerProject = (isViewer && user && user.project) ? user.project : null;
+      const usersForView = viewerProject ? users.filter(u => (u.project || '') === viewerProject) : users;
+      const allowedUserIds = viewerProject ? new Set(usersForView.map(u => u._id)) : null;
 
       // Sort by date, most recent first
       const sortedRecords = [...data.data].sort((a, b) => {
@@ -448,7 +462,10 @@ const LandingPage = () => {
       });
 
       // Take the 5 most recent records
-      const recentRecords = sortedRecords.slice(0, 5);
+      const filteredSortedRecords = allowedUserIds
+        ? sortedRecords.filter(r => allowedUserIds.has(r.userId))
+        : sortedRecords;
+      const recentRecords = filteredSortedRecords.slice(0, 5);
 
       // Format records as activities
       const activities = recentRecords.map((record, index) => {
@@ -946,10 +963,11 @@ const LandingPage = () => {
                   <Button
                     fullWidth
                     variant="contained"
-                    component={Link}
-                    to="/users"
+                    component={isViewer ? 'button' : Link}
+                    to={isViewer ? undefined : "/users"}
                     color="primary"
                     endIcon={<ArrowForwardIcon />}
+                    disabled={isViewer}
                     sx={{
                       borderRadius: 2,
                       py: 1.5,
@@ -1193,9 +1211,10 @@ const LandingPage = () => {
                         <PeopleAltIcon fontSize="small" />
                       </IconWrapper>
                     }
-                    component={Link}
-                    to="/users"
+                    component={isViewer ? 'button' : Link}
+                    to={isViewer ? undefined : '/users'}
                     bgcolor="secondary"
+                    disabled={isViewer}
                     sx={{ py: 1.5 }}
                   >
                     <Box textAlign="left" sx={{ ml: 1 }}>
