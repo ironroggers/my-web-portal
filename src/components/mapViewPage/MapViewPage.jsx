@@ -1844,7 +1844,8 @@ const MapViewPage = () => {
                 onClick={handleExportClick}
                 disabled={
                   selectedLocations.length === 0 ||
-                  isRouteCalculationInProgress()
+                  isRouteCalculationInProgress() ||
+                  isViewer
                 }
                 sx={{
                   borderRadius: "8px",
