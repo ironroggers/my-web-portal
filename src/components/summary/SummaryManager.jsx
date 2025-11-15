@@ -11,20 +11,22 @@ const SummaryManager = () => {
 
   const refreshData = () => {
     summaryService.getSummary().then(setSummary);
-    summaryService.getSheetNames().then((sheets) => {
-      setSheetNames(sheets.data);
-      setSelectedSheet(sheets.data[0]);
-    });
+  };
+
+  const handleSheetChange = (sheetName) => {
+    setSelectedSheet(sheetName);
   };
 
   useEffect(() => {
     refreshData();
+    summaryService.getSheetNames().then((sheets) => {
+      setSheetNames(sheets.data);
+      setSelectedSheet(sheets.data[0]);
+    });
   }, []);
 
-  console.log(selectedSheet);
-
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 6 }}>
+    <Container sx={{ mt: 4, mb: 6 }}>
       <Paper elevation={3} sx={{ borderRadius: "16px", overflow: "hidden" }}>
         <Box>
           <SummaryDisplay summary={summary} />
@@ -32,6 +34,7 @@ const SummaryManager = () => {
             <SheetDataDisplay
               sheetNames={sheetNames}
               selectedSheet={selectedSheet}
+              onSheetChange={handleSheetChange}
               refreshData={refreshData}
             />
           )}

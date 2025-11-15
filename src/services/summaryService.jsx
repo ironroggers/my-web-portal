@@ -32,10 +32,43 @@ const getSheetData = async (sheetName) => {
   }
 };
 
+const createRecord = async (data) => {
+  try {
+    const response = await fetch(`${SUMMARY_URL}/api/v1/summary/records`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  } catch (error) {
+    console.error("Error creating record:", error);
+    throw error;
+  }
+};
+
+const updateRecord = async (id, data) => {
+  try {
+    const response = await fetch(
+      `${SUMMARY_URL}/api/v1/summary/records/${id}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }
+    );
+    return response.json();
+  } catch (error) {
+    console.error("Error updating record:", error);
+    throw error;
+  }
+};
+
 const summaryService = {
   getSummary,
   getSheetNames,
   getSheetData,
+  createRecord,
+  updateRecord,
 };
 
 export default summaryService;
