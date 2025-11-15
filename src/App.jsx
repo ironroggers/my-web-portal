@@ -33,6 +33,7 @@ import HotoDetailsPage from "./components/HotoDetailsPage";
 import LocationSectionsPage from "./components/LocationSectionsPage";
 import SubsectionsPage from "./components/SubsectionsPage";
 import TrenchingPage from "./components/TrenchingPage";
+import SummaryManager from "./components/SummaryManager";
 
 // Auth Provider
 import { AuthProvider } from "./context/AuthContext";
@@ -117,6 +118,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <MapViewPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/summary"
+                  element={
+                    <ProtectedRoute>
+                      <SummaryManager />
                     </ProtectedRoute>
                   }
                 />

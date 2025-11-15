@@ -12,3 +12,5 @@ export const ATTENDANCE_URL = "https://attendance.annuprojects.com";
 export const HOTO_URL = "https://hoto.annuprojects.com";
 export const GOOGLE_MAPS_DIRECTIONS_API = "AIzaSyC2pds2TL5_lGUM-7Y1CFiGq8Wrn0oULr0";
 export const EXECUTION_URL = "https://execution.annuprojects.com";
+// export const SUMMARY_URL = "https://summary.annuprojects.com";
+export const SUMMARY_URL = "http://localhost:4005";
