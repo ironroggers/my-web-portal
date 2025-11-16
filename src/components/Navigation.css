@@ -1,39 +1,119 @@
-.navigation {
-  background: linear-gradient(90deg, #1976d2, #1565c0) !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
-  position: relative !important;
-  z-index: 10;
-  width: 100%;
+/* Sidebar navigation styles */
+.MuiDrawer-paper {
+  background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 50%, #1d4ed8 100%) !important;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15) !important;
+  border-radius: 0 6px 6px 0 !important;
+  border: none !important;
+  position: relative;
 }
 
-.navigation-content {
-  max-width: 1400px;
-  width: 100%;
-  margin: 0 auto;
-  padding: 0 20px;
-  display: flex;
-  justify-content: space-between;
+.MuiDrawer-paper::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%);
+  border-radius: 0 6px 6px 0;
+  pointer-events: none;
+}
+
+/* Active navigation link styles */
+.MuiListItem-root.active {
+  background: rgba(255, 255, 255, 0.15) !important;
+  font-weight: 600 !important;
+  border-left: 3px solid #60a5fa;
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
+}
+
+.MuiListItem-root:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  transform: translateX(2px);
+  transition: all 0.2s ease;
+}
+
+/* Profile avatar styling */
+.MuiAvatar-root {
+  border: 2px solid rgba(255, 255, 255, 0.4) !important;
+  transition: all 0.2s ease !important;
+}
+
+/* Profile avatar hover effect */
+.MuiIconButton-root:hover .MuiAvatar-root {
+  transform: scale(1.05);
+  box-shadow: 0 3px 10px rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* Collapse button animation */
+.MuiIconButton-root:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  transition: all 0.2s ease;
+}
+
+/* Logo animation */
+.MuiTypography-root:hover {
+  opacity: 0.9;
+  transition: opacity 0.2s ease;
+}
+
+/* Typography enhancements */
+.MuiTypography-h6 {
+  font-weight: 600 !important;
+  letter-spacing: -0.3px !important;
+  color: #ffffff !important;
+}
+
+/* Collapsed sidebar special styling */
+.MuiDrawer-paper:has(.MuiListItem-root:only-child .MuiListItemIcon-root:only-child) {
   align-items: center;
 }
 
-@media (max-width: 900px) {
-  .navigation-content {
-    padding: 0 16px;
+/* Mobile app bar styles */
+@media (max-width: 768px) {
+  .MuiAppBar-root {
+    background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 50%, #1d4ed8 100%) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
   }
 }
 
-@media (max-width: 600px) {
-  .navigation-content {
-    padding: 0 12px;
-  }
+/* Scrollbar styling for sidebar */
+.MuiDrawer-paper::-webkit-scrollbar {
+  width: 5px;
 }
 
-/* Styles for active navigation links */
-.MuiButton-root.active {
-  background-color: rgba(255, 255, 255, 0.2);
-  font-weight: bold;
+.MuiDrawer-paper::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
 }
 
-.MuiButton-root:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+.MuiDrawer-paper::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+}
+
+.MuiDrawer-paper::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* Navigation icons styling */
+.MuiListItemIcon-root {
+  transition: opacity 0.2s ease;
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.MuiListItem-root:hover .MuiListItemIcon-root {
+  opacity: 1;
+}
+
+/* Professional spacing and layout */
+.MuiList-root {
+  padding: 8px 0;
+}
+
+.MuiListItem-root {
+  margin: 2px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
 } 

@@ -21,7 +21,8 @@ import MapViewPage from "./components/mapViewPage/MapViewPage";
 import FRTTracking from "./components/FRTTracking";
 import HelpCenterPage from "./components/HelpCenterPage";
 import AboutPage from "./components/AboutPage";
-import LandingPage from "./components/LandingPage";
+import LandingPage from "./components/LandingPage"; // Keep for backward compatibility
+import AnalyticsDashboard from "./components/AnalyticsDashboard";
 import LoginPage from "./components/auth/LoginPage";
 import RegisterPage from "./components/auth/RegisterPage";
 import ProfilePage from "./components/ProfilePage";
@@ -64,8 +65,9 @@ function App() {
         <Router>
           <div className="app-container">
             <Navigation />
-            <Container className="content-container">
-              <Routes>
+            <div className="main-content">
+              <Container className="content-container" maxWidth={false}>
+                <Routes>
                 {/* Public routes */}
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
@@ -77,12 +79,21 @@ function App() {
                   path="/"
                   element={
                     <ProtectedRoute>
-                      <LandingPage />
+                      <AnalyticsDashboard />
                     </ProtectedRoute>
                   }
                 />
                 <Route
                   path="/dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <AnalyticsDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                {/* Keep old dashboard accessible for backward compatibility */}
+                <Route
+                  path="/old-dashboard"
                   element={
                     <ProtectedRoute>
                       <LandingPage />
@@ -199,7 +210,8 @@ function App() {
                   element={<Navigate to="/dashboard" replace />}
                 />
               </Routes>
-            </Container>
+              </Container>
+            </div>
           </div>
         </Router>
       </AuthProvider>

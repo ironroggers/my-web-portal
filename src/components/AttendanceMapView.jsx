@@ -468,7 +468,7 @@ const AttendanceMapView = ({ projectFilter = 'ALL' }) => {
   }
 
   return (
-    <Box sx={{ height: '70vh', position: 'relative' }}>
+    <Box sx={{ height: '100%', width: '100%', position: 'relative' }}>
       {renderMap()}
     </Box>
   );

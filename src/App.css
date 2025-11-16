@@ -33,11 +33,9 @@ body {
 .app-container {
   min-height: 100vh;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   background: linear-gradient(135deg, #f8faff 0%, #f0f4fa 100%);
   position: relative;
-  align-items: center;
-  justify-content: flex-start;
 }
 
 .app-container::before {
@@ -52,6 +50,15 @@ body {
   z-index: 0;
 }
 
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  margin-left: 0;
+  transition: margin-left 0.3s ease;
+}
+
 .content-container {
   flex: 1;
   max-width: 1400px !important;
@@ -59,10 +66,9 @@ body {
   width: 100%;
   position: relative;
   z-index: 1;
-  padding: 0 !important;
+  padding: 24px !important;
   display: flex;
   flex-direction: column;
-  align-items: center;
 }
 
 .content-container > div {
@@ -146,23 +152,38 @@ body {
 /* Responsive adjustments */
 @media (max-width: 1200px) {
   .content-container {
-    padding: 0 16px !important;
+    padding: 20px 16px !important;
   }
 }
 
 @media (max-width: 900px) {
   .content-container {
-    padding: 0 12px !important;
+    padding: 16px 12px !important;
   }
 }
 
 @media (max-width: 600px) {
   .content-container {
-    padding: 0 8px !important;
+    padding: 16px 8px !important;
   }
-  
+
   .MuiButton-root {
     padding: 6px 16px !important;
+  }
+}
+
+/* Mobile adjustments for sidebar layout */
+@media (max-width: 768px) {
+  .app-container {
+    flex-direction: column;
+  }
+
+  .main-content {
+    margin-top: 56px; /* Account for mobile app bar */
+  }
+
+  .content-container {
+    padding: 16px 8px !important;
   }
 }
 

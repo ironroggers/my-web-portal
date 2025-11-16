@@ -10,6 +10,11 @@ const getSummary = async () => {
   }
 };
 
+// Alias for computed/aggregated summary used by analytics dashboards
+const getComputedSummary = async () => {
+  return getSummary();
+};
+
 const getSheetNames = async () => {
   try {
     const response = await fetch(`${SUMMARY_URL}/api/v1/summary/sheets`);
@@ -65,6 +70,7 @@ const updateRecord = async (id, data) => {
 
 const summaryService = {
   getSummary,
+  getComputedSummary,
   getSheetNames,
   getSheetData,
   createRecord,
