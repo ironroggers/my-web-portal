@@ -44,6 +44,7 @@ import LanIcon from "@mui/icons-material/Lan";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import TimelineIcon from "@mui/icons-material/Timeline";
 import AnalyticsIcon from "@mui/icons-material/Analytics";
+import BuildIcon from "@mui/icons-material/Build";
 
 import summaryService from "../services/summaryService.jsx";
 import { useAuth } from "../context/AuthContext";
@@ -136,52 +137,71 @@ const AnalyticsDashboard = () => {
     return submitted > 0 ? Math.round((approved / submitted) * 100) : 0;
   };
 
-  // Process Flow Data
-  const processSteps = [
-    {
+  // Configuration mapping for process steps - defined at component level for reuse
+  const processStepConfigs = {
+    'Desktop_Survey': {
       title: 'Desktop Survey',
-      submitted: s.Desktop_Survey?.Submitted ?? 0,
-      approved: s.Desktop_Survey?.Approved ?? 0,
+      submittedKey: 'Submitted',
+      approvedKey: 'Approved',
       icon: <DesktopWindowsIcon />,
       color: 'primary',
     },
-    {
-      title: 'Physical Survey',
-      submitted: s.Physical_Survey?.Submitted ?? 0,
-      approved: s.Physical_Survey?.Approved ?? 0,
+    'Physical_Survey': {
+      title: 'Physical Survey and BOQ',
+      submittedKey: 'Submitted',
+      approvedKey: 'Approved',
       icon: <MapIcon />,
       color: 'success',
     },
-    {
-      title: 'ROW Application',
-      submitted: s.Row?.Applied ?? 0,
-      approved: s.Row?.Approved ?? 0,
+    'Row': {
+      title: 'ROW Status',
+      submittedKey: 'Applied',
+      approvedKey: 'Approved',
       icon: <ReceiptLongIcon />,
       color: 'warning',
     },
-    {
-      title: 'BOQ Preparation',
-      submitted: s.Boq?.Submitted ?? 0,
-      approved: s.Boq?.Approved ?? 0,
-      icon: <AssignmentTurnedInIcon />,
-      color: 'info',
-    },
-    {
+    'Invoice': {
       title: 'Invoice Processing',
-      submitted: s.Invoice?.Submitted ?? 0,
-      approved: s.Invoice?.Approved ?? 0,
+      submittedKey: 'Submitted',
+      approvedKey: 'Approved',
       icon: <ReceiptLongIcon />,
       color: 'secondary',
     },
-  ];
+  };
 
-  // Network Infrastructure Data
-  const networkData = [
-    { name: 'HDD Machines', value: s.Hdd?.Deployed ?? 0, color: theme.palette.primary.main },
-    { name: 'Block Routers', value: s.Block_Routers?.Deployed ?? 0, color: theme.palette.success.main },
-    { name: 'GP Routers', value: s.Gp_Routers?.Deployed ?? 0, color: theme.palette.warning.main },
-    { name: 'SNOC Visibility', value: s.Snoc?.Deployed ?? 0, color: theme.palette.info.main },
-  ].filter(item => item.value > 0);
+  // Dynamic configuration for process steps based on available summary data
+  const getProcessStepsConfig = () => {
+    // Only return configs for sections that exist in the summary data
+    return Object.entries(processStepConfigs)
+      .filter(([key]) => s[key])
+      .map(([key, config]) => ({
+        ...config,
+        submitted: s[key]?.[config.submittedKey] ?? 0,
+        approved: s[key]?.[config.approvedKey] ?? 0,
+      }));
+  };
+
+  const processSteps = getProcessStepsConfig();
+
+  // Dynamic network infrastructure data based on available keys
+  const getNetworkData = () => {
+    const networkConfigs = {
+      'Hdd': { name: 'HDD Machines', valueKey: 'Deployed', color: theme.palette.primary.main },
+      'Block_Routers': { name: 'Block Routers', valueKey: 'Deployed', color: theme.palette.success.main },
+      'Gp_Routers': { name: 'GP Routers', valueKey: 'Deployed', color: theme.palette.warning.main },
+      'Snoc': { name: 'SNOC Visibility', valueKey: 'Deployed', color: theme.palette.info.main },
+    };
+
+    return Object.entries(networkConfigs)
+      .filter(([key]) => s[key]?.[networkConfigs[key].valueKey] > 0)
+      .map(([key, config]) => ({
+        name: config.name,
+        value: s[key][config.valueKey] ?? 0,
+        color: config.color,
+      }));
+  };
+
+  const networkData = getNetworkData();
 
   // Main consolidated card component
   const MainAnalyticsCard = ({ title, icon, children, color = 'primary' }) => (
@@ -271,10 +291,62 @@ const AnalyticsDashboard = () => {
     </Grid>
   );
 
+  // Physical Survey Table Component
+  const PhysicalSurveyTable = ({ data, title, totalBlocks }) => (
+    <Box>
+      <Typography variant="h6" fontWeight={700} sx={{ mb: 1, color: 'black !important' }}>
+        {title}
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        Total Blocks: {totalBlocks}
+      </Typography>
+      <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: 'none', border: `1px solid ${alpha(theme.palette.divider, 0.1)}`, width: '100%' }}>
+        <Table>
+          <TableHead>
+            <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.05) }}>
+              <TableCell sx={{ fontWeight: 700, color: 'text.primary' }}>Stage</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 700, color: 'text.primary' }}>Count</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 700, color: 'text.primary' }}>% Achieved</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 700, color: 'text.primary' }}>Progress</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {data.map((row, index) => (
+              <TableRow key={index} sx={{ '&:hover': { bgcolor: alpha(theme.palette.action.hover, 0.5) } }}>
+                <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>{row.stage}</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 600 }}>{row.count}</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 600 }}>{row.percentage}%</TableCell>
+                <TableCell align="center">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <LinearProgress
+                      variant="determinate"
+                      value={row.percentage}
+                      sx={{
+                        width: 80,
+                        height: 6,
+                        borderRadius: 3,
+                        bgcolor: alpha(theme.palette.grey[400], 0.2),
+                        '& .MuiLinearProgress-bar': {
+                          bgcolor: row.percentage >= 80 ? theme.palette.success.main :
+                                   row.percentage >= 60 ? theme.palette.warning.main : theme.palette.error.main,
+                          borderRadius: 3,
+                        },
+                      }}
+                    />
+                  </Box>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Box>
+  );
+
   // Performance Table Component
   const PerformanceTable = ({ data, title }) => (
     <Box>
-      <Typography variant="h6" fontWeight={700} color="text.primary" sx={{ mb: 1 }}>
+      <Typography variant="h6" fontWeight={700} sx={{ mb: 1, color: 'black !important' }}>
         {title}
       </Typography>
       <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: 'none', border: `1px solid ${alpha(theme.palette.divider, 0.1)}`, width: '100%' }}>
@@ -284,6 +356,8 @@ const AnalyticsDashboard = () => {
               <TableCell sx={{ fontWeight: 700, color: 'text.primary' }}>Category</TableCell>
               <TableCell align="center" sx={{ fontWeight: 700, color: 'text.primary' }}>Total</TableCell>
               <TableCell align="center" sx={{ fontWeight: 700, color: 'text.primary' }}>Completed</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 700, color: 'text.primary' }}>Submitted to IE</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 700, color: 'text.primary' }}>Approved by IE</TableCell>
               <TableCell align="center" sx={{ fontWeight: 700, color: 'text.primary' }}>Progress</TableCell>
             </TableRow>
           </TableHead>
@@ -293,6 +367,8 @@ const AnalyticsDashboard = () => {
                 <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>{row.category}</TableCell>
                 <TableCell align="center" sx={{ fontWeight: 600 }}>{row.total}</TableCell>
                 <TableCell align="center" sx={{ fontWeight: 600 }}>{row.completed}</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 600 }}>{row.submittedToIE}</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 600 }}>{row.approvedByIE}</TableCell>
                 <TableCell align="center">
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Typography variant="body2" fontWeight={600} color="text.primary">
@@ -382,140 +458,206 @@ const AnalyticsDashboard = () => {
           {/* Project Overview */}
           <MainAnalyticsCard title="Project Overview" icon={<AssessmentIcon />}>
             <Stack spacing={2}>
-              {/* Key KPIs */}
-              <KPIGrid kpis={[
-                {
-                  title: 'GPs Operational',
-                  value: s.Gps?.Operational ?? 0,
-                  subtitle: `${s.Gps?.[">= 98%"] ?? 0} with >= 98% availability`,
-                  color: 'success',
-                },
-                {
-                  title: 'Survey Completion',
-                  value: calculateCompletionRate(
-                    (s.Desktop_Survey?.Approved ?? 0) + (s.Physical_Survey?.Approved ?? 0),
-                    (s.Desktop_Survey?.Submitted ?? 0) + (s.Physical_Survey?.Submitted ?? 0)
-                  ),
-                  suffix: '%',
-                  subtitle: 'Overall survey progress',
-                  color: 'primary',
-                },
-                {
-                  title: 'Network Assets Deployed',
-                  value:  (s.Block_Routers?.Deployed ?? 0) + (s.Gp_Routers?.Deployed ?? 0),
-                  subtitle: 'Total deployed infrastructure',
-                  color: 'info',
-                },
-                {
-                  title: 'Active Teams',
-                  value: s.Deployed_Teams?.Frt_Teams + s.Deployed_Teams?.Patrollers ?? 0,
-                  subtitle: `${s.Deployed_Teams?.Patrollers ?? 0} patrollers and ${s.Deployed_Teams?.Frt_Teams ?? 0} FRT teams`,
-                  color: 'secondary',
-                },
-              ]} />
+              {/* Key KPIs - dynamically generated based on available data */}
+              <KPIGrid kpis={(() => {
+                const kpis = [];
 
-              {/* Charts Row */}
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
-                  <Box>
-                    <Typography variant="h6" fontWeight={700} color="text.primary" sx={{ mb: 1 }}>
-                      Survey Progress
-                    </Typography>
-                    <BarChart
-                      height={180}
-                      xAxis={[{ data: ['Desktop', 'Physical'], scaleType: 'band' }]}
-                      series={[
-                        { data: [s.Desktop_Survey?.Submitted ?? 0, s.Physical_Survey?.Submitted ?? 0], label: 'Submitted', color: theme.palette.primary.main },
-                        { data: [s.Desktop_Survey?.Approved ?? 0, s.Physical_Survey?.Approved ?? 0], label: 'Approved', color: theme.palette.success.main },
-                      ]}
-                      margin={{ left: 60, right: 20, top: 20, bottom: 60 }}
-                    />
-                  </Box>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Box>
-                    <Typography variant="h6" fontWeight={700} color="text.primary" sx={{ mb: 1 }}>
-                      Network Infrastructure
-                    </Typography>
-                    <BarChart
-                      height={180}
-                      xAxis={[{ data: ['HDD', 'Block Routers', 'GP Routers', 'SNOC'], scaleType: 'band' }]}
-                      series={[{
-                        data: [
-                          s.Hdd?.Deployed ?? 0,
-                          s.Block_Routers?.Deployed ?? 0,
-                          s.Gp_Routers?.Deployed ?? 0,
-                          s.Snoc?.Deployed ?? 0,
-                        ],
-                        color: theme.palette.info.main,
-                      }]}
-                      margin={{ left: 60, right: 20, top: 10, bottom: 40 }}
-                    />
-                  </Box>
-                </Grid>
-              </Grid>
+                // GPS Operational KPI
+                if (s.Gps?.Operational !== undefined) {
+                  kpis.push({
+                    title: 'GPs Operational',
+                    value: s.Gps.Operational,
+                    subtitle: `${s.Gps[">= 98%"] ?? 0} with >= 98% availability`,
+                    color: 'success',
+                  });
+                }
+
+                // Desktop Survey Approved KPI
+                if (s.Desktop_Survey?.Approved !== undefined) {
+                  const totalBlocks = s.Physical_Survey?.TotalBlocks ?? 152; // Use dynamic total or fallback
+                  kpis.push({
+                    title: 'Desktop Survey Approved',
+                    value: Math.round(((s.Desktop_Survey.Approved ?? 0) / totalBlocks) * 100),
+                    suffix: '%',
+                    subtitle: `${s.Desktop_Survey.Approved ?? 0} approved out of ${totalBlocks} target`,
+                    color: 'primary',
+                  });
+                }
+
+                // Physical Survey Completed KPI
+                if (s.Physical_Survey?.Approved !== undefined && s.Physical_Survey?.Submitted !== undefined) {
+                  kpis.push({
+                    title: 'Physical Survey Completed',
+                    value: calculateCompletionRate(s.Physical_Survey.Approved, s.Physical_Survey.Submitted),
+                    suffix: '%',
+                    subtitle: `${s.Physical_Survey.Approved} completed out of ${s.Physical_Survey.Submitted} submitted`,
+                    color: 'success',
+                  });
+                }
+
+                // BOQ Approved KPI
+                if (s.Boq?.Approved !== undefined && s.Boq?.Submitted !== undefined) {
+                  kpis.push({
+                    title: 'BOQ Approved',
+                    value: calculateCompletionRate(s.Boq.Approved, s.Boq.Submitted),
+                    suffix: '%',
+                    subtitle: `${s.Boq.Approved} approved out of ${s.Boq.Submitted} submitted`,
+                    color: 'info',
+                  });
+                }
+
+                // Network Assets Deployed KPI
+                const networkAssets = (s.Block_Routers?.Deployed ?? 0) + (s.Gp_Routers?.Deployed ?? 0);
+                if (networkAssets > 0) {
+                  kpis.push({
+                    title: 'Network Assets Deployed',
+                    value: networkAssets,
+                    subtitle: 'Total deployed infrastructure',
+                    color: 'warning',
+                  });
+                }
+
+                // Active Teams KPI
+                if (s.Deployed_Teams?.Frt_Teams !== undefined || s.Deployed_Teams?.Patrollers !== undefined) {
+                  const frtTeams = s.Deployed_Teams?.Frt_Teams ?? 0;
+                  const patrollers = s.Deployed_Teams?.Patrollers ?? 0;
+                  kpis.push({
+                    title: 'Active Teams',
+                    value: frtTeams + patrollers,
+                    subtitle: `${patrollers} patrollers and ${frtTeams} FRT teams`,
+                    color: 'secondary',
+                  });
+                }
+
+                // HDD Status KPI
+                if (s.Hdd?.Operational !== undefined && s.Hdd?.Deployed !== undefined) {
+                  kpis.push({
+                    title: 'HDD Status',
+                    value: s.Hdd.Operational,
+                    subtitle: `${s.Hdd.Operational} operational out of ${s.Hdd.Deployed} deployed`,
+                    color: 'error',
+                  });
+                }
+
+                return kpis;
+              })()} />
+
             </Stack>
           </MainAnalyticsCard>
 
           {/* Survey Analytics */}
           <MainAnalyticsCard title="Survey Analytics" icon={<AssignmentTurnedInIcon />} color="primary">
-            <Stack spacing={2}>
-              <PerformanceTable
-                title="Survey Performance Overview"
-                data={[
-                  {
+            <Stack spacing={3}>
+              {/* Desktop Survey Table - dynamically generated */}
+              {s.Desktop_Survey && (
+                <PerformanceTable
+                  title="Desktop Survey Performance"
+                  data={[{
                     category: 'Desktop Surveys',
-                    total: s.Desktop_Survey?.Submitted ?? 0,
-                    completed: s.Desktop_Survey?.Approved ?? 0,
-                    progress: calculateCompletionRate(s.Desktop_Survey?.Approved ?? 0, s.Desktop_Survey?.Submitted ?? 0)
-                  },
-                  {
-                    category: 'Physical Surveys',
-                    total: s.Physical_Survey?.Submitted ?? 0,
-                    completed: s.Physical_Survey?.Approved ?? 0,
-                    progress: calculateCompletionRate(s.Physical_Survey?.Approved ?? 0, s.Physical_Survey?.Submitted ?? 0)
-                  },
-                ]}
-              />
+                    total: s.Desktop_Survey.Submitted ?? 0,
+                    completed: s.Desktop_Survey.Approved ?? 0,
+                    submittedToIE: s.Desktop_Survey.SubmittedToIE ?? 0,
+                    approvedByIE: s.Desktop_Survey.ApprovedByIE ?? 0,
+                    progress: calculateCompletionRate(s.Desktop_Survey.ApprovedByIE ?? 0, s.Desktop_Survey.Submitted ?? 0)
+                  }]}
+                />
+              )}
 
-              <Box>
-                <Typography variant="h6" fontWeight={700} color="text.primary" sx={{ mb: 1 }}>
-                  Survey Completion Trends
-                </Typography>
-                <Box sx={{ height: 350, width: '100%', maxWidth: '100%' }}>
-                  <LineChart
-                    xAxis={[
-                      {
-                        data: ['Desktop', 'Physical'],
-                        scaleType: 'band',
-                      },
-                    ]}
-                    yAxis={[
-                      {
-                        min: 0,
-                        max: 100,
-                      },
-                    ]}
-                    series={[
-                      {
-                        data: [
-                          calculateCompletionRate(
-                            s.Desktop_Survey?.Approved ?? 0,
-                            s.Desktop_Survey?.Submitted ?? 0
-                          ),
-                          calculateCompletionRate(
-                            s.Physical_Survey?.Approved ?? 0,
-                            s.Physical_Survey?.Submitted ?? 0
-                          ),
-                        ],
-                        color: theme.palette.primary.main,
-                      },
-                    ]}
-                    margin={{ left: 60, right: 20, top: 20, bottom: 40 }}
-                    height={350}
-                  />
+              {/* Desktop Survey Workflow Statuses - dynamically generated */}
+              {s.Desktop_Survey && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="h6" fontWeight={700} sx={{ mb: 2, color: 'black !important' }}>
+                    Desktop Survey Workflow Status
+                  </Typography>
+                  <Stack spacing={2}>
+                    {s.Desktop_Survey.Approved !== undefined && (
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, borderRadius: 2, bgcolor: alpha(theme.palette.success.main, 0.08), border: `1px solid ${alpha(theme.palette.success.main, 0.2)}` }}>
+                        <Typography variant="body1" sx={{ color: 'black !important' }}>1. Completed</Typography>
+                        <Typography variant="h6" fontWeight={600} sx={{ color: 'black !important' }}>
+                          {Number(s.Desktop_Survey.Approved)}
+                        </Typography>
+                      </Box>
+                    )}
+                    {s.Desktop_Survey.SubmittedToIE !== undefined && (
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, borderRadius: 2, bgcolor: alpha(theme.palette.warning.main, 0.08), border: `1px solid ${alpha(theme.palette.warning.main, 0.2)}` }}>
+                        <Typography variant="body1" sx={{ color: 'black !important' }}>2. Submitted to IE</Typography>
+                        <Typography variant="h6" fontWeight={600} sx={{ color: 'black !important' }}>
+                          {Number(s.Desktop_Survey.SubmittedToIE)}
+                        </Typography>
+                      </Box>
+                    )}
+                    {s.Desktop_Survey.ApprovedByIE !== undefined && (
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, borderRadius: 2, bgcolor: alpha(theme.palette.primary.main, 0.08), border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}` }}>
+                        <Typography variant="body1" sx={{ color: 'black !important' }}>3. Approved by IE</Typography>
+                        <Typography variant="h6" fontWeight={600} sx={{ color: 'black !important' }}>
+                          {Number(s.Desktop_Survey.ApprovedByIE)}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Stack>
                 </Box>
-              </Box>
+              )}
+
+              {/* Physical Survey Table - dynamically generated */}
+              {s.Physical_Survey && (() => {
+                const totalBlocks = s.Physical_Survey.TotalBlocks ?? s.Physical_Survey.Submitted ?? 0;
+                const physicalSurveyStages = [];
+
+                // In Progress stage
+                if (s.Physical_Survey.Submitted !== undefined && s.Physical_Survey.Approved !== undefined) {
+                  const inProgressCount = s.Physical_Survey.Submitted - s.Physical_Survey.Approved;
+                  if (inProgressCount > 0) {
+                    physicalSurveyStages.push({
+                      stage: 'In Progress',
+                      count: inProgressCount,
+                      percentage: calculateCompletionRate(inProgressCount, totalBlocks)
+                    });
+                  }
+                }
+
+                // Completed stage
+                if (s.Physical_Survey.Approved !== undefined && s.Physical_Survey.Approved > 0) {
+                  physicalSurveyStages.push({
+                    stage: 'Completed',
+                    count: s.Physical_Survey.Approved,
+                    percentage: calculateCompletionRate(s.Physical_Survey.Approved, totalBlocks)
+                  });
+                }
+
+                // BOQ stages - dynamically include only if data exists
+                if (s.Physical_Survey.BOQSubmittedToIE !== undefined && s.Physical_Survey.BOQSubmittedToIE > 0) {
+                  physicalSurveyStages.push({
+                    stage: 'BOQ Submitted to IE',
+                    count: s.Physical_Survey.BOQSubmittedToIE,
+                    percentage: calculateCompletionRate(s.Physical_Survey.BOQSubmittedToIE, totalBlocks)
+                  });
+                }
+
+                if (s.Physical_Survey.BOQRecommendedByIE !== undefined && s.Physical_Survey.BOQRecommendedByIE > 0) {
+                  physicalSurveyStages.push({
+                    stage: 'BOQ Recommended by IE',
+                    count: s.Physical_Survey.BOQRecommendedByIE,
+                    percentage: calculateCompletionRate(s.Physical_Survey.BOQRecommendedByIE, totalBlocks)
+                  });
+                }
+
+                if (s.Physical_Survey.BOQApprovedByBSNL !== undefined && s.Physical_Survey.BOQApprovedByBSNL > 0) {
+                  physicalSurveyStages.push({
+                    stage: 'BOQ Approved by BSNL',
+                    count: s.Physical_Survey.BOQApprovedByBSNL,
+                    percentage: calculateCompletionRate(s.Physical_Survey.BOQApprovedByBSNL, totalBlocks)
+                  });
+                }
+
+                return physicalSurveyStages.length > 0 ? (
+                  <PhysicalSurveyTable
+                    title="Physical Survey Performance"
+                    data={physicalSurveyStages}
+                    totalBlocks={totalBlocks}
+                  />
+                ) : null;
+              })()}
+
             </Stack>
           </MainAnalyticsCard>
 
@@ -523,62 +665,114 @@ const AnalyticsDashboard = () => {
           <MainAnalyticsCard title="Network Infrastructure" icon={<RouterIcon />} color="info">
             <Stack spacing={2}>
               <Grid container spacing={3}>
-                {networkData.map((item, index) => (
-                  <Grid key={index} item xs={12} sm={6} md={3}>
-                    <Box
-                      sx={{
-                        p: 3,
-                        borderRadius: 3,
-                        bgcolor: alpha(theme.palette.background.default, 0.5),
-                        border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                        textAlign: 'center',
-                      }}
-                    >
-                      <Typography variant="h4" fontWeight={800} color="text.primary" sx={{ mb: 1 }}>
-                        {item.value}
-                      </Typography>
-                      <Typography variant="body1" fontWeight={600} color="text.primary" sx={{ mb: 1 }}>
-                        {item.name}
-                      </Typography>
-                      <LinearProgress
-                        variant="determinate"
-                        value={Math.min((item.value / Math.max(...networkData.map(d => d.value), 1)) * 100, 100)}
-                        sx={{
-                          height: 6,
-                          borderRadius: 3,
-                          bgcolor: alpha(theme.palette.grey[400], 0.2),
-                          '& .MuiLinearProgress-bar': {
-                            bgcolor: item.color,
-                            borderRadius: 3,
-                          },
-                        }}
-                      />
-                    </Box>
-                  </Grid>
-                ))}
-              </Grid>
+                {/* GP Routers */}
+                <Grid item xs={12} md={6}>
+                  <Box
+                    sx={{
+                      p: 3,
+                      borderRadius: 3,
+                      bgcolor: alpha(theme.palette.background.default, 0.5),
+                      border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                    }}
+                  >
+                    <Typography variant="h6" fontWeight={700} sx={{ mb: 2, color: 'black !important' }}>
+                      GP Routers
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 2, color: 'black !important' }}>
+                      Scope: {s.Gp_Routers?.Scope ?? '978'}
+                    </Typography>
+                    <Stack spacing={2}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body1" sx={{ color: 'black !important' }}>Installed:</Typography>
+                        <Typography variant="h6" fontWeight={600} sx={{ color: 'black !important' }}>
+                          {s.Gp_Routers?.Installed ?? 0}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body1" sx={{ color: 'black !important' }}>Commissioned:</Typography>
+                        <Typography variant="h6" fontWeight={600} sx={{ color: 'black !important' }}>
+                          {s.Gp_Routers?.Commissioned ?? 0}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </Box>
+                </Grid>
 
-              <Box>
-                <Typography variant="h6" fontWeight={700} color="text.primary" sx={{ mb: 1 }}>
-                  Infrastructure Deployment Overview
-                </Typography>
-                <Box sx={{ height: 350, width: '100%', maxWidth: '100%' }}>
-                  <BarChart
-                    height={350}
-                    xAxis={[{ data: networkData.map(d => d.name), scaleType: 'band' }]}
-                    series={[{
-                      data: networkData.map(d => d.value),
-                      color: theme.palette.info.main,
-                    }]}
-                    margin={{ left: 60, right: 20, top: 20, bottom: 80 }}
-                  />
-                </Box>
-              </Box>
+                {/* Block Routers */}
+                <Grid item xs={12} md={6}>
+                  <Box
+                    sx={{
+                      p: 3,
+                      borderRadius: 3,
+                      bgcolor: alpha(theme.palette.background.default, 0.5),
+                      border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                    }}
+                  >
+                    <Typography variant="h6" fontWeight={700} sx={{ mb: 2, color: 'black !important' }}>
+                      Block Routers
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 2, color: 'black !important' }}>
+                      Scope: {s.Block_Routers?.Scope ?? '152'}
+                    </Typography>
+                    <Stack spacing={2}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body1" sx={{ color: 'black !important' }}>Installed:</Typography>
+                        <Typography variant="h6" fontWeight={600} sx={{ color: 'black !important' }}>
+                          {s.Block_Routers?.Installed ?? 0}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body1" sx={{ color: 'black !important' }}>Commissioned:</Typography>
+                        <Typography variant="h6" fontWeight={600} sx={{ color: 'black !important' }}>
+                          {s.Block_Routers?.Commissioned ?? 0}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </Box>
+                </Grid>
+              </Grid>
             </Stack>
           </MainAnalyticsCard>
 
-          {/* Process Flow & Workflow */}
-          <MainAnalyticsCard title="Process Flow & Workflow" icon={<TimelineIcon />} color="warning">
+          {/* Machineries & Equipment - dynamically generated */}
+          {(() => {
+            // Check if HDD data exists
+            const hasHddData = s.Hdd && (s.Hdd.Deployed !== undefined || s.Hdd.Operational !== undefined);
+
+            return hasHddData ? (
+              <MainAnalyticsCard title="Machineries & Equipment" icon={<BuildIcon />} color="warning">
+                <Stack spacing={2}>
+                  <Box>
+                    <Typography variant="h6" fontWeight={700} color="text.primary" sx={{ mb: 2 }}>
+                      Equipment Status Overview
+                    </Typography>
+                    <Box sx={{ height: 400, width: '100%', maxWidth: '100%' }}>
+                      <BarChart
+                        height={400}
+                        xAxis={[{ data: ['HDD Machines'], scaleType: 'band' }]}
+                        series={[
+                          {
+                            data: [s.Hdd?.Deployed ?? 0],
+                            label: 'Deployed',
+                            color: theme.palette.primary.main,
+                          },
+                          {
+                            data: [s.Hdd?.Operational ?? 0],
+                            label: 'Operational',
+                            color: theme.palette.success.main,
+                          },
+                        ]}
+                        margin={{ left: 60, right: 20, top: 20, bottom: 60 }}
+                      />
+                    </Box>
+                  </Box>
+                </Stack>
+              </MainAnalyticsCard>
+            ) : null;
+          })()}
+
+          {/* Physical Survey & BOQ */}
+          <MainAnalyticsCard title="Process Flow and Workflow" icon={<TimelineIcon />} color="warning">
             <Stack spacing={1}>
               {processSteps.map((step, index) => (
                 <Accordion
@@ -646,45 +840,194 @@ const AnalyticsDashboard = () => {
                     </Box>
                   </AccordionSummary>
                   <AccordionDetails sx={{ pt: 1 }}>
-                    <Grid container spacing={2}>
-                      <Grid item xs={6}>
-                        <Box sx={{ textAlign: 'center', p: 1.5, bgcolor: alpha(theme.palette.primary.main, 0.08), borderRadius: 2 }}>
-                          <Typography variant="h5" fontWeight={800} color="primary.main">
-                            {step.submitted}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">Submitted</Typography>
-                        </Box>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Box sx={{ textAlign: 'center', p: 1.5, bgcolor: alpha(theme.palette.success.main, 0.08), borderRadius: 2 }}>
-                          <Typography variant="h5" fontWeight={800} color="success.main">
-                            {step.approved}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">Approved</Typography>
-                        </Box>
-                      </Grid>
-                    </Grid>
-                    <Box sx={{ mt: 2 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                        <Typography variant="body2" color="text.secondary">Completion Rate</Typography>
-                        <Typography variant="body2" fontWeight={600}>
-                          {Math.round((step.approved / Math.max(step.submitted, 1)) * 100)}%
-                        </Typography>
-                      </Box>
-                      <LinearProgress
-                        variant="determinate"
-                        value={(step.approved / Math.max(step.submitted, 1)) * 100}
-                        sx={{
-                          height: 8,
-                          borderRadius: 4,
-                          bgcolor: alpha(theme.palette.grey[400], 0.2),
-                          '& .MuiLinearProgress-bar': {
-                            bgcolor: theme.palette.success.main,
-                            borderRadius: 4,
-                          },
-                        }}
-                      />
-                    </Box>
+                    {(() => {
+                      // Dynamic content based on the step data key and available fields
+                      const stepKey = Object.keys(processStepConfigs).find(key => processStepConfigs[key].title === step.title);
+                      const stepData = stepKey ? s[stepKey] : null;
+
+                      if (!stepData) {
+                        // Default content for basic steps
+                        return (
+                          <>
+                            <Grid container spacing={2}>
+                              <Grid item xs={6}>
+                                <Box sx={{ textAlign: 'center', p: 1.5, bgcolor: alpha(theme.palette.primary.main, 0.08), borderRadius: 2 }}>
+                                  <Typography variant="h5" fontWeight={800} color="primary.main">
+                                    {step.submitted}
+                                  </Typography>
+                                  <Typography variant="body2" color="text.secondary">Submitted</Typography>
+                                </Box>
+                              </Grid>
+                              <Grid item xs={6}>
+                                <Box sx={{ textAlign: 'center', p: 1.5, bgcolor: alpha(theme.palette.success.main, 0.08), borderRadius: 2 }}>
+                                  <Typography variant="h5" fontWeight={800} color="success.main">
+                                    {step.approved}
+                                  </Typography>
+                                  <Typography variant="body2" color="text.secondary">Approved</Typography>
+                                </Box>
+                              </Grid>
+                            </Grid>
+                            <Box sx={{ mt: 2 }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                <Typography variant="body2" color="text.secondary">Completion Rate</Typography>
+                                <Typography variant="body2" fontWeight={600}>
+                                  {Math.round((step.approved / Math.max(step.submitted, 1)) * 100)}%
+                                </Typography>
+                              </Box>
+                              <LinearProgress
+                                variant="determinate"
+                                value={(step.approved / Math.max(step.submitted, 1)) * 100}
+                                sx={{
+                                  height: 8,
+                                  borderRadius: 4,
+                                  bgcolor: alpha(theme.palette.grey[400], 0.2),
+                                  '& .MuiLinearProgress-bar': {
+                                    bgcolor: theme.palette.success.main,
+                                    borderRadius: 4,
+                                  },
+                                }}
+                              />
+                            </Box>
+                          </>
+                        );
+                      }
+
+                      // Handle Physical Survey specifically
+                      if (step.title === 'Physical Survey and BOQ') {
+                        const physicalSurveyStages = [
+                          { key: 'In_Progress', title: '1. In Progress', color: 'warning' },
+                          { key: 'Completed', title: '2. Completed', color: 'success' },
+                          { key: 'BOQ_Submitted_to_IE', title: '3. BOQ Submitted to IE', color: 'primary' },
+                          { key: 'BOQ_Recommended_by_IE', title: '4. BOQ Recommended by IE', color: 'info' },
+                          { key: 'BOQ_Approved_by_BSNL', title: '5. BOQ Approved by BSNL', color: 'secondary' }
+                        ];
+
+                        return (
+                          <Stack spacing={2}>
+                            {physicalSurveyStages.map((stage, index) => {
+                              // Calculate values based on the available data
+                              let value = 0;
+                              if (stage.key === 'In_Progress' && s.Physical_Survey?.Submitted !== undefined && s.Physical_Survey?.Approved !== undefined) {
+                                value = s.Physical_Survey.Submitted - s.Physical_Survey.Approved;
+                              } else if (stage.key === 'Completed' && s.Physical_Survey?.Approved !== undefined) {
+                                value = s.Physical_Survey.Approved;
+                              } else if (stage.key === 'BOQ_Submitted_to_IE' && s.Physical_Survey?.BOQSubmittedToIE !== undefined) {
+                                value = s.Physical_Survey.BOQSubmittedToIE;
+                              } else if (stage.key === 'BOQ_Recommended_by_IE' && s.Physical_Survey?.BOQRecommendedByIE !== undefined) {
+                                value = s.Physical_Survey.BOQRecommendedByIE;
+                              } else if (stage.key === 'BOQ_Approved_by_BSNL' && s.Physical_Survey?.BOQApprovedByBSNL !== undefined) {
+                                value = s.Physical_Survey.BOQApprovedByBSNL;
+                              }
+
+                              return (
+                                <Box key={index} sx={{
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  p: 2,
+                                  borderRadius: 2,
+                                  bgcolor: alpha(theme.palette[stage.color]?.main || theme.palette.primary.main, 0.08),
+                                  border: `1px solid ${alpha(theme.palette[stage.color]?.main || theme.palette.primary.main, 0.2)}`
+                                }}>
+                                  <Typography variant="body1" sx={{ color: 'black !important' }}>
+                                    {stage.title}
+                                  </Typography>
+                                  <Typography variant="h6" fontWeight={600} sx={{ color: 'black !important' }}>
+                                    {value}
+                                  </Typography>
+                                </Box>
+                              );
+                            })}
+                          </Stack>
+                        );
+                      }
+
+                      // Dynamic stages based on available data in the step for other processes
+                      const stages = [];
+                      let stageIndex = 1;
+
+                      // Add stages dynamically based on available data
+                      Object.keys(stepData).forEach(key => {
+                        if (typeof stepData[key] === 'number' && stepData[key] > 0) {
+                          const stageTitle = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                          stages.push({
+                            title: `${stageIndex}. ${stageTitle}`,
+                            value: stepData[key],
+                            color: stageIndex === 1 ? 'warning' :
+                                   stageIndex === 2 ? 'success' :
+                                   stageIndex === 3 ? 'primary' :
+                                   stageIndex === 4 ? 'info' : 'secondary'
+                          });
+                          stageIndex++;
+                        }
+                      });
+
+                      return stages.length > 0 ? (
+                        <Stack spacing={2}>
+                          {stages.map((stage, index) => (
+                            <Box key={index} sx={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              p: 2,
+                              borderRadius: 2,
+                              bgcolor: alpha(theme.palette[stage.color]?.main || theme.palette.primary.main, 0.08),
+                              border: `1px solid ${alpha(theme.palette[stage.color]?.main || theme.palette.primary.main, 0.2)}`
+                            }}>
+                              <Typography variant="body1" sx={{ color: 'black !important' }}>
+                                {stage.title}
+                              </Typography>
+                              <Typography variant="h6" fontWeight={600} sx={{ color: 'black !important' }}>
+                                {stage.value}
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Stack>
+                      ) : (
+                        // Fallback to default content if no detailed stages
+                        <>
+                          <Grid container spacing={2}>
+                            <Grid item xs={6}>
+                              <Box sx={{ textAlign: 'center', p: 1.5, bgcolor: alpha(theme.palette.primary.main, 0.08), borderRadius: 2 }}>
+                                <Typography variant="h5" fontWeight={800} color="primary.main">
+                                  {step.submitted}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">Submitted</Typography>
+                              </Box>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Box sx={{ textAlign: 'center', p: 1.5, bgcolor: alpha(theme.palette.success.main, 0.08), borderRadius: 2 }}>
+                                <Typography variant="h5" fontWeight={800} color="success.main">
+                                  {step.approved}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">Approved</Typography>
+                              </Box>
+                            </Grid>
+                          </Grid>
+                          <Box sx={{ mt: 2 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                              <Typography variant="body2" color="text.secondary">Completion Rate</Typography>
+                              <Typography variant="body2" fontWeight={600}>
+                                {Math.round((step.approved / Math.max(step.submitted, 1)) * 100)}%
+                              </Typography>
+                            </Box>
+                            <LinearProgress
+                              variant="determinate"
+                              value={(step.approved / Math.max(step.submitted, 1)) * 100}
+                              sx={{
+                                height: 8,
+                                borderRadius: 4,
+                                bgcolor: alpha(theme.palette.grey[400], 0.2),
+                                '& .MuiLinearProgress-bar': {
+                                  bgcolor: theme.palette.success.main,
+                                  borderRadius: 4,
+                                },
+                              }}
+                            />
+                          </Box>
+                        </>
+                      );
+                    })()}
                   </AccordionDetails>
                 </Accordion>
               ))}
