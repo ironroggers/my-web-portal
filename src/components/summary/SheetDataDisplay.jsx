@@ -182,6 +182,7 @@ const SheetDataDisplay = ({
         <ExcelUploadButton
           selectedSheet={selectedSheet}
           expectedHeaders={headers}
+          onUploadComplete={handleSuccess}
         />
       </Box>
 

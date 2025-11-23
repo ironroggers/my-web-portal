@@ -3,6 +3,7 @@ import {
   readExcelFile,
   extractHeaders,
   validateHeaders,
+  sanitizeFileHeaders,
 } from "../utils/excelUtils";
 
 /**
@@ -54,34 +55,47 @@ export const useExcelUpload = ({ expectedHeaders, onSuccess }) => {
     const file = confirmDialog.file;
     closeConfirmDialog();
 
+    if (!file) {
+      return;
+    }
+
+    let excelData;
+
     try {
-      // Read the Excel file
-      const excelData = await readExcelFile(file);
-
-      if (excelData.length === 0) {
-        openErrorDialog("The selected Excel file is empty.");
-        return;
-      }
-
-      // Extract and validate headers
-      const fileHeaders = extractHeaders(excelData);
-      const validation = validateHeaders(fileHeaders, expectedHeaders);
-
-      if (!validation.isValid) {
-        openErrorDialog(validation.error);
-        return;
-      }
-
-      // Headers match - proceed with success callback
-      console.log("Headers validated successfully!");
-      console.log("File data:", excelData);
-      
-      if (onSuccess) {
-        onSuccess(excelData, fileHeaders);
-      }
+      excelData = await readExcelFile(file);
     } catch (error) {
       console.error("Error reading Excel file:", error);
       openErrorDialog(`Error reading Excel file: ${error.message}`);
+      return;
+    }
+
+    if (!excelData.length) {
+      openErrorDialog("The selected Excel file is empty.");
+      return;
+    }
+
+    // Extract and validate headers
+    const fileHeaders = extractHeaders(excelData);
+    const { headers: sanitizedHeaders, serialColumnIgnored } =
+      sanitizeFileHeaders(fileHeaders);
+    const validation = validateHeaders(sanitizedHeaders, expectedHeaders);
+
+    if (!validation.isValid) {
+      openErrorDialog(validation.error);
+      return;
+    }
+
+    if (onSuccess) {
+      try {
+        await onSuccess({
+          excelData,
+          headers: sanitizedHeaders,
+          serialColumnIgnored,
+        });
+      } catch (error) {
+        console.error("Error processing Excel upload:", error);
+        openErrorDialog(error.message || "Failed to process Excel upload.");
+      }
     }
   };
 
@@ -95,4 +109,3 @@ export const useExcelUpload = ({ expectedHeaders, onSuccess }) => {
     processFile,
   };
 };
-

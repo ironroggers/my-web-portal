@@ -68,10 +68,29 @@ const updateRecord = async (id, data) => {
   }
 };
 
-const deleteSheetData = async (sheetName) => {
+const createSummaryBulk = async (rows = []) => {
+  try {
+    const response = await fetch(`${SUMMARY_URL}/api/v1/summary/records/bulk`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rows }),
+    });
+    return response.json();
+  } catch (error) {
+    console.error("Error creating summary bulk:", error);
+    throw error;
+  }
+};
+
+const deleteSummarySheet = async (sheetName) => {
+  if (!sheetName) {
+    throw new Error("sheetName is required to delete sheet data.");
+  }
+
+  const encodedSheetName = encodeURIComponent(sheetName);
   try {
     const response = await fetch(
-      `${SUMMARY_URL}/api/v1/summary/sheets/${sheetName}`,
+      `${SUMMARY_URL}/api/v1/summary/sheets/${encodedSheetName}`,
       { method: "DELETE" }
     );
     return response.json();
@@ -88,7 +107,8 @@ const summaryService = {
   getSheetData,
   createRecord,
   updateRecord,
-  deleteSheetData,
+  createSummaryBulk,
+  deleteSummarySheet,
 };
 
 export default summaryService;
