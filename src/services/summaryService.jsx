@@ -68,6 +68,19 @@ const updateRecord = async (id, data) => {
   }
 };
 
+const deleteSheetData = async (sheetName) => {
+  try {
+    const response = await fetch(
+      `${SUMMARY_URL}/api/v1/summary/sheets/${sheetName}`,
+      { method: "DELETE" }
+    );
+    return response.json();
+  } catch (error) {
+    console.error("Error deleting sheet data:", error);
+    throw error;
+  }
+};
+
 const summaryService = {
   getSummary,
   getComputedSummary,
@@ -75,6 +88,7 @@ const summaryService = {
   getSheetData,
   createRecord,
   updateRecord,
+  deleteSheetData,
 };
 
 export default summaryService;

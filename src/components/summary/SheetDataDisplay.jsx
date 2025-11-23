@@ -17,6 +17,7 @@ import HeaderCell from "./HeaderCell";
 import DataRow from "./DataRow";
 import DataModal from "./DataModal";
 import ColumnSelector from "./ColumnSelector";
+import ExcelUploadButton from "./ExcelUploadButton";
 
 const SheetDataDisplay = ({
   sheetNames,
@@ -177,6 +178,11 @@ const SheetDataDisplay = ({
         >
           Add New
         </Button>
+
+        <ExcelUploadButton
+          selectedSheet={selectedSheet}
+          expectedHeaders={headers}
+        />
       </Box>
 
       {/* Column Selector */}
