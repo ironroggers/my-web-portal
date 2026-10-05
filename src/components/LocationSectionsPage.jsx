@@ -13,7 +13,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Grid,
   Alert,
   CircularProgress,
   TablePagination,
@@ -206,14 +205,14 @@ const LocationSectionsPage = () => {
   return (
     <Container maxWidth="xl" sx={{ py: 3 }}>
       {/* Header */}
-      <Paper elevation={0} sx={{ p: 3, mb: 3, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', borderRadius: 2 }}>
-        <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={2}>
-          <Box display="flex" alignItems="center" gap={2}>
+      <Paper elevation={0} sx={{ p: 3, mb: 3, background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)', color: '#fff', borderRadius: 2, boxShadow: '0 4px 14px rgba(30,58,138,.25)' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <IconButton onClick={() => navigate('/map', { state: { preselectLocationId: locationId } })} sx={{ color: 'white', bgcolor: 'rgba(255,255,255,0.1)' }}>
               <ArrowBackIcon />
             </IconButton>
             <Box>
-              <Typography variant="h4" component="h1" fontWeight="bold">
+              <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }}>
                 Sections
               </Typography>
               {locationLoading ? (
@@ -232,10 +231,10 @@ const LocationSectionsPage = () => {
             </Box>
           </Box>
           <Stack direction="row" spacing={1}>
-            <Button startIcon={<RefreshIcon />} variant="outlined" color="inherit" onClick={() => setRefreshFlag((n) => n + 1)}>
+            <Button startIcon={<RefreshIcon />} variant="outlined" color="inherit" sx={{ borderColor: "rgba(255,255,255,.6)" }} onClick={() => setRefreshFlag((n) => n + 1)}>
               Refresh
             </Button>
-            <Button startIcon={<AddIcon />} variant="contained" color="secondary" onClick={openAdd}>
+            <Button startIcon={<AddIcon />} variant="contained" onClick={openAdd} sx={{ bgcolor: "#fff", color: "#1e3a8a", "&:hover": { bgcolor: "#eff6ff" } }}>
               Add Section
             </Button>
           </Stack>
@@ -243,8 +242,8 @@ const LocationSectionsPage = () => {
       </Paper>
 
       {/* Filters */}
-      <Paper elevation={1} sx={{ p: 2, mb: 2, bgcolor: 'grey.50', border: '1px solid #e0e0e0' }}>
-        <Stack direction="row" spacing={2} alignItems="center" flexWrap>
+      <Paper elevation={0} sx={{ p: 2, mb: 2.5, bgcolor: '#fff', border: '1px solid #e5e7eb', borderRadius: 2 }}>
+        <Stack direction="row" spacing={2} alignItems="center" useFlexGap sx={{ flexWrap: "wrap" }}>
           <TextField
             placeholder="Search sections by name, description, district..."
             value={q}
@@ -254,14 +253,14 @@ const LocationSectionsPage = () => {
             }}
             size="small"
             InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} /> }}
-            sx={{ width: 360, maxWidth: '100%' }}
+            sx={{ width: 420, maxWidth: '100%', '& .MuiInputBase-root': { bgcolor: '#f9fafb' } }}
           />
         </Stack>
       </Paper>
 
       {/* Content */}
       {loading ? (
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="240px">
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 240 }}>
           <CircularProgress size={48} />
           <Typography variant="h6" sx={{ ml: 2 }}>Loading sections...</Typography>
         </Box>
@@ -274,49 +273,53 @@ const LocationSectionsPage = () => {
           ) : (
             <Stack spacing={2}>
               {items.map((s) => (
-                <Paper key={s._id} elevation={1} sx={{ p: 2, border: '1px solid #e0e0e0' }}>
-                  <Grid container spacing={2} alignItems="center">
-                    <Grid item xs={12} md={6} onClick={() => navigate(`/sections/${s._id}/subsections`)} sx={{ cursor: 'pointer' }}>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <LocationOnIcon color="primary" />
-                        <Typography variant="h6" fontWeight="bold">{s.name || 'Untitled Section'}</Typography>
+                <Paper
+                  key={s._id}
+                  elevation={0}
+                  sx={{
+                    p: 2.5, bgcolor: '#fff', color: '#1f2937', border: '1px solid #e5e7eb', borderRadius: 2,
+                    transition: 'box-shadow .2s, border-color .2s',
+                    '&:hover': { boxShadow: '0 4px 14px rgba(15,23,42,.08)', borderColor: '#93c5fd' },
+                  }}
+                >
+                  <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { xs: 'stretch', md: 'center' }, gap: 2 }}>
+                    <Box onClick={() => navigate(`/sections/${s._id}/subsections`)} sx={{ flex: 1, minWidth: 0, cursor: 'pointer' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <LocationOnIcon />
+                        </Box>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#111827', lineHeight: 1.3 }} noWrap>
+                            {s.name || 'Untitled Section'}
+                          </Typography>
+                          {s.description && (
+                            <Typography variant="body2" sx={{ color: '#6b7280' }} noWrap>{s.description}</Typography>
+                          )}
+                        </Box>
                       </Box>
-                      {s.description && (
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          {s.description}
-                        </Typography>
-                      )}
-                      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                        {s.state && <Chip label={s.state} variant="outlined" size="small" />}
-                        {s.district && <Chip label={s.district} variant="outlined" size="small" color="secondary" />}
-                        {s.block && <Chip label={s.block} variant="outlined" size="small" color="success" />}
-                      </Stack>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <Stack direction="row" spacing={2} flexWrap>
-                        <Chip icon={<SwapHorizIcon />} label={`${s.fromLatLong || 'N/A'} → ${s.toLatLong || 'N/A'}`} variant="outlined" />
-                        <Chip icon={<StraightenIcon />} label={`${s.sectionLength ?? 0} m`} color="info" variant="outlined" />
-                        <Chip label={statusLabel[s.status] || 'Unknown'} color={statusColor(s.status)} size="small" />
-                      </Stack>
-                    </Grid>
-                    <Grid item xs={12} md={2}>
-                      <Stack direction="row" spacing={1} justifyContent={{ xs: 'flex-start', md: 'flex-end' }}>
-                        <Button size="small" startIcon={<EditIcon />} variant="outlined" onClick={() => openEdit(s)}>
-                          Edit
-                        </Button>
-                        <Button size="small" startIcon={<DeleteIcon />} color="error" variant="outlined" onClick={() => setDeleteTarget(s)}>
-                          Delete
-                        </Button>
-                      </Stack>
-                    </Grid>
-                  </Grid>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1.5 }}>
+                        {s.state && <Chip label={s.state} size="small" variant="outlined" />}
+                        {s.district && <Chip label={s.district} size="small" variant="outlined" />}
+                        {s.block && <Chip label={s.block} size="small" variant="outlined" />}
+                      </Box>
+                    </Box>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
+                      <Chip icon={<SwapHorizIcon />} size="small" variant="outlined" label={`${s.fromLatLong || 'N/A'} → ${s.toLatLong || 'N/A'}`} />
+                      <Chip icon={<StraightenIcon />} size="small" color="info" variant="outlined" label={`${s.sectionLength ?? 0} m`} />
+                      <Chip size="small" label={statusLabel[s.status] || 'Unknown'} color={statusColor(s.status)} />
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1, justifyContent: { xs: 'flex-start', md: 'flex-end' }, flexShrink: 0 }}>
+                      <Button size="small" startIcon={<EditIcon />} variant="outlined" onClick={() => openEdit(s)}>Edit</Button>
+                      <Button size="small" startIcon={<DeleteIcon />} color="error" variant="outlined" onClick={() => setDeleteTarget(s)}>Delete</Button>
+                    </Box>
+                  </Box>
                 </Paper>
               ))}
             </Stack>
           )}
 
           {/* Pagination */}
-          <Box display="flex" justifyContent="center" mt={3}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
             <TablePagination
               component="div"
               count={total}
@@ -329,7 +332,7 @@ const LocationSectionsPage = () => {
               }}
               rowsPerPageOptions={[5, 10, 20, 50]}
               labelRowsPerPage="Per page:"
-              sx={{ '& .MuiTablePagination-toolbar': { bgcolor: 'grey.50', borderRadius: 2 } }}
+              sx={{ '& .MuiTablePagination-toolbar': { bgcolor: '#fff', border: '1px solid #e5e7eb', borderRadius: 2 } }}
             />
           </Box>
         </>

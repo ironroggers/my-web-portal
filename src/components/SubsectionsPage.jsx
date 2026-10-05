@@ -13,7 +13,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Grid,
   Alert,
   CircularProgress,
   TablePagination,
@@ -256,24 +255,24 @@ const SubsectionsPage = () => {
   return (
     <Container maxWidth="xl" sx={{ py: 3 }}>
       {/* Header with breadcrumbs and indicators */}
-      <Paper elevation={0} sx={{ p: 3, mb: 3, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', borderRadius: 2 }}>
-        <Breadcrumbs sx={{ mb: 2, '& .MuiBreadcrumbs-separator': { color: 'white' } }}>
+      <Paper elevation={0} sx={{ p: 3, mb: 3, background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)', color: '#fff', borderRadius: 2, boxShadow: '0 4px 14px rgba(30,58,138,.25)' }}>
+        <Breadcrumbs sx={{ mb: 2, color: 'rgba(255,255,255,.75)', '& .MuiBreadcrumbs-separator': { color: 'rgba(255,255,255,.6)' }, '& a': { color: 'rgba(255,255,255,.85)' } }}>
           <Link underline="hover" color="inherit" onClick={() => navigate('/map')} sx={{ cursor: 'pointer' }}>
             Map View
           </Link>
           <Link underline="hover" color="inherit" onClick={() => navigate(-1)} sx={{ cursor: 'pointer' }}>
             Sections
           </Link>
-          <Typography color="inherit">Subsections</Typography>
+          <Typography sx={{ color: "#fff", fontWeight: 600 }}>Subsections</Typography>
         </Breadcrumbs>
 
-        <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={2}>
-          <Box display="flex" alignItems="center" gap={2}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <IconButton onClick={() => navigate(-1)} sx={{ color: 'white', bgcolor: 'rgba(255,255,255,0.1)' }}>
               <ArrowBackIcon />
             </IconButton>
             <Box>
-              <Typography variant="h4" component="h1" fontWeight="bold">
+              <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }}>
                 Subsections
               </Typography>
               <Typography variant="body2" sx={{ opacity: 0.9 }}>
@@ -283,12 +282,12 @@ const SubsectionsPage = () => {
           </Box>
           <Stack direction="row" spacing={1}>
             {pageIndicators.map((ind, i) => (
-              <Chip key={i} label={ind.label} color={indicatorColor(ind.done)} variant={ind.done ? 'filled' : 'outlined'} />
+              <Chip key={i} size="small" label={ind.label} sx={{ color: '#fff', bgcolor: ind.done ? 'rgba(255,255,255,.22)' : 'transparent', border: '1px solid rgba(255,255,255,.45)' }} />
             ))}
-            <Button startIcon={<RefreshIcon />} variant="outlined" color="inherit" onClick={() => setRefreshFlag((n) => n + 1)}>
+            <Button startIcon={<RefreshIcon />} variant="outlined" color="inherit" sx={{ borderColor: "rgba(255,255,255,.6)" }} onClick={() => setRefreshFlag((n) => n + 1)}>
               Refresh
             </Button>
-            <Button startIcon={<AddIcon />} variant="contained" color="secondary" onClick={openAdd}>
+            <Button startIcon={<AddIcon />} variant="contained" onClick={openAdd} sx={{ bgcolor: "#fff", color: "#1e3a8a", "&:hover": { bgcolor: "#eff6ff" } }}>
               Add Subsection
             </Button>
           </Stack>
@@ -296,8 +295,8 @@ const SubsectionsPage = () => {
       </Paper>
 
       {/* Filters */}
-      <Paper elevation={1} sx={{ p: 2, mb: 2, bgcolor: 'grey.50', border: '1px solid #e0e0e0' }}>
-        <Stack direction="row" spacing={2} alignItems="center" flexWrap>
+      <Paper elevation={0} sx={{ p: 2, mb: 2.5, bgcolor: '#fff', border: '1px solid #e5e7eb', borderRadius: 2 }}>
+        <Stack direction="row" spacing={2} alignItems="center" useFlexGap sx={{ flexWrap: "wrap" }}>
           <TextField
             placeholder="Search subsections by name or road name..."
             value={q}
@@ -307,14 +306,14 @@ const SubsectionsPage = () => {
             }}
             size="small"
             InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} /> }}
-            sx={{ width: 360, maxWidth: '100%' }}
+            sx={{ width: 420, maxWidth: '100%', '& .MuiInputBase-root': { bgcolor: '#f9fafb' } }}
           />
         </Stack>
       </Paper>
 
       {/* Content */}
       {loading ? (
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="240px">
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 240 }}>
           <CircularProgress size={48} />
           <Typography variant="h6" sx={{ ml: 2 }}>Loading subsections...</Typography>
         </Box>
@@ -327,50 +326,54 @@ const SubsectionsPage = () => {
           ) : (
             <Stack spacing={2}>
               {items.map((s) => (
-                <Paper key={s._id} elevation={1} sx={{ p: 2, border: '1px solid #e0e0e0', cursor: 'pointer' }} onClick={() => navigate(`/subsections/${s._id}/trenching`)}>
-                  <Grid container spacing={2} alignItems="center">
-                    <Grid item xs={12} md={6}>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <RouteIcon color="primary" />
-                        <Typography variant="h6" fontWeight="bold">{s.name || 'Untitled Subsection'}</Typography>
+                <Paper
+                  key={s._id}
+                  elevation={0}
+                  sx={{
+                    p: 2.5, bgcolor: '#fff', color: '#1f2937', border: '1px solid #e5e7eb', borderRadius: 2,
+                    transition: 'box-shadow .2s, border-color .2s',
+                    '&:hover': { boxShadow: '0 4px 14px rgba(15,23,42,.08)', borderColor: '#93c5fd' },
+                  }}
+                >
+                  <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { xs: 'stretch', md: 'center' }, gap: 2 }}>
+                    <Box onClick={() => navigate(`/subsections/${s._id}/trenching`)} sx={{ flex: 1, minWidth: 0, cursor: 'pointer' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <RouteIcon />
+                        </Box>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#111827', lineHeight: 1.3 }} noWrap>
+                            {s.name || 'Untitled Subsection'}
+                          </Typography>
+                          {s.description && (
+                            <Typography variant="body2" sx={{ color: '#6b7280' }} noWrap>{s.description}</Typography>
+                          )}
+                        </Box>
                       </Box>
-                      {s.description && (
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          {s.description}
-                        </Typography>
+                      {s.roadName && (
+                        <Typography variant="caption" sx={{ display: 'block', color: '#6b7280', mt: 1 }}>Road: {s.roadName}</Typography>
                       )}
-                      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                        <Chip icon={<SwapHorizIcon />} label={`${s.fromLatLong || 'N/A'} → ${s.toLatLong || 'N/A'}`} variant="outlined" />
-                        <Chip icon={<StraightenIcon />} label={`${s.subSectionLength ?? 0} m`} color="info" variant="outlined" />
-                      </Stack>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <Stack direction="row" spacing={1} flexWrap>
-                        {s.roadName && <Chip icon={<RouteIcon />} label={s.roadName} variant="outlined" />}
-                        {s.waterLoggedArea && <Chip icon={<WaterDropIcon />} label="Water Logged" color="warning" variant="outlined" />}
-                        {s.roadSurfaceType && <Chip icon={<LayersIcon />} label={s.roadSurfaceType} variant="outlined" />}
-                        {s.methodOfConstruction && <Chip icon={<HomeRepairServiceIcon />} label={s.methodOfConstruction} variant="outlined" />}
-                        {s.protectionType && <Chip icon={<ShieldIcon />} label={s.protectionType} variant="outlined" />}
-                      </Stack>
-                    </Grid>
-                    <Grid item xs={12} md={2}>
-                      <Stack direction="row" spacing={1} justifyContent={{ xs: 'flex-start', md: 'flex-end' }}>
-                        <Button size="small" startIcon={<EditIcon />} variant="outlined" onClick={() => openEdit(s)}>
-                          Edit
-                        </Button>
-                        <Button size="small" startIcon={<DeleteIcon />} color="error" variant="outlined" onClick={() => setDeleteTarget(s)}>
-                          Delete
-                        </Button>
-                      </Stack>
-                    </Grid>
-                  </Grid>
+                    </Box>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
+                      <Chip icon={<SwapHorizIcon />} size="small" variant="outlined" label={`${s.fromLatLong || 'N/A'} → ${s.toLatLong || 'N/A'}`} />
+                      <Chip icon={<StraightenIcon />} size="small" color="info" variant="outlined" label={`${s.subSectionLength ?? 0} m`} />
+                      {s.waterLoggedArea && <Chip icon={<WaterDropIcon />} size="small" color="warning" variant="outlined" label="Water Logged" />}
+                      {s.roadSurfaceType && <Chip icon={<LayersIcon />} size="small" variant="outlined" label={s.roadSurfaceType} />}
+                      {s.methodOfConstruction && <Chip icon={<HomeRepairServiceIcon />} size="small" variant="outlined" label={s.methodOfConstruction} />}
+                      {s.protectionType && <Chip icon={<ShieldIcon />} size="small" variant="outlined" label={s.protectionType} />}
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1, justifyContent: { xs: 'flex-start', md: 'flex-end' }, flexShrink: 0 }}>
+                      <Button size="small" startIcon={<EditIcon />} variant="outlined" onClick={() => openEdit(s)}>Edit</Button>
+                      <Button size="small" startIcon={<DeleteIcon />} color="error" variant="outlined" onClick={() => setDeleteTarget(s)}>Delete</Button>
+                    </Box>
+                  </Box>
                 </Paper>
               ))}
             </Stack>
           )}
 
           {/* Pagination */}
-          <Box display="flex" justifyContent="center" mt={3}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
             <TablePagination
               component="div"
               count={total}
@@ -383,7 +386,7 @@ const SubsectionsPage = () => {
               }}
               rowsPerPageOptions={[5, 10, 20, 50]}
               labelRowsPerPage="Per page:"
-              sx={{ '& .MuiTablePagination-toolbar': { bgcolor: 'grey.50', borderRadius: 2 } }}
+              sx={{ '& .MuiTablePagination-toolbar': { bgcolor: '#fff', border: '1px solid #e5e7eb', borderRadius: 2 } }}
             />
           </Box>
         </>
@@ -395,26 +398,26 @@ const SubsectionsPage = () => {
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             {/* Basic Info */}
-            <Typography variant="subtitle1" fontWeight={600} sx={{ mt: 1 }}>Basic Information</Typography>
+            <Typography variant="subtitle1" sx={{ mt: 1, fontWeight: 600 }}>Basic Information</Typography>
             <Divider sx={{ mb: 1 }} />
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <Box sx={{ flex: 1 }}>
                 <TextField
                   label="Name"
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                   fullWidth
                 />
-              </Grid>
-              <Grid item xs={12} md={6}>
+              </Box>
+              <Box sx={{ flex: 1 }}>
                 <TextField
                   label="Road Name"
                   value={form.roadName}
                   onChange={(e) => setForm((f) => ({ ...f, roadName: e.target.value }))}
                   fullWidth
                 />
-              </Grid>
-            </Grid>
+              </Box>
+            </Stack>
             <TextField
               label="Description"
               value={form.description}
