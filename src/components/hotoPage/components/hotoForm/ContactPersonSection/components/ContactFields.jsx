@@ -6,16 +6,22 @@ const ContactFields = ({ contactPerson, handleChange }) => (
       label="Name"
       value={contactPerson.name}
       onChange={handleChange("name")}
-    />
-    <FormField
-      label="Email"
-      value={contactPerson.email}
-      onChange={handleChange("email")}
+      autoComplete="off"
     />
     <FormField
       label="Mobile"
       value={contactPerson.mobile}
       onChange={handleChange("mobile")}
+      type="tel"
+      autoComplete="off"
+    />
+    <FormField
+      label="Email"
+      value={contactPerson.email}
+      onChange={handleChange("email")}
+      type="email"
+      autoComplete="off"
+      span
     />
     <FormField
       label="Description"
@@ -23,8 +29,9 @@ const ContactFields = ({ contactPerson, handleChange }) => (
       onChange={handleChange("description")}
       multiline
       rows={2}
+      span
     />
   </>
 );
 
-export default ContactFields; 
+export default ContactFields;

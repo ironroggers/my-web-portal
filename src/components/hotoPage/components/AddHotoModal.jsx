@@ -1,15 +1,34 @@
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-} from "@mui/material";
-import { useRef, useState } from "react";
+import { Divider, Stack } from "@mui/material";
+import { useEffect, useState } from "react";
 import LocationSection from "./hotoForm/LocationSection/LocationSection";
 import ContactPersonSection from "./hotoForm/ContactPersonSection/ContactPersonSection";
 import FieldsSection from "./hotoForm/FieldsSection/FieldsSection";
+import HotoFormDialog from "./hotoForm/HotoFormDialog";
+import { validateLocation, withoutEmptyMedia } from "./hotoForm/prepareFields";
 import { uploadHotoMedia, createHoto } from "../../../services/hotoPageService";
+
+const emptyLocation = (locationName, locationDistrict) => ({
+  state: "kerala",
+  blockName: locationName || "",
+  blockCode: "",
+  districtName: locationDistrict || "",
+  districtCode: "",
+  latitude: "",
+  longitude: "",
+  hotoType: "",
+  gpName: "",
+  gpCode: "",
+  ofcName: "",
+  ofcCode: "",
+  remarks: "",
+});
+
+const EMPTY_CONTACT = {
+  name: "",
+  email: "",
+  mobile: "",
+  description: "",
+};
 
 const AddHotoModal = ({
   open,
@@ -19,46 +38,55 @@ const AddHotoModal = ({
   locationDistrict,
   fetchAllHotoInfo,
 }) => {
-  const [location, setLocation] = useState({
-    state: "kerala",
-    blockName: locationName,
-    blockCode: "",
-    districtName: locationDistrict,
-    districtCode: "",
-    latitude: "",
-    longitude: "",
-    hotoType: "",
-    gpName: "",
-    gpCode: "",
-    ofcName: "",
-    ofcCode: "",
-    remarks: "",
-  });
-
-  const [contactPerson, setContactPerson] = useState({
-    name: "",
-    email: "",
-    mobile: "",
-    description: "",
-  });
-
+  const [location, setLocation] = useState(() => emptyLocation(locationName, locationDistrict));
+  const [contactPerson, setContactPerson] = useState(EMPTY_CONTACT);
   const [fields, setFields] = useState([]);
-  const dialogContentRef = useRef(null);
+  // null, "upload" or "save"
+  const [savingStep, setSavingStep] = useState(null);
+  const [error, setError] = useState("");
+  const [errors, setErrors] = useState({});
 
-  const ScrollDialogContent = () => {
-    if (dialogContentRef.current) {
-      dialogContentRef.current.scrollTo({
-        top: dialogContentRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-    }
+  // The location's block and district often load after this dialog mounts; fill them in
+  // when it opens, without overwriting anything typed into an unfinished draft
+  useEffect(() => {
+    if (!open) return;
+    setLocation((prev) => ({
+      ...prev,
+      blockName: prev.blockName || locationName || "",
+      districtName: prev.districtName || locationDistrict || "",
+    }));
+  }, [open, locationName, locationDistrict]);
+
+  const resetForm = () => {
+    setLocation(emptyLocation(locationName, locationDistrict));
+    setContactPerson(EMPTY_CONTACT);
+    setFields([]);
+    setErrors({});
+    setError("");
+  };
+
+  const handleLocationChange = (updater) => {
+    setLocation(updater);
+    if (errors.hotoType) setErrors({});
   };
 
   const handleSubmit = async () => {
+    const validation = validateLocation(location);
+    setErrors(validation);
+    if (Object.keys(validation).length > 0) {
+      setError("Fill in the required fields before saving.");
+      return;
+    }
+
+    setError("");
     try {
-      // First upload media files if any exist
+      const cleanFields = withoutEmptyMedia(fields);
+
+      // Upload media files first, then save the HOTO with their URLs
+      const hasNewMedia = cleanFields.some((field) => field.mediaFiles?.some((media) => media.file));
+      setSavingStep(hasNewMedia ? "upload" : "save");
       const fieldsWithMedia = await Promise.all(
-        fields.map(async (field) => {
+        cleanFields.map(async (field) => {
           if (field.mediaFiles && field.mediaFiles.length > 0) {
             const uploadedMedia = await uploadHotoMedia({
               fields: [field],
@@ -69,8 +97,7 @@ const AddHotoModal = ({
         })
       );
 
-      console.log(fieldsWithMedia);
-
+      setSavingStep("save");
       // Prepare the HOTO data according to the API schema
       const hotoData = {
         locationId: locationId,
@@ -79,73 +106,41 @@ const AddHotoModal = ({
         fields: fieldsWithMedia,
       };
 
-      const response = await createHoto(hotoData);
-      console.log("HOTO created successfully:", response);
+      await createHoto(hotoData);
       fetchAllHotoInfo();
+      resetForm();
       onClose();
-    } catch (error) {
-      console.error("Error creating HOTO:", error);
+    } catch (err) {
+      setError(err.message || "Couldn't save the HOTO. Please try again.");
+    } finally {
+      setSavingStep(null);
     }
   };
 
   return (
-    <Dialog
+    <HotoFormDialog
       open={open}
       onClose={onClose}
-      maxWidth="md"
-      fullWidth
-      slotProps={{
-        paper: {
-          sx: {
-            borderRadius: 2,
-            bgcolor: "background.paper",
-          },
-        },
-      }}
+      title="Add HOTO"
+      subtitle={[locationName, locationDistrict].filter(Boolean).join(", ")}
+      saving={Boolean(savingStep)}
+      savingLabel={savingStep === "upload" ? "Uploading media…" : "Saving…"}
+      submitLabel="Create HOTO"
+      onSubmit={handleSubmit}
+      error={error}
+      onDismissError={() => setError("")}
     >
-      <DialogTitle
-        sx={{
-          px: 3,
-          py: 2,
-          borderBottom: "1px solid",
-          borderColor: "divider",
-        }}
-      >
-        Add New HOTO
-      </DialogTitle>
-
-      <DialogContent sx={{ p: 3 }} ref={dialogContentRef}>
-        {/* We'll add form content step by step */}
-        <LocationSection location={location} setLocation={setLocation} />
-        <ContactPersonSection
-          contactPerson={contactPerson}
-          setContactPerson={setContactPerson}
-        />
+      <Stack spacing={3} divider={<Divider />}>
+        <LocationSection location={location} setLocation={handleLocationChange} errors={errors} />
+        <ContactPersonSection contactPerson={contactPerson} setContactPerson={setContactPerson} />
         <FieldsSection
           fields={fields}
           setFields={setFields}
-          scrollDialogContent={ScrollDialogContent}
           location={location}
-          setLocation={setLocation}
+          setLocation={handleLocationChange}
         />
-      </DialogContent>
-
-      <DialogActions
-        sx={{
-          px: 3,
-          py: 2,
-          borderTop: "1px solid",
-          borderColor: "divider",
-        }}
-      >
-        <Button onClick={onClose} variant="outlined" color="inherit">
-          Cancel
-        </Button>
-        <Button onClick={handleSubmit} variant="contained" color="primary">
-          Submit
-        </Button>
-      </DialogActions>
-    </Dialog>
+      </Stack>
+    </HotoFormDialog>
   );
 };
 

@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
-import { Button } from "@mui/material";
-import { UploadFile } from "@mui/icons-material";
+import { Button, CircularProgress } from "@mui/material";
+import { UploadFileOutlined } from "@mui/icons-material";
 import { useExcelUpload } from "../../hooks/useExcelUpload";
 import summaryService from "../../services/summaryService";
 import { convertExcelDataToRows } from "../../utils/excelUtils";
@@ -133,8 +133,8 @@ const ExcelUploadButton = ({
         onChange={handleFileChange}
       />
       <Button
-        variant="contained"
-        startIcon={<UploadFile />}
+        variant="outlined"
+        startIcon={isUploading ? <CircularProgress size={14} color="inherit" /> : <UploadFileOutlined />}
         size="small"
         onClick={handleButtonClick}
         color="primary"
@@ -142,7 +142,9 @@ const ExcelUploadButton = ({
       >
         {isUploading && uploadProgress.total > 0
           ? `Uploading ${uploadProgress.current}/${uploadProgress.total}`
-          : "Upload Excel"}
+          : isUploading
+            ? "Uploading…"
+            : "Upload Excel"}
       </Button>
 
       <ConfirmUploadDialog
@@ -150,6 +152,7 @@ const ExcelUploadButton = ({
         onClose={closeConfirmDialog}
         onConfirm={processFile}
         sheetName={selectedSheet}
+        fileName={confirmDialog.file?.name}
       />
 
       <ErrorDialog

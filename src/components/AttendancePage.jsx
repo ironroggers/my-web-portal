@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Paper, Typography, Tabs, Tab, Box, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
-import MapIcon from '@mui/icons-material/Map';
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
-import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
+import { Card, Tabs, Tab, Box, MenuItem, TextField } from '@mui/material';
+import MapOutlinedIcon from '@mui/icons-material/MapOutlined';
+import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
+import TableRowsOutlinedIcon from '@mui/icons-material/TableRowsOutlined';
 import AttendanceMapView from './AttendanceMapView';
 import AttendanceCalendarView from './AttendanceCalendarView';
 import AttendanceDetailedView from './AttendanceDetailedView';
+import PageHeader from './common/PageHeader';
 import { useAuth } from '../context/AuthContext';
 
 function TabPanel(props) {
   const { children, value, index, ...other } = props;
+  const isMap = index === 0;
 
   return (
     <div
@@ -20,7 +22,15 @@ function TabPanel(props) {
       {...other}
     >
       {value === index && (
-        <Box sx={{ p: index === 0 ? 0 : 3, height: index === 0 ? 'calc(100vh - 200px)' : 'auto', display: 'flex', flexDirection: 'column' }}>
+        <Box
+          sx={{
+            p: isMap ? 0 : 2.5,
+            // The map fills the remaining viewport height
+            height: isMap ? 'max(480px, calc(100vh - 290px))' : 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
           {children}
         </Box>
       )}
@@ -68,96 +78,57 @@ const AttendancePage = () => {
   };
 
   return (
-    <Paper 
-      elevation={3} 
-      sx={{ 
-        padding: 0, 
-        margin: 2,
-        borderRadius: "8px",
-        overflow: "hidden"
-      }}
-    >
-      <Box 
-        sx={{ 
-          borderBottom: 1, 
-          borderColor: 'divider',
-          backgroundColor: "#f5f5f5"
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, pt: 2 }}>
-          <Typography 
-            variant="h5" 
-            component="h1" 
-            sx={{ 
-              fontWeight: 500 
-            }}
+    <Box>
+      <PageHeader
+        title="Attendance"
+        subtitle="Today's check-ins, the monthly calendar and weekly records for field staff"
+        actions={
+          <TextField
+            select
+            size="small"
+            label="Project"
+            value={projectFilter}
+            onChange={(e) => setProjectFilter(e.target.value)}
+            disabled={isViewer}
+            helperText={isViewer ? 'Fixed to your assigned project' : undefined}
+            sx={{ width: 240 }}
           >
-            Attendance Management
-          </Typography>
-          <FormControl size="small" sx={{ width: 220 }}>
-            <InputLabel id="attendance-project-filter-label">Project</InputLabel>
-            <Select
-              labelId="attendance-project-filter-label"
-              value={projectFilter}
-              label="Project"
-              onChange={(e) => setProjectFilter(e.target.value)}
-              disabled={isViewer}
-            >
-              <MenuItem value="ALL">All</MenuItem>
-              {PROJECT_OPTIONS.map((opt) => (
-                <MenuItem key={opt} value={opt}>{opt}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Box>
-        <Tabs 
-          value={tabValue} 
-          onChange={handleTabChange} 
-          aria-label="attendance tabs"
-          centered
-          sx={{
-            backgroundColor: "#fff",
-            mt: 2,
-            "& .MuiTab-root": {
-              minHeight: "54px",
-              fontSize: "0.95rem"
-            }
-          }}
-        >
-          <Tab 
-            icon={<MapIcon />} 
-            iconPosition="start"
-            label="Map View" 
-            {...a11yProps(0)} 
-          />
-          <Tab 
-            icon={<CalendarMonthIcon />} 
-            iconPosition="start"
-            label="Calendar View" 
-            {...a11yProps(1)} 
-          />
-          <Tab 
-            icon={<FormatListBulletedIcon />} 
-            iconPosition="start"
-            label="Detailed View" 
-            {...a11yProps(2)} 
-          />
-        </Tabs>
-      </Box>
-      
-      <TabPanel value={tabValue} index={0}>
-        <AttendanceMapView projectFilter={projectFilter} />
-      </TabPanel>
-      
-      <TabPanel value={tabValue} index={1}>
-        <AttendanceCalendarView projectFilter={projectFilter} />
-      </TabPanel>
+            <MenuItem value="ALL">All projects</MenuItem>
+            {PROJECT_OPTIONS.map((opt) => (
+              <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+            ))}
+          </TextField>
+        }
+      />
 
-      <TabPanel value={tabValue} index={2}>
-        <AttendanceDetailedView projectFilter={projectFilter} />
-      </TabPanel>
-    </Paper>
+      <Card>
+        <Tabs
+          value={tabValue}
+          onChange={handleTabChange}
+          aria-label="attendance views"
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{ px: 1, borderBottom: 1, borderColor: 'divider' }}
+        >
+          <Tab icon={<MapOutlinedIcon fontSize="small" />} iconPosition="start" label="Today's map" {...a11yProps(0)} />
+          <Tab icon={<CalendarMonthOutlinedIcon fontSize="small" />} iconPosition="start" label="Monthly calendar" {...a11yProps(1)} />
+          <Tab icon={<TableRowsOutlinedIcon fontSize="small" />} iconPosition="start" label="Weekly records" {...a11yProps(2)} />
+        </Tabs>
+
+        <TabPanel value={tabValue} index={0}>
+          <AttendanceMapView projectFilter={projectFilter} />
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={1}>
+          <AttendanceCalendarView projectFilter={projectFilter} />
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={2}>
+          <AttendanceDetailedView projectFilter={projectFilter} />
+        </TabPanel>
+      </Card>
+    </Box>
   );
 };
 
-export default AttendancePage; 
+export default AttendancePage;

@@ -1,4 +1,4 @@
-import { Box, Typography } from "@mui/material";
+import FormSection from "../FormSection";
 import { ContactFields } from "./components";
 
 const ContactPersonSection = ({ contactPerson, setContactPerson }) => {
@@ -10,17 +10,9 @@ const ContactPersonSection = ({ contactPerson, setContactPerson }) => {
   };
 
   return (
-    <Box>
-      <Typography variant="h6" sx={{ mb: 2 }}>
-        Contact Person
-      </Typography>
-      <Box>
-        <ContactFields
-          contactPerson={contactPerson}
-          handleChange={handleChange}
-        />
-      </Box>
-    </Box>
+    <FormSection title="Contact person" description="Who to contact about this handover">
+      <ContactFields contactPerson={contactPerson} handleChange={handleChange} />
+    </FormSection>
   );
 };
 

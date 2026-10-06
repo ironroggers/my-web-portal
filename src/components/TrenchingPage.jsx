@@ -1,76 +1,53 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Container,
-  Box,
-  Typography,
-  Paper,
-  Stack,
   Alert,
-  CircularProgress,
-  Breadcrumbs,
-  Link,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
+  Box,
   Button,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
+  ButtonBase,
+  CircularProgress,
+  Grid,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Tooltip,
+  Typography,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import { useNavigate, useParams } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import PhotoIcon from "@mui/icons-material/Photo";
-import CloseIcon from "@mui/icons-material/Close";
-import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
+import PhotoOutlinedIcon from "@mui/icons-material/PhotoOutlined";
+import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import trenchingService from "../services/trenchingService.jsx";
 import subsectionsService from "../services/subsectionsService.jsx";
 import sectionsService from "../services/sectionsService.jsx";
 import { LineChart } from "@mui/x-charts/LineChart";
+import { ChartsReferenceLine } from "@mui/x-charts/ChartsReferenceLine";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import autoTable from "jspdf-autotable";
 import { LOCATION_URL } from "../API/api-keys.jsx";
+import PageHeader from "./common/PageHeader";
+import StatTile from "./common/StatTile";
+import SectionCard from "./common/SectionCard";
+import StatusPill from "./common/StatusPill";
+import MediaViewerDialog from "./common/MediaViewerDialog";
 
 // value formatter helpers
 const meters = (v) => `${Number(v).toFixed(2)} m`;
-const formatCoord = (val) => {
-  const n = parseFloat(val);
-  return Number.isFinite(n) ? n.toFixed(6) : "n/a";
-};
-const formatIST = (value) => {
-  try {
-    const ts = typeof value === 'number' ? value : Date.parse(String(value));
-    if (!Number.isFinite(ts)) return 'n/a';
-    const istMs = ts + (5.5 * 60 * 60 * 1000);
-    const d = new Date(istMs);
-    if (isNaN(d.getTime())) return 'n/a';
-    const yyyy = d.getUTCFullYear();
-    const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
-    const dd = String(d.getUTCDate()).padStart(2, '0');
-    const hh = String(d.getUTCHours()).padStart(2, '0');
-    const mi = String(d.getUTCMinutes()).padStart(2, '0');
-    const ss = String(d.getUTCSeconds()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss} IST`;
-  } catch {
-    return 'n/a';
-  }
-};
-const getStaticMapUrl = (lat, lng) => {
-  if (!lat || !lng) return '';
-  const latitude = parseFloat(lat);
-  const longitude = parseFloat(lng);
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return '';
-  return `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=16&size=300x300&markers=${latitude},${longitude},red-pushpin`;
-};
+const optionLabel = (value) => (value === "others" ? "Other" : value);
+// Brand primary for the PDF table headers
+const PDF_HEADER_COLOR = [29, 78, 216];
 
 const TrenchingPage = () => {
   const navigate = useNavigate();
   const { subSectionId } = useParams();
   const chartRef = useRef(null);
+  const theme = useTheme();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -81,7 +58,7 @@ const TrenchingPage = () => {
   const [preview, setPreview] = useState(null);
   const [downloading, setDownloading] = useState(false);
 
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -133,22 +110,29 @@ const TrenchingPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [subSectionId]);
 
   useEffect(() => {
     fetchAll();
-  }, [subSectionId]);
+  }, [fetchAll]);
 
   const xData = useMemo(() => rows.map((r, i) => r.distance || i), [rows]);
   // Plotting convention: positive (below ground) should go down on chart, so invert for plotting
   const depthData = useMemo(() => rows.map((r) => -Number(r.depth || 0)), [rows]);
-  const elevData = useMemo(() => rows.map(() => 0), [rows]);
-  const yBounds = useMemo(() => {
-    const all = [...depthData, ...elevData];
-    const min = Math.min(-1, ...all) - 0.5;
-    const max = Math.max(1, ...all) + 0.5;
-    return { min, max };
-  }, [depthData, elevData]);
+  // Ground level is drawn as a reference line at 0, not as a data series
+  const yBounds = useMemo(() => ({ min: Math.min(-1, ...depthData) - 0.5, max: 0.5 }), [depthData]);
+
+  const stats = useMemo(() => {
+    const depths = rows.map((r) => Number(r.depth || 0));
+    return {
+      points: rows.length,
+      distance: rows.length ? rows[rows.length - 1].distance : 0,
+      minDepth: depths.length ? Math.min(...depths) : 0,
+      maxDepth: depths.length ? Math.max(...depths) : 0,
+      averageDepth: depths.length ? depths.reduce((total, depth) => total + depth, 0) / depths.length : 0,
+      photos: rows.filter((r) => r.photoUrl).length,
+    };
+  }, [rows]);
 
   const handleDownloadPdf = async () => {
     try {
@@ -241,7 +225,7 @@ const TrenchingPage = () => {
         head: [["Field", "Value"]],
         body: metadataRows,
         styles: { fontSize: 9, cellPadding: 2 },
-        headStyles: { fillColor: [118, 75, 162] },
+        headStyles: { fillColor: PDF_HEADER_COLOR },
         columnStyles: { 0: { cellWidth: 60 }, 1: { cellWidth: 'auto' } },
         margin: { left: margin, right: margin },
       });
@@ -258,7 +242,7 @@ const TrenchingPage = () => {
           cursorY = margin;
         }
         doc.setFontSize(12);
-        doc.text("Depth/Elevation Graph", margin, cursorY);
+        doc.text("Depth Profile", margin, cursorY);
         cursorY += 4;
         doc.addImage(imgData, "PNG", margin, cursorY, imgWidth, imgHeight);
         cursorY += imgHeight + 6;
@@ -299,7 +283,7 @@ const TrenchingPage = () => {
         head: [columns.map((c) => c.header)],
         body: body.map((b) => columns.map((c) => b[c.dataKey])),
         styles: { fontSize: 9, cellPadding: 2 },
-        headStyles: { fillColor: [41, 98, 255] },
+        headStyles: { fillColor: PDF_HEADER_COLOR },
         margin: { left: margin, right: margin },
       });
 
@@ -312,193 +296,268 @@ const TrenchingPage = () => {
     }
   };
 
-  return (
-    <>
-    <Container maxWidth="xl" sx={{ py: 3 }}>
-      <Paper elevation={0} sx={{ p: 3, mb: 3, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', borderRadius: 2 }}>
-        <Breadcrumbs sx={{ mb: 2, '& .MuiBreadcrumbs-separator': { color: 'white' } }}>
-          <Link underline="hover" color="inherit" onClick={() => navigate('/map')} sx={{ cursor: 'pointer' }}>
-            Map View
-          </Link>
-          <Link underline="hover" color="inherit" onClick={() => navigate(-1)} sx={{ cursor: 'pointer' }}>
-            Subsections
-          </Link>
-          <Typography color="inherit">HDPE</Typography>
-        </Breadcrumbs>
+  // Back to this subsection's section, not just the previous page
+  const backToSubsections = () => (subsection?.section ? navigate(`/sections/${subsection.section}/subsections`) : navigate(-1));
 
-        <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={2}>
-          <Box display="flex" alignItems="center" gap={2}>
-            <IconButton onClick={() => navigate(-1)} sx={{ color: 'white', bgcolor: 'rgba(255,255,255,0.1)' }}>
-              <ArrowBackIcon />
-            </IconButton>
-            <Box>
-              <Typography variant="h4" component="h1" fontWeight="bold">
-                HDPE Profile
-              </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                {subsection ? (subsection.name || 'Untitled Subsection') : 'Loading subsection...'}
-              </Typography>
-            </Box>
+  const context = [
+    sectionMeta?.name && `Section: ${sectionMeta.name}`,
+    [sectionMeta?.block || locationMeta?.block, sectionMeta?.district || locationMeta?.district].filter(Boolean).join(", "),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const details = subsection
+    ? [
+        ["Road", subsection.roadName],
+        ["Method of construction", optionLabel(subsection.methodOfConstruction)],
+        ["Road surface", optionLabel(subsection.roadSurfaceType)],
+        ["Alignment", optionLabel(subsection.alignmentType)],
+        ["Soil", subsection.soilStatus],
+        ["Protection", optionLabel(subsection.protectionType)],
+        ["Pit type", optionLabel(subsection.pitType)],
+        ["RoW ownership", subsection.row?.rowOwnership],
+        ["RoW authority", subsection.row?.rowAuthority],
+        ["Planned length", subsection.subSectionLength ? `${subsection.subSectionLength} m` : null],
+        ["Estimated depth", subsection.estimatedDepth ? `${subsection.estimatedDepth} m` : null],
+      ].filter(([, value]) => value)
+    : [];
+
+  const openPhoto = (r, idx) =>
+    setPreview({
+      media: {
+        url: r.photoUrl,
+        fileType: "image",
+        latitude: r.latitude,
+        longitude: r.longitude,
+        place: r.place,
+        accuracy: r.accuracy,
+        deviceName: r.deviceName,
+        uploadedAt: r.uploadedAt,
+        description: `Trench point ${idx + 1}`,
+      },
+      subtitle: `${meters(r.distance)} along the subsection · ${meters(r.depth)} deep`,
+    });
+
+  return (
+    <Box>
+      <PageHeader
+        title={
+          <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+            HDPE profile
+            {subsection?.waterLoggedArea && <StatusPill label="Water-logged area" tone="warning" />}
           </Box>
-          <Stack direction="row" spacing={1}>
-            <Button startIcon={<RefreshIcon />} variant="outlined" color="inherit" onClick={fetchAll}>
+        }
+        subtitle={[subsection ? subsection.name || "Untitled subsection" : null, context].filter(Boolean).join(" · ") || "Trenching depth along the subsection"}
+        actions={
+          <>
+            <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={backToSubsections}>
+              Back to subsections
+            </Button>
+            <Button variant="outlined" startIcon={<RefreshIcon />} onClick={fetchAll} disabled={loading}>
               Refresh
             </Button>
-            <Button startIcon={<PictureAsPdfIcon />} variant="contained" color="secondary" onClick={handleDownloadPdf} disabled={loading || downloading || rows.length === 0}>
-              {downloading ? "Preparing..." : "Download PDF"}
+            <Button
+              variant="contained"
+              startIcon={downloading ? <CircularProgress size={16} color="inherit" /> : <PictureAsPdfOutlinedIcon />}
+              onClick={handleDownloadPdf}
+              disabled={loading || downloading || rows.length === 0}
+            >
+              {downloading ? "Preparing…" : "Download PDF"}
             </Button>
-          </Stack>
-        </Box>
-      </Paper>
+          </>
+        }
+      />
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }} action={<Button color="inherit" size="small" onClick={fetchAll}>Retry</Button>}>
+          {error}
+        </Alert>
+      )}
 
       {loading ? (
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="240px">
-          <CircularProgress size={48} />
-          <Typography variant="h6" sx={{ ml: 2 }}>Loading hdpe...</Typography>
-        </Box>
-      ) : error ? (
-        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+        <>
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            {Array.from({ length: 4 }, (_, index) => (
+              <Grid key={index} size={{ xs: 6, md: 3 }}>
+                <Skeleton variant="rounded" height={112} />
+              </Grid>
+            ))}
+          </Grid>
+          <Skeleton variant="rounded" height={380} sx={{ mb: 3 }} />
+          <Skeleton variant="rounded" height={240} />
+        </>
       ) : (
         <>
-          <Paper elevation={1} sx={{ p: 2, mb: 2 }}>
-            <Box ref={chartRef}>
-            <LineChart
-              xAxis={[{
-                data: xData,
-                label: 'Total X Distance',
-                valueFormatter: meters,
-              }]}
-              yAxis={[{
-                label: 'Depth / Elevation (m)',
-                min: yBounds.min,
-                max: yBounds.max,
-                valueFormatter: (v) => `${v}`,
-              }]}
-              series={[
-                {
-                  data: depthData,
-                  label: 'Depth',
-                  color: '#111',
-                  curve: 'linear',
-                  showMark: true,
-                },
-                {
-                  data: elevData,
-                  label: 'Elevation',
-                  color: '#2962ff',
-                  curve: 'linear',
-                  showMark: true,
-                },
-              ]}
-              height={320}
-              grid={{ vertical: true, horizontal: true }}
-              slotProps={{
-                legend: { direction: 'row', position: { vertical: 'top', horizontal: 'middle' } },
-              }}
-              sx={{
-                '& .MuiChartsAxis-label': { fontWeight: 500 },
-              }}
-            />
-            </Box>
-          </Paper>
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid size={{ xs: 6, md: 3 }}>
+              <StatTile label="Trench points" value={stats.points} caption={`${stats.photos} with photos`} />
+            </Grid>
+            <Grid size={{ xs: 6, md: 3 }}>
+              <StatTile label="Distance covered" value={Number(stats.distance.toFixed(1))} suffix=" m" caption="Cumulative along the subsection" />
+            </Grid>
+            <Grid size={{ xs: 6, md: 3 }}>
+              <StatTile
+                label="Depth range"
+                value={stats.points ? `${stats.minDepth.toFixed(2)}–${stats.maxDepth.toFixed(2)}` : "—"}
+                suffix={stats.points ? " m" : undefined}
+                caption="Shallowest to deepest point"
+              />
+            </Grid>
+            <Grid size={{ xs: 6, md: 3 }}>
+              <StatTile
+                label="Average depth"
+                value={stats.points ? Number(stats.averageDepth.toFixed(2)) : "—"}
+                suffix={stats.points ? " m" : undefined}
+                caption="Across all trench points"
+              />
+            </Grid>
+          </Grid>
 
-          <Paper elevation={1} sx={{ p: 2 }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>Distance</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Depth</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Latitude</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Longitude</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Rod Length</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Angle (°)</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Photo</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {rows.map((r, idx) => {
-                  const prev = idx > 0 ? rows[idx - 1] : null;
-                  const deltaDepth = prev ? Number(r.depth || 0) - Number(prev.depth || 0) : 0;
-                  const deltaDist = prev ? Number(r.distance || 0) - Number(prev.distance || 0) : 0;
-                  const angleDeg = deltaDist ? (Math.atan2(deltaDepth, deltaDist) * 180) / Math.PI : 0;
-                  return (
-                    <TableRow key={idx}>
-                      <TableCell>{r.distance}</TableCell>
-                      <TableCell>{Number(r.depth).toFixed(2)}</TableCell>
-                      <TableCell>{r.latitude}</TableCell>
-                      <TableCell>{r.longitude}</TableCell>
-                      <TableCell>{3}</TableCell>
-                      <TableCell>{prev ? angleDeg.toFixed(2) : ''}</TableCell>
-                      <TableCell>
-                        <IconButton
-                          size="small"
-                          onClick={() => setPreview({
-                            photoUrl: r.photoUrl,
-                            lat: parseFloat(r.latitude),
-                            lng: parseFloat(r.longitude),
-                            place: r.place,
-                            accuracy: r.accuracy,
-                            deviceName: r.deviceName,
-                            time: r.uploadedAt,
-                          })}
-                          disabled={!r.photoUrl}
-                          color={r.photoUrl ? 'primary' : 'default'}
-                        >
-                          <PhotoIcon />
-                        </IconButton>
-                      </TableCell>
+          {details.length > 0 && (
+            <SectionCard title="Subsection details" sx={{ mb: 3 }}>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" }, gap: 2 }}>
+                {details.map(([label, value]) => (
+                  <Box key={label} sx={{ minWidth: 0 }}>
+                    <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
+                      {label}
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 500, overflowWrap: "anywhere" }}>
+                      {value}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            </SectionCard>
+          )}
+
+          <SectionCard
+            title="Depth profile"
+            subtitle="Depth below ground at each trench point, by distance along the subsection"
+            sx={{ mb: 3 }}
+          >
+            {rows.length === 0 ? (
+              <Box sx={{ py: 5, textAlign: "center" }}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  No trenching recorded for this subsection yet
+                </Typography>
+                <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
+                  Trench points appear here once they are logged from the field.
+                </Typography>
+              </Box>
+            ) : (
+              // Captured for the PDF, so it keeps a plain white background
+              <Box ref={chartRef} sx={{ bgcolor: "#fff" }}>
+                <LineChart
+                  xAxis={[
+                    {
+                      data: xData,
+                      label: "Distance along the subsection (m)",
+                      // Plain numbers on the axis (the label carries the unit); metres in the tooltip
+                      valueFormatter: (v, context) =>
+                        context?.location === "tick" ? Number(v).toLocaleString("en-IN", { maximumFractionDigits: 1 }) : meters(v),
+                    },
+                  ]}
+                  yAxis={[
+                    {
+                      label: "Depth below ground (m)",
+                      min: yBounds.min,
+                      max: yBounds.max,
+                      valueFormatter: (v) => `${Math.abs(v)}`,
+                    },
+                  ]}
+                  series={[
+                    {
+                      data: depthData,
+                      label: "Depth",
+                      color: theme.palette.primary.main,
+                      curve: "linear",
+                      showMark: true,
+                      valueFormatter: (v) => (v == null ? "" : `${Math.abs(v).toFixed(2)} m below ground`),
+                    },
+                  ]}
+                  height={320}
+                  grid={{ horizontal: true }}
+                  hideLegend
+                  sx={{
+                    "& .MuiChartsAxis-label": { fontWeight: 500 },
+                    "& .MuiChartsGrid-line": { stroke: theme.palette.divider },
+                  }}
+                >
+                  <ChartsReferenceLine
+                    y={0}
+                    label="Ground level"
+                    labelAlign="start"
+                    lineStyle={{ stroke: theme.palette.text.secondary, strokeDasharray: "4 4" }}
+                    labelStyle={{ fontSize: 12, fill: theme.palette.text.secondary }}
+                  />
+                </LineChart>
+              </Box>
+            )}
+          </SectionCard>
+
+          {rows.length > 0 && (
+            <SectionCard title="Trench points" subtitle={`${rows.length} points, in the order they were logged`} contentSx={{ p: 0 }}>
+              <TableContainer>
+                <Table size="small" sx={{ minWidth: 760, "& tbody tr:last-of-type td": { borderBottom: 0 } }}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>#</TableCell>
+                      <TableCell align="right">Distance (m)</TableCell>
+                      <TableCell align="right">Depth (m)</TableCell>
+                      <TableCell align="right">Latitude</TableCell>
+                      <TableCell align="right">Longitude</TableCell>
+                      <TableCell align="right">Rod length (m)</TableCell>
+                      <TableCell align="right">Angle (°)</TableCell>
+                      <TableCell>Photo</TableCell>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </Paper>
+                  </TableHead>
+                  <TableBody>
+                    {rows.map((r, idx) => {
+                      const prev = idx > 0 ? rows[idx - 1] : null;
+                      const deltaDepth = prev ? Number(r.depth || 0) - Number(prev.depth || 0) : 0;
+                      const deltaDist = prev ? Number(r.distance || 0) - Number(prev.distance || 0) : 0;
+                      const angleDeg = deltaDist ? (Math.atan2(deltaDepth, deltaDist) * 180) / Math.PI : 0;
+                      return (
+                        <TableRow key={r.id || idx} hover>
+                          <TableCell sx={{ color: "text.secondary" }}>{idx + 1}</TableCell>
+                          <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>{Number(r.distance).toFixed(2)}</TableCell>
+                          <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>{Number(r.depth).toFixed(2)}</TableCell>
+                          <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums", color: r.latitude ? "text.primary" : "text.disabled" }}>{r.latitude || "—"}</TableCell>
+                          <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums", color: r.longitude ? "text.primary" : "text.disabled" }}>{r.longitude || "—"}</TableCell>
+                          <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>3</TableCell>
+                          <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums", color: prev ? "text.primary" : "text.disabled" }}>{prev ? angleDeg.toFixed(2) : "—"}</TableCell>
+                          {/* Tighter padding so rows with a thumbnail match the others */}
+                          <TableCell sx={{ py: 0.25 }}>
+                            {r.photoUrl ? (
+                              <Tooltip title="View photo">
+                                <ButtonBase
+                                  onClick={() => openPhoto(r, idx)}
+                                  aria-label={`View photo for trench point ${idx + 1}`}
+                                  sx={{ width: 28, height: 28, borderRadius: 0.75, overflow: "hidden", border: 1, borderColor: "divider", bgcolor: "action.hover", verticalAlign: "middle" }}
+                                >
+                                  <Box component="img" src={r.photoUrl} alt="" loading="lazy" sx={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                </ButtonBase>
+                              </Tooltip>
+                            ) : (
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, color: "text.disabled" }}>
+                                <PhotoOutlinedIcon fontSize="small" />
+                                <Typography variant="caption">None</Typography>
+                              </Box>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </SectionCard>
+          )}
         </>
       )}
-    </Container>
-    {/* Geotagged Preview Modal */}
-    <Dialog open={!!preview} onClose={() => setPreview(null)} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        Geotagged Photo
-        <IconButton onClick={() => setPreview(null)}>
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
-      <DialogContent dividers>
-        {preview && (
-          <Box>
-            <Box sx={{ width: '100%', maxHeight: '70vh', bgcolor: '#000', borderRadius: 1, overflow: 'auto' }}>
-              {preview.photoUrl ? (
-                <img src={preview.photoUrl} alt="preview" style={{ display: 'block', width: '100%', height: 'auto', objectFit: 'contain' }} />
-              ) : (
-                <Box sx={{ height: 280 }} />
-              )}
-            </Box>
-            <Box sx={{ mt: 1.5, p: 1, bgcolor: '#111', borderRadius: 1, display: 'flex', gap: 1.5, color: '#fff' }}>
-              <Box sx={{ width: 120, height: 120, borderRadius: 1, overflow: 'hidden', bgcolor: '#222', flexShrink: 0 }}>
-                {Number.isFinite(preview.lat) && Number.isFinite(preview.lng) && getStaticMapUrl(preview.lat, preview.lng) ? (
-                  <img src={getStaticMapUrl(preview.lat, preview.lng)} alt="map" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : null}
-              </Box>
-              <Box sx={{ flex: 1, pr: 1 }}>
-                <Typography variant="subtitle2" sx={{ color: '#fff', fontWeight: 700, mb: 0.5 }}>Address</Typography>
-                <Typography variant="body2" sx={{ color: '#fff' }}>
-                  {preview.place || 'N/A'}
-                </Typography>
-                <Typography variant="body2" sx={{ color: '#fff', mt: 0.5 }}>Device: {preview.deviceName || 'N/A'}</Typography>
-              </Box>
-              <Box sx={{ flex: 1, textAlign: 'right' }}>
-                <Typography variant="body2" sx={{ color: '#fff' }}>Latitude: {formatCoord(preview.lat)}</Typography>
-                <Typography variant="body2" sx={{ color: '#fff' }}>Longitude: {formatCoord(preview.lng)}</Typography>
-                <Typography variant="body2" sx={{ color: '#fff' }}>Accuracy: {preview.accuracy != null ? `±${Math.round(preview.accuracy)}m` : 'n/a'}</Typography>
-                <Typography variant="body2" sx={{ color: '#fff' }}>Time: {formatIST(preview.time || Date.now())}</Typography>
-              </Box>
-            </Box>
-          </Box>
-        )}
-      </DialogContent>
-    </Dialog>
-    </>
+
+      {preview && <MediaViewerDialog media={preview.media} subtitle={preview.subtitle} onClose={() => setPreview(null)} />}
+    </Box>
   );
 };
 

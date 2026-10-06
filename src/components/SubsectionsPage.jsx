@@ -1,163 +1,194 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Container,
-  Box,
-  Typography,
-  Button,
-  Paper,
-  Stack,
-  TextField,
-  IconButton,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Alert,
-  CircularProgress,
-  TablePagination,
-  Breadcrumbs,
-  Link,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  FormControlLabel,
-  Switch,
+  Box,
+  Button,
+  Card,
   Divider,
+  FormControlLabel,
+  IconButton,
+  InputAdornment,
+  MenuItem,
+  Skeleton,
+  Switch,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TablePagination,
+  TableRow,
+  TextField,
+  Tooltip,
+  Typography,
+  useMediaQuery,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import { useNavigate, useParams } from "react-router-dom";
 import AddIcon from "@mui/icons-material/Add";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SearchIcon from "@mui/icons-material/Search";
+import ClearIcon from "@mui/icons-material/Clear";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
-import StraightenIcon from "@mui/icons-material/Straighten";
-import RouteIcon from "@mui/icons-material/Route";
-import WaterDropIcon from "@mui/icons-material/WaterDrop";
-import LayersIcon from "@mui/icons-material/Layers";
-import HomeRepairServiceIcon from "@mui/icons-material/HomeRepairService";
-import ShieldIcon from "@mui/icons-material/Shield";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import subsectionsService from "../services/subsectionsService.jsx";
 import sectionsService from "../services/sectionsService.jsx";
+import PageHeader from "./common/PageHeader";
+import StatusPill from "./common/StatusPill";
+import FormDialog from "./common/FormDialog";
+import ConfirmDeleteDialog from "./common/ConfirmDeleteDialog";
+import { formatNumber } from "../utils/formatNumber";
+
+const EMPTY_FORM = {
+  name: "",
+  description: "",
+  fromLatLong: "",
+  toLatLong: "",
+  subSectionLength: "",
+  roadName: "",
+  proposedOfcSide: "",
+  alignmentType: "",
+  soilStatus: "",
+  waterLoggedArea: false,
+  roadSurfaceType: "",
+  methodOfConstruction: "",
+  pitType: "",
+  estimatedDepth: "",
+  proposedOffsetFromCenterOfRoad: "",
+  protectionType: "",
+  remarks: "",
+  // Right of way
+  rowOwnership: "",
+  rowAuthority: "",
+  rowAuthorityName: "",
+  rowAuthorityAddress: "",
+  rowFeasibility: "",
+};
+
+// Values are stored as listed; "others" is shown as "Other"
+const OPTIONS = {
+  proposedOfcSide: ["LHS", "RHS", "BOTH"],
+  alignmentType: ["Road Crossing", "Along the road", "others"],
+  soilStatus: ["Hard", "Normal", "Soft", "Very Soft"],
+  roadSurfaceType: ["Paved", "Unpaved", "others"],
+  methodOfConstruction: ["Open Trench", "HDD", "Clamping", "In Building", "others"],
+  pitType: ["Soil", "Bitumen", "Concrete", "others"],
+  protectionType: ["DWC", "GI", "PCC", "others"],
+  rowOwnership: ["NHAI", "State PWD", "Railway", "Gas Pipeline", "Forest", "Municipality", "Corporation"],
+};
+
+const SEARCH_DEBOUNCE_MS = 400;
+
+const optionLabel = (value) => (value === "others" ? "Other" : value);
+const formatLength = (meters) => (meters ? `${formatNumber(Number(meters))} m` : "—");
+
+const SubsectionActions = ({ subsection, onEdit, onDelete }) => (
+  <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 0.5 }} onClick={(event) => event.stopPropagation()}>
+    <Tooltip title="Edit subsection">
+      <IconButton size="small" aria-label={`Edit ${subsection.name || "subsection"}`} onClick={() => onEdit(subsection)}>
+        <EditOutlinedIcon fontSize="small" />
+      </IconButton>
+    </Tooltip>
+    <Tooltip title="Delete subsection">
+      <IconButton
+        size="small"
+        aria-label={`Delete ${subsection.name || "subsection"}`}
+        onClick={() => onDelete(subsection)}
+        sx={{ "&:hover": { color: "error.main" } }}
+      >
+        <DeleteOutlineIcon fontSize="small" />
+      </IconButton>
+    </Tooltip>
+  </Box>
+);
+
+const SectionTitle = ({ children }) => (
+  <Typography component="h3" variant="subtitle1" sx={{ fontWeight: 600, gridColumn: "1 / -1", mt: 1 }}>
+    {children}
+  </Typography>
+);
 
 const SubsectionsPage = () => {
   const navigate = useNavigate();
   const { sectionId } = useParams();
+  const theme = useTheme();
+  const isPhone = useMediaQuery(theme.breakpoints.down("md"));
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [items, setItems] = useState([]);
+  // undefined while the first page loads
+  const [items, setItems] = useState(undefined);
   const [total, setTotal] = useState(0);
+  const [error, setError] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [q, setQ] = useState("");
-  const [refreshFlag, setRefreshFlag] = useState(0);
+  const [searchInput, setSearchInput] = useState("");
+  const [query, setQuery] = useState("");
+  const requestIdRef = useRef(0);
 
   const [sectionMeta, setSectionMeta] = useState(null);
-  const [sectionLoading, setSectionLoading] = useState(true);
-  const [sectionError, setSectionError] = useState("");
 
-  // Dialog state
+  // Add / edit dialog
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({
-    name: "",
-    description: "",
-    fromLatLong: "",
-    toLatLong: "",
-    subSectionLength: "",
-    roadName: "",
-    proposedOfcSide: "",
-    alignmentType: "",
-    soilStatus: "",
-    waterLoggedArea: false,
-    roadSurfaceType: "",
-    methodOfConstruction: "",
-    pitType: "",
-    estimatedDepth: "",
-    proposedOffsetFromCenterOfRoad: "",
-    protectionType: "",
-    remarks: "",
-    // ROW fields
-    rowOwnership: "",
-    rowAuthority: "",
-    rowAuthorityName: "",
-    rowAuthorityAddress: "",
-    rowFeasibility: "",
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [formError, setFormError] = useState("");
+  const [nameError, setNameError] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
   const [deleting, setDeleting] = useState(false);
 
-  const fetchSubsections = async () => {
+  const fetchSubsections = useCallback(async () => {
+    // Only the latest request updates the list, so quick searches can't show stale results
+    const requestId = ++requestIdRef.current;
+    setRefreshing(true);
+    setError("");
     try {
-      setLoading(true);
-      setError("");
-      const res = await subsectionsService.list({
-        sectionId,
-        page: page + 1,
-        limit: rowsPerPage,
-        q,
-      });
+      const res = await subsectionsService.list({ sectionId, page: page + 1, limit: rowsPerPage, q: query });
+      if (requestId !== requestIdRef.current) return;
       setItems(res.items || []);
       setTotal(res.total || 0);
     } catch (e) {
+      if (requestId !== requestIdRef.current) return;
+      setItems((previous) => previous ?? []);
       setError(e.message || "Failed to load subsections");
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setRefreshing(false);
     }
-  };
+  }, [sectionId, page, rowsPerPage, query]);
 
   useEffect(() => {
     fetchSubsections();
-  }, [sectionId, page, rowsPerPage, q, refreshFlag]);
+  }, [fetchSubsections]);
 
   useEffect(() => {
-    const loadSection = async () => {
-      try {
-        setSectionLoading(true);
-        setSectionError("");
-        const meta = await sectionsService.get(sectionId);
-        setSectionMeta(meta);
-      } catch (e) {
-        setSectionError(e.message || "Failed to load section");
-      } finally {
-        setSectionLoading(false);
-      }
-    };
-    if (sectionId) loadSection();
+    if (!sectionId) return;
+    sectionsService
+      .get(sectionId)
+      .then(setSectionMeta)
+      .catch(() => setSectionMeta(null));
   }, [sectionId]);
+
+  // Search after a short pause in typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setQuery(searchInput.trim());
+      setPage(0);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  const isLoading = items === undefined;
 
   const openAdd = () => {
     setEditing(null);
-    setForm({
-      name: "",
-      description: "",
-      fromLatLong: "",
-      toLatLong: "",
-      subSectionLength: "",
-      roadName: "",
-      proposedOfcSide: "",
-      alignmentType: "",
-      soilStatus: "",
-      waterLoggedArea: false,
-      roadSurfaceType: "",
-      methodOfConstruction: "",
-      pitType: "",
-      estimatedDepth: "",
-      proposedOffsetFromCenterOfRoad: "",
-      protectionType: "",
-      remarks: "",
-      rowOwnership: "",
-      rowAuthority: "",
-      rowAuthorityName: "",
-      rowAuthorityAddress: "",
-      rowFeasibility: "",
-    });
+    setForm(EMPTY_FORM);
+    setFormError("");
+    setNameError(false);
     setDialogOpen(true);
   };
 
@@ -187,22 +218,33 @@ const SubsectionsPage = () => {
       rowAuthorityAddress: sub.row?.rowAuthorityAddress || "",
       rowFeasibility: sub.row?.rowFeasibility || "",
     });
+    setFormError("");
+    setNameError(false);
     setDialogOpen(true);
   };
 
+  const updateForm = (key) => (event) => {
+    const value = key === "waterLoggedArea" ? event.target.checked : event.target.value;
+    setForm((previous) => ({ ...previous, [key]: value }));
+    if (key === "name" && String(value).trim()) setNameError(false);
+  };
+
   const handleSave = async () => {
+    if (!form.name.trim()) {
+      setNameError(true);
+      setFormError("Give the subsection a name before saving.");
+      return;
+    }
+    setFormError("");
     try {
       setSaving(true);
       const payload = {
         ...form,
         section: sectionId,
-        subSectionLength:
-          form.subSectionLength === "" ? 0 : Number(form.subSectionLength),
+        subSectionLength: form.subSectionLength === "" ? 0 : Number(form.subSectionLength),
         estimatedDepth: form.estimatedDepth === "" ? 0 : Number(form.estimatedDepth),
         proposedOffsetFromCenterOfRoad:
-          form.proposedOffsetFromCenterOfRoad === ""
-            ? 0
-            : Number(form.proposedOffsetFromCenterOfRoad),
+          form.proposedOffsetFromCenterOfRoad === "" ? 0 : Number(form.proposedOffsetFromCenterOfRoad),
         row: {
           rowOwnership: form.rowOwnership || "",
           rowAuthority: form.rowAuthority || "",
@@ -219,9 +261,9 @@ const SubsectionsPage = () => {
       }
       setDialogOpen(false);
       setEditing(null);
-      setRefreshFlag((n) => n + 1);
+      fetchSubsections();
     } catch (e) {
-      setError(e.message || "Failed to save subsection");
+      setFormError(e.message || "Failed to save subsection");
     } finally {
       setSaving(false);
     }
@@ -231,431 +273,357 @@ const SubsectionsPage = () => {
     if (!deleteTarget) return;
     try {
       setDeleting(true);
+      setDeleteError("");
       await subsectionsService.remove(deleteTarget._id);
       setDeleteTarget(null);
-      setRefreshFlag((n) => n + 1);
+      fetchSubsections();
     } catch (e) {
-      setError(e.message || "Failed to delete subsection");
+      setDeleteError(e.message || "Failed to delete subsection");
     } finally {
       setDeleting(false);
     }
   };
 
-  // Page indicators
-  const pageIndicators = useMemo(() => {
-    return [
-      { label: "Location", done: true },
-      { label: "Sections", done: true },
-      { label: "Subsections", done: false },
-    ];
-  }, []);
+  const openSubsection = (sub) => navigate(`/subsections/${sub._id}/trenching`);
+  const askDelete = (sub) => {
+    setDeleteError("");
+    setDeleteTarget(sub);
+  };
+  // Go back to this section's location, not just the previous page
+  const backToSections = () => (sectionMeta?.location ? navigate(`/location/${sectionMeta.location}/sections`) : navigate(-1));
 
-  const indicatorColor = (done) => (done ? "success" : "default");
+  const sectionContext = sectionMeta
+    ? [`Section: ${sectionMeta.name || "Untitled section"}`, [sectionMeta.block, sectionMeta.district].filter(Boolean).join(", ")]
+        .filter(Boolean)
+        .join(" · ")
+    : null;
+
+  const selectField = (key, label) => (
+    <TextField select label={label} value={form[key]} onChange={updateForm(key)} size="small">
+      <MenuItem value="">
+        <Typography component="span" variant="body2" sx={{ color: "text.secondary" }}>
+          Not specified
+        </Typography>
+      </MenuItem>
+      {OPTIONS[key].map((option) => (
+        <MenuItem key={option} value={option}>
+          {optionLabel(option)}
+        </MenuItem>
+      ))}
+    </TextField>
+  );
+
+  const conditions = (sub) =>
+    [sub.methodOfConstruction, sub.roadSurfaceType, sub.protectionType].filter(Boolean).map(optionLabel).join(" · ");
+
+  const emptyState = (
+    <Box sx={{ py: 6, px: 3, textAlign: "center" }}>
+      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+        {query ? `No subsections match "${query}"` : "No subsections in this section yet"}
+      </Typography>
+      <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
+        {query ? "Try a different name or road." : "Subsections record road, soil and construction details for each stretch."}
+      </Typography>
+      {!query && (
+        <Button variant="outlined" startIcon={<AddIcon />} onClick={openAdd} sx={{ mt: 2 }}>
+          Add subsection
+        </Button>
+      )}
+    </Box>
+  );
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
-      {/* Header with breadcrumbs and indicators */}
-      <Paper elevation={0} sx={{ p: 3, mb: 3, background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)', color: '#fff', borderRadius: 2, boxShadow: '0 4px 14px rgba(30,58,138,.25)' }}>
-        <Breadcrumbs sx={{ mb: 2, color: 'rgba(255,255,255,.75)', '& .MuiBreadcrumbs-separator': { color: 'rgba(255,255,255,.6)' }, '& a': { color: 'rgba(255,255,255,.85)' } }}>
-          <Link underline="hover" color="inherit" onClick={() => navigate('/map')} sx={{ cursor: 'pointer' }}>
-            Map View
-          </Link>
-          <Link underline="hover" color="inherit" onClick={() => navigate(-1)} sx={{ cursor: 'pointer' }}>
-            Sections
-          </Link>
-          <Typography sx={{ color: "#fff", fontWeight: 600 }}>Subsections</Typography>
-        </Breadcrumbs>
-
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <IconButton onClick={() => navigate(-1)} sx={{ color: 'white', bgcolor: 'rgba(255,255,255,0.1)' }}>
-              <ArrowBackIcon />
-            </IconButton>
-            <Box>
-              <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }}>
-                Subsections
-              </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                {sectionLoading ? 'Loading section...' : sectionError ? sectionError : (sectionMeta?.name || 'Untitled Section')}
-              </Typography>
-            </Box>
-          </Box>
-          <Stack direction="row" spacing={1}>
-            {pageIndicators.map((ind, i) => (
-              <Chip key={i} size="small" label={ind.label} sx={{ color: '#fff', bgcolor: ind.done ? 'rgba(255,255,255,.22)' : 'transparent', border: '1px solid rgba(255,255,255,.45)' }} />
-            ))}
-            <Button startIcon={<RefreshIcon />} variant="outlined" color="inherit" sx={{ borderColor: "rgba(255,255,255,.6)" }} onClick={() => setRefreshFlag((n) => n + 1)}>
-              Refresh
+    <Box>
+      <PageHeader
+        title="Subsections"
+        subtitle={sectionContext || "Stretches of this section"}
+        actions={
+          <>
+            <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={backToSections}>
+              Back to sections
             </Button>
-            <Button startIcon={<AddIcon />} variant="contained" onClick={openAdd} sx={{ bgcolor: "#fff", color: "#1e3a8a", "&:hover": { bgcolor: "#eff6ff" } }}>
-              Add Subsection
+            <Button variant="contained" startIcon={<AddIcon />} onClick={openAdd}>
+              Add subsection
             </Button>
-          </Stack>
-        </Box>
-      </Paper>
+          </>
+        }
+      />
 
-      {/* Filters */}
-      <Paper elevation={0} sx={{ p: 2, mb: 2.5, bgcolor: '#fff', border: '1px solid #e5e7eb', borderRadius: 2 }}>
-        <Stack direction="row" spacing={2} alignItems="center" useFlexGap sx={{ flexWrap: "wrap" }}>
-          <TextField
-            placeholder="Search subsections by name or road name..."
-            value={q}
-            onChange={(e) => {
-              setPage(0);
-              setQ(e.target.value);
-            }}
-            size="small"
-            InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} /> }}
-            sx={{ width: 420, maxWidth: '100%', '& .MuiInputBase-root': { bgcolor: '#f9fafb' } }}
-          />
-        </Stack>
-      </Paper>
-
-      {/* Content */}
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 240 }}>
-          <CircularProgress size={48} />
-          <Typography variant="h6" sx={{ ml: 2 }}>Loading subsections...</Typography>
-        </Box>
-      ) : error ? (
-        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
-      ) : (
-        <>
-          {items.length === 0 ? (
-            <Alert severity="info">No subsections found for this section.</Alert>
-          ) : (
-            <Stack spacing={2}>
-              {items.map((s) => (
-                <Paper
-                  key={s._id}
-                  elevation={0}
-                  sx={{
-                    p: 2.5, bgcolor: '#fff', color: '#1f2937', border: '1px solid #e5e7eb', borderRadius: 2,
-                    transition: 'box-shadow .2s, border-color .2s',
-                    '&:hover': { boxShadow: '0 4px 14px rgba(15,23,42,.08)', borderColor: '#93c5fd' },
-                  }}
-                >
-                  <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { xs: 'stretch', md: 'center' }, gap: 2 }}>
-                    <Box onClick={() => navigate(`/subsections/${s._id}/trenching`)} sx={{ flex: 1, minWidth: 0, cursor: 'pointer' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <RouteIcon />
-                        </Box>
-                        <Box sx={{ minWidth: 0 }}>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#111827', lineHeight: 1.3 }} noWrap>
-                            {s.name || 'Untitled Subsection'}
-                          </Typography>
-                          {s.description && (
-                            <Typography variant="body2" sx={{ color: '#6b7280' }} noWrap>{s.description}</Typography>
-                          )}
-                        </Box>
-                      </Box>
-                      {s.roadName && (
-                        <Typography variant="caption" sx={{ display: 'block', color: '#6b7280', mt: 1 }}>Road: {s.roadName}</Typography>
-                      )}
-                    </Box>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
-                      <Chip icon={<SwapHorizIcon />} size="small" variant="outlined" label={`${s.fromLatLong || 'N/A'} → ${s.toLatLong || 'N/A'}`} />
-                      <Chip icon={<StraightenIcon />} size="small" color="info" variant="outlined" label={`${s.subSectionLength ?? 0} m`} />
-                      {s.waterLoggedArea && <Chip icon={<WaterDropIcon />} size="small" color="warning" variant="outlined" label="Water Logged" />}
-                      {s.roadSurfaceType && <Chip icon={<LayersIcon />} size="small" variant="outlined" label={s.roadSurfaceType} />}
-                      {s.methodOfConstruction && <Chip icon={<HomeRepairServiceIcon />} size="small" variant="outlined" label={s.methodOfConstruction} />}
-                      {s.protectionType && <Chip icon={<ShieldIcon />} size="small" variant="outlined" label={s.protectionType} />}
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 1, justifyContent: { xs: 'flex-start', md: 'flex-end' }, flexShrink: 0 }}>
-                      <Button size="small" startIcon={<EditIcon />} variant="outlined" onClick={() => openEdit(s)}>Edit</Button>
-                      <Button size="small" startIcon={<DeleteIcon />} color="error" variant="outlined" onClick={() => setDeleteTarget(s)}>Delete</Button>
-                    </Box>
-                  </Box>
-                </Paper>
-              ))}
-            </Stack>
-          )}
-
-          {/* Pagination */}
-          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
-            <TablePagination
-              component="div"
-              count={total}
-              page={page}
-              onPageChange={(e, newPage) => setPage(newPage)}
-              rowsPerPage={rowsPerPage}
-              onRowsPerPageChange={(e) => {
-                setRowsPerPage(parseInt(e.target.value, 10));
-                setPage(0);
-              }}
-              rowsPerPageOptions={[5, 10, 20, 50]}
-              labelRowsPerPage="Per page:"
-              sx={{ '& .MuiTablePagination-toolbar': { bgcolor: '#fff', border: '1px solid #e5e7eb', borderRadius: 2 } }}
-            />
-          </Box>
-        </>
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }} action={<Button color="inherit" size="small" onClick={fetchSubsections}>Retry</Button>}>
+          {error}
+        </Alert>
       )}
 
-      {/* Create / Edit Dialog */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>{editing ? 'Edit Subsection' : 'Add Subsection'}</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            {/* Basic Info */}
-            <Typography variant="subtitle1" sx={{ mt: 1, fontWeight: 600 }}>Basic Information</Typography>
-            <Divider sx={{ mb: 1 }} />
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <Box sx={{ flex: 1 }}>
-                <TextField
-                  label="Name"
-                  value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                  fullWidth
-                />
+      <Card>
+        <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1.5, p: 2, borderBottom: 1, borderColor: "divider" }}>
+          <TextField
+            size="small"
+            placeholder="Search by name or road"
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            sx={{ width: { xs: "100%", sm: 320 } }}
+            slotProps={{
+              htmlInput: { "aria-label": "Search subsections" },
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" sx={{ color: "text.secondary" }} />
+                  </InputAdornment>
+                ),
+                endAdornment: searchInput && (
+                  <InputAdornment position="end">
+                    <IconButton size="small" edge="end" aria-label="Clear search" onClick={() => setSearchInput("")}>
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+          <Box sx={{ flex: 1 }} />
+          {!isLoading && (
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              {total} {total === 1 ? "subsection" : "subsections"}
+            </Typography>
+          )}
+          <Tooltip title="Refresh">
+            <IconButton size="small" onClick={fetchSubsections} aria-label="Refresh subsections">
+              <RefreshIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+
+        {isLoading ? (
+          <Box sx={{ p: 2 }}>
+            {Array.from({ length: 5 }, (_, index) => (
+              <Skeleton key={index} variant="text" height={48} />
+            ))}
+          </Box>
+        ) : items.length === 0 ? (
+          emptyState
+        ) : isPhone ? (
+          <Box sx={{ opacity: refreshing ? 0.6 : 1, transition: "opacity 150ms" }}>
+            {items.map((sub) => (
+              <Box
+                key={sub._id}
+                onClick={() => openSubsection(sub)}
+                sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: "divider", cursor: "pointer", "&:hover": { bgcolor: "action.hover" } }}
+              >
+                <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {sub.name || "Untitled subsection"}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                      {[sub.roadName, formatLength(sub.subSectionLength)].filter((value) => value && value !== "—").join(" · ") || "—"}
+                    </Typography>
+                  </Box>
+                  <SubsectionActions subsection={sub} onEdit={openEdit} onDelete={askDelete} />
+                </Box>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", mt: 1 }}>
+                  {conditions(sub) && (
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                      {conditions(sub)}
+                    </Typography>
+                  )}
+                  {sub.waterLoggedArea && <StatusPill label="Water-logged" tone="warning" />}
+                </Box>
               </Box>
-              <Box sx={{ flex: 1 }}>
-                <TextField
-                  label="Road Name"
-                  value={form.roadName}
-                  onChange={(e) => setForm((f) => ({ ...f, roadName: e.target.value }))}
-                  fullWidth
-                />
-              </Box>
-            </Stack>
-            <TextField
-              label="Description"
-              value={form.description}
-              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              fullWidth
-              multiline
-              minRows={2}
-            />
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField
-                label="From Lat,Long"
-                value={form.fromLatLong}
-                onChange={(e) => setForm((f) => ({ ...f, fromLatLong: e.target.value }))}
-                fullWidth
-              />
-              <TextField
-                label="To Lat,Long"
-                value={form.toLatLong}
-                onChange={(e) => setForm((f) => ({ ...f, toLatLong: e.target.value }))}
-                fullWidth
-              />
-            </Stack>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField
-                label="Subsection Length (m)"
-                type="number"
-                value={form.subSectionLength}
-                onChange={(e) => setForm((f) => ({ ...f, subSectionLength: e.target.value }))}
-                fullWidth
-                inputProps={{ min: 0 }}
-              />
-              <TextField
-                label="Estimated Depth (m)"
-                type="number"
-                value={form.estimatedDepth}
-                onChange={(e) => setForm((f) => ({ ...f, estimatedDepth: e.target.value }))}
-                fullWidth
-                inputProps={{ min: 0 }}
-              />
-              <TextField
-                label="Offset from Center (m)"
-                type="number"
-                value={form.proposedOffsetFromCenterOfRoad}
-                onChange={(e) => setForm((f) => ({ ...f, proposedOffsetFromCenterOfRoad: e.target.value }))}
-                fullWidth
-                inputProps={{ min: 0 }}
-              />
-            </Stack>
-            {/* Enums as dropdowns */}
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <FormControl fullWidth>
-                <InputLabel>Proposed OFC Side</InputLabel>
-                <Select
-                  label="Proposed OFC Side"
-                  value={form.proposedOfcSide}
-                  onChange={(e) => setForm((f) => ({ ...f, proposedOfcSide: e.target.value }))}
-                >
-                  <MenuItem value="">Unspecified</MenuItem>
-                  <MenuItem value="LHS">LHS</MenuItem>
-                  <MenuItem value="RHS">RHS</MenuItem>
-                  <MenuItem value="BOTH">BOTH</MenuItem>
-                </Select>
-              </FormControl>
-              <FormControl fullWidth>
-                <InputLabel>Alignment Type</InputLabel>
-                <Select
-                  label="Alignment Type"
-                  value={form.alignmentType}
-                  onChange={(e) => setForm((f) => ({ ...f, alignmentType: e.target.value }))}
-                >
-                  <MenuItem value="">Unspecified</MenuItem>
-                  <MenuItem value="Road Crossing">Road Crossing</MenuItem>
-                  <MenuItem value="Along the road">Along the road</MenuItem>
-                  <MenuItem value="others">others</MenuItem>
-                </Select>
-              </FormControl>
-            </Stack>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <FormControl fullWidth>
-                <InputLabel>Soil Status</InputLabel>
-                <Select
-                  label="Soil Status"
-                  value={form.soilStatus}
-                  onChange={(e) => setForm((f) => ({ ...f, soilStatus: e.target.value }))}
-                >
-                  <MenuItem value="">Unspecified</MenuItem>
-                  <MenuItem value="Hard">Hard</MenuItem>
-                  <MenuItem value="Normal">Normal</MenuItem>
-                  <MenuItem value="Soft">Soft</MenuItem>
-                  <MenuItem value="Very Soft">Very Soft</MenuItem>
-                </Select>
-              </FormControl>
-              <FormControl fullWidth>
-                <InputLabel>Road Surface Type</InputLabel>
-                <Select
-                  label="Road Surface Type"
-                  value={form.roadSurfaceType}
-                  onChange={(e) => setForm((f) => ({ ...f, roadSurfaceType: e.target.value }))}
-                >
-                  <MenuItem value="">Unspecified</MenuItem>
-                  <MenuItem value="Paved">Paved</MenuItem>
-                  <MenuItem value="Unpaved">Unpaved</MenuItem>
-                  <MenuItem value="others">others</MenuItem>
-                </Select>
-              </FormControl>
-              <FormControl fullWidth>
-                <InputLabel>Method of Construction</InputLabel>
-                <Select
-                  label="Method of Construction"
-                  value={form.methodOfConstruction}
-                  onChange={(e) => setForm((f) => ({ ...f, methodOfConstruction: e.target.value }))}
-                >
-                  <MenuItem value="">Unspecified</MenuItem>
-                  <MenuItem value="Open Trench">Open Trench</MenuItem>
-                  <MenuItem value="HDD">HDD</MenuItem>
-                  <MenuItem value="Clamping">Clamping</MenuItem>
-                  <MenuItem value="In Building">In Building</MenuItem>
-                  <MenuItem value="others">others</MenuItem>
-                </Select>
-              </FormControl>
-            </Stack>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <FormControl fullWidth>
-                <InputLabel>Pit Type</InputLabel>
-                <Select
-                  label="Pit Type"
-                  value={form.pitType}
-                  onChange={(e) => setForm((f) => ({ ...f, pitType: e.target.value }))}
-                >
-                  <MenuItem value="">Unspecified</MenuItem>
-                  <MenuItem value="Soil">Soil</MenuItem>
-                  <MenuItem value="Bitumen">Bitumen</MenuItem>
-                  <MenuItem value="Concrete">Concrete</MenuItem>
-                  <MenuItem value="others">others</MenuItem>
-                </Select>
-              </FormControl>
-              <FormControl fullWidth>
-                <InputLabel>Protection Type</InputLabel>
-                <Select
-                  label="Protection Type"
-                  value={form.protectionType}
-                  onChange={(e) => setForm((f) => ({ ...f, protectionType: e.target.value }))}
-                >
-                  <MenuItem value="">Unspecified</MenuItem>
-                  <MenuItem value="DWC">DWC</MenuItem>
-                  <MenuItem value="GI">GI</MenuItem>
-                  <MenuItem value="PCC">PCC</MenuItem>
-                  <MenuItem value="others">others</MenuItem>
-                </Select>
-              </FormControl>
-            </Stack>
+            ))}
+          </Box>
+        ) : (
+          <TableContainer sx={{ opacity: refreshing ? 0.6 : 1, transition: "opacity 150ms" }}>
+            <Table sx={{ minWidth: 960 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Subsection</TableCell>
+                  <TableCell>From → To</TableCell>
+                  <TableCell align="right">Length</TableCell>
+                  <TableCell>Construction · surface · protection</TableCell>
+                  <TableCell>Flags</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                  <TableCell padding="checkbox" />
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {items.map((sub) => (
+                  <TableRow key={sub._id} hover onClick={() => openSubsection(sub)} sx={{ cursor: "pointer" }}>
+                    <TableCell sx={{ maxWidth: 320 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {sub.name || "Untitled subsection"}
+                      </Typography>
+                      {(sub.roadName || sub.description) && (
+                        <Typography variant="body2" noWrap sx={{ color: "text.secondary" }}>
+                          {sub.roadName ? `Road: ${sub.roadName}` : sub.description}
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell sx={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                      <Typography variant="body2">{sub.fromLatLong || "—"}</Typography>
+                      <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                        {sub.toLatLong || "—"}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                      {formatLength(sub.subSectionLength)}
+                    </TableCell>
+                    <TableCell sx={{ color: conditions(sub) ? "text.primary" : "text.disabled" }}>{conditions(sub) || "—"}</TableCell>
+                    <TableCell>{sub.waterLoggedArea ? <StatusPill label="Water-logged" tone="warning" /> : <Typography variant="body2" sx={{ color: "text.disabled" }}>—</Typography>}</TableCell>
+                    <TableCell align="right">
+                      <SubsectionActions subsection={sub} onEdit={openEdit} onDelete={askDelete} />
+                    </TableCell>
+                    <TableCell padding="checkbox">
+                      <ChevronRightIcon fontSize="small" sx={{ color: "text.disabled", display: "block" }} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
 
-            <FormControlLabel
-              control={<Switch checked={form.waterLoggedArea} onChange={(e) => setForm((f) => ({ ...f, waterLoggedArea: e.target.checked }))} />}
-              label="Water Logged Area"
-            />
+        {!isLoading && total > 0 && (
+          <TablePagination
+            component="div"
+            count={total}
+            page={page}
+            onPageChange={(event, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(event) => {
+              setRowsPerPage(parseInt(event.target.value, 10));
+              setPage(0);
+            }}
+            rowsPerPageOptions={[5, 10, 20, 50]}
+            labelRowsPerPage={isPhone ? "Rows:" : "Rows per page:"}
+            sx={{ borderTop: 1, borderColor: "divider" }}
+          />
+        )}
+      </Card>
 
-            {/* ROW Section */}
-            <Typography variant="subtitle1" fontWeight={600} sx={{ mt: 3 }}>Right of Way (RoW)</Typography>
-            <Divider sx={{ mb: 1 }} />
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <FormControl fullWidth>
-                <InputLabel>ROW Ownership</InputLabel>
-                <Select
-                  label="ROW Ownership"
-                  value={form.rowOwnership}
-                  onChange={(e) => setForm((f) => ({ ...f, rowOwnership: e.target.value }))}
-                >
-                  <MenuItem value="">Unspecified</MenuItem>
-                  {['NHAI', 'State PWD', 'Railway', 'Gas Pipeline', 'Forest', 'Municipality', 'Corporation'].map((v) => (
-                    <MenuItem key={v} value={v}>{v}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <TextField
-                label="ROW Authority"
-                value={form.rowAuthority}
-                onChange={(e) => setForm((f) => ({ ...f, rowAuthority: e.target.value }))}
-                fullWidth
-              />
-            </Stack>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField
-                label="ROW Authority Name"
-                value={form.rowAuthorityName}
-                onChange={(e) => setForm((f) => ({ ...f, rowAuthorityName: e.target.value }))}
-                fullWidth
-              />
-              <TextField
-                label="ROW Authority Address"
-                value={form.rowAuthorityAddress}
-                onChange={(e) => setForm((f) => ({ ...f, rowAuthorityAddress: e.target.value }))}
-                fullWidth
-              />
-            </Stack>
-            <TextField
-              label="ROW Feasibility"
-              value={form.rowFeasibility}
-              onChange={(e) => setForm((f) => ({ ...f, rowFeasibility: e.target.value }))}
-              fullWidth
-              multiline
-              minRows={2}
-            />
-            <TextField
-              label="Remarks"
-              value={form.remarks}
-              onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))}
-              fullWidth
-              multiline
-              minRows={2}
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving...' : 'Save'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Add / edit subsection */}
+      <FormDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        title={editing ? "Edit subsection" : "Add subsection"}
+        subtitle={sectionContext}
+        saving={saving}
+        submitLabel={editing ? "Save changes" : "Add subsection"}
+        onSubmit={handleSave}
+        error={formError}
+        onDismissError={() => setFormError("")}
+      >
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: "repeat(2, minmax(0, 1fr))", md: "repeat(3, minmax(0, 1fr))" }, gap: 2 }}>
+          <SectionTitle>Basic information</SectionTitle>
+          <TextField
+            label="Name"
+            value={form.name}
+            onChange={updateForm("name")}
+            size="small"
+            required
+            error={nameError}
+            helperText={nameError ? "Required" : undefined}
+          />
+          <TextField label="Road name" value={form.roadName} onChange={updateForm("roadName")} size="small" />
+          <TextField
+            label="Length (m)"
+            type="number"
+            value={form.subSectionLength}
+            onChange={updateForm("subSectionLength")}
+            size="small"
+            slotProps={{ htmlInput: { min: 0 } }}
+          />
+          <TextField
+            label="Description"
+            value={form.description}
+            onChange={updateForm("description")}
+            size="small"
+            multiline
+            minRows={2}
+            sx={{ gridColumn: "1 / -1" }}
+          />
+          <TextField label="From (lat, long)" value={form.fromLatLong} onChange={updateForm("fromLatLong")} size="small" />
+          <TextField label="To (lat, long)" value={form.toLatLong} onChange={updateForm("toLatLong")} size="small" />
+          <Box sx={{ display: { xs: "none", md: "block" } }} />
 
-      {/* Delete Confirm Dialog */}
-      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
-        <DialogTitle>Delete Subsection</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2">Are you sure you want to delete "{deleteTarget?.name || 'this subsection'}"?</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
-          <Button color="error" variant="contained" onClick={handleDelete} disabled={deleting} startIcon={<DeleteIcon />}>
-            {deleting ? 'Deleting...' : 'Delete'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Container>
+          <Divider sx={{ gridColumn: "1 / -1", my: 1 }} />
+          <SectionTitle>Route conditions</SectionTitle>
+          {selectField("proposedOfcSide", "Proposed OFC side")}
+          {selectField("alignmentType", "Alignment type")}
+          {selectField("soilStatus", "Soil status")}
+          {selectField("roadSurfaceType", "Road surface")}
+          {selectField("methodOfConstruction", "Method of construction")}
+          {selectField("pitType", "Pit type")}
+          {selectField("protectionType", "Protection type")}
+          <TextField
+            label="Estimated depth (m)"
+            type="number"
+            value={form.estimatedDepth}
+            onChange={updateForm("estimatedDepth")}
+            size="small"
+            slotProps={{ htmlInput: { min: 0 } }}
+          />
+          <TextField
+            label="Offset from road centre (m)"
+            type="number"
+            value={form.proposedOffsetFromCenterOfRoad}
+            onChange={updateForm("proposedOffsetFromCenterOfRoad")}
+            size="small"
+            slotProps={{ htmlInput: { min: 0 } }}
+          />
+          <FormControlLabel
+            control={<Switch checked={form.waterLoggedArea} onChange={updateForm("waterLoggedArea")} />}
+            label="Water-logged area"
+            sx={{ gridColumn: "1 / -1" }}
+          />
+
+          <Divider sx={{ gridColumn: "1 / -1", my: 1 }} />
+          <SectionTitle>Right of way</SectionTitle>
+          {selectField("rowOwnership", "Ownership")}
+          <TextField label="Authority" value={form.rowAuthority} onChange={updateForm("rowAuthority")} size="small" />
+          <TextField label="Authority contact name" value={form.rowAuthorityName} onChange={updateForm("rowAuthorityName")} size="small" />
+          <TextField
+            label="Authority address"
+            value={form.rowAuthorityAddress}
+            onChange={updateForm("rowAuthorityAddress")}
+            size="small"
+            sx={{ gridColumn: "1 / -1" }}
+          />
+          <TextField
+            label="Feasibility"
+            value={form.rowFeasibility}
+            onChange={updateForm("rowFeasibility")}
+            size="small"
+            multiline
+            minRows={2}
+            sx={{ gridColumn: "1 / -1" }}
+          />
+
+          <Divider sx={{ gridColumn: "1 / -1", my: 1 }} />
+          <TextField
+            label="Remarks"
+            value={form.remarks}
+            onChange={updateForm("remarks")}
+            size="small"
+            multiline
+            minRows={2}
+            sx={{ gridColumn: "1 / -1" }}
+          />
+        </Box>
+      </FormDialog>
+
+      <ConfirmDeleteDialog
+        open={Boolean(deleteTarget)}
+        title="Delete subsection?"
+        error={deleteError}
+        deleting={deleting}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+      >
+        "{deleteTarget?.name || "This subsection"}" will be deleted. This can't be undone.
+      </ConfirmDeleteDialog>
+    </Box>
   );
 };
 
 export default SubsectionsPage;
-
-

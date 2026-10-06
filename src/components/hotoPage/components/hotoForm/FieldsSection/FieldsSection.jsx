@@ -1,4 +1,5 @@
-import { Box, Typography, Button, Stack, Divider } from "@mui/material";
+import { Box, Button, Typography, useMediaQuery } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import { useState } from "react";
 import {
   Add as AddIcon,
@@ -6,14 +7,17 @@ import {
 } from "@mui/icons-material";
 import { FieldForm } from "./components";
 import TemplateSelector from "../../TemplateSelector";
+import FormSection from "../FormSection";
+import { FIELD_ROW_COLUMNS } from "./fieldRowLayout";
 
 const FieldsSection = ({
   fields,
   setFields,
-  scrollDialogContent,
   location,
   setLocation,
 }) => {
+  const theme = useTheme();
+  const isPhone = useMediaQuery(theme.breakpoints.down("sm"));
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
 
   const handleAddField = () => {
@@ -24,10 +28,6 @@ const FieldsSection = ({
         mediaFiles: [],
       },
     ]);
-
-    // setTimeout(() => {
-    //   scrollDialogContent();
-    // }, 100);
   };
 
   const handleFieldChange = (index, updatedField) => {
@@ -54,150 +54,108 @@ const FieldsSection = ({
       }));
     }
 
-    // Set the template fields
     setFields(templateData.fields);
-
-    // Close template selector
-    setTemplateSelectorOpen(false);
-
-    // Scroll to show the new fields
-    // setTimeout(() => {
-    //   scrollDialogContent();
-    // }, 100);
-  };
-
-  const handleOpenTemplateSelector = () => {
-    setTemplateSelectorOpen(true);
-  };
-
-  const handleCloseTemplateSelector = () => {
     setTemplateSelectorOpen(false);
   };
+
+  const mediaCount = fields.reduce((total, field) => total + (field.mediaFiles?.length || 0), 0);
 
   return (
-    <Box>
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          mb: 2,
-        }}
-      >
-        <Typography variant="h6">Fields</Typography>
-        <Button
-          variant="outlined"
-          color="secondary"
-          startIcon={<TemplateIcon />}
-          onClick={handleOpenTemplateSelector}
-          sx={{
-            borderRadius: 2,
-            px: 2,
-            "&:hover": {
-              backgroundColor: "secondary.main",
-              color: "white",
-            },
-          }}
-        >
-          Use Template
-        </Button>
-      </Box>
-
-      {fields.length === 0 && (
+    <FormSection
+      title="Fields"
+      description={
+        fields.length
+          ? `${fields.length} ${fields.length === 1 ? "field" : "fields"}${mediaCount ? ` · ${mediaCount} media` : ""}`
+          : "Asset and site details recorded in this handover"
+      }
+      action={
+        fields.length > 0 && (
+          <Button size="small" variant="outlined" startIcon={<TemplateIcon />} onClick={() => setTemplateSelectorOpen(true)}>
+            Use template
+          </Button>
+        )
+      }
+      grid={false}
+    >
+      {fields.length === 0 ? (
         <Box
           sx={{
-            p: 3,
+            py: 4,
+            px: 2,
             textAlign: "center",
-            bgcolor: "grey.50",
-            borderRadius: 2,
-            border: "2px dashed",
-            borderColor: "grey.300",
-            mb: 2,
+            border: "1px dashed",
+            borderColor: "divider",
+            borderRadius: 1.5,
+            bgcolor: "background.default",
           }}
         >
-          <TemplateIcon sx={{ fontSize: 48, color: "grey.400", mb: 1 }} />
-          <Typography variant="h6" color="text.secondary" gutterBottom>
-            No Fields Added Yet
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            No fields yet
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Start by using a predefined template or add custom fields manually
+          <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5, mb: 2 }}>
+            Start from a Block, GP or OFC template, or add fields one at a time.
           </Typography>
-          <Stack direction="row" spacing={2} justifyContent="center">
-            <Button
-              variant="contained"
-              color="secondary"
-              startIcon={<TemplateIcon />}
-              onClick={handleOpenTemplateSelector}
-            >
-              Use Template
+          <Box sx={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: 1.5 }}>
+            <Button variant="contained" startIcon={<TemplateIcon />} onClick={() => setTemplateSelectorOpen(true)}>
+              Use template
             </Button>
-            <Button
-              variant="outlined"
-              color="primary"
-              startIcon={<AddIcon />}
-              onClick={handleAddField}
-            >
-              Add Custom Field
+            <Button variant="outlined" startIcon={<AddIcon />} onClick={handleAddField}>
+              Add field
             </Button>
-          </Stack>
+          </Box>
+        </Box>
+      ) : (
+        <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1.5 }}>
+          {!isPhone && (
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: FIELD_ROW_COLUMNS,
+                gap: 1.5,
+                px: 1.5,
+                py: 1,
+                borderBottom: 1,
+                borderColor: "divider",
+                bgcolor: "background.default",
+                borderRadius: "6px 6px 0 0",
+                "& > *": { fontSize: "0.75rem", fontWeight: 600, color: "text.secondary" },
+              }}
+            >
+              <Box component="span">#</Box>
+              <Box component="span">Key</Box>
+              <Box component="span">Value</Box>
+              <Box component="span">Remarks</Box>
+              <Box component="span" />
+            </Box>
+          )}
+
+          {fields.map((field, index) => (
+            <FieldForm
+              key={index}
+              field={field}
+              index={index}
+              onChange={handleFieldChange}
+              onDelete={handleDeleteField}
+              showLabels={isPhone}
+            />
+          ))}
+
+          <Box sx={{ px: 1, py: 0.75 }}>
+            <Button size="small" startIcon={<AddIcon />} onClick={handleAddField}>
+              Add field
+            </Button>
+          </Box>
         </Box>
       )}
 
-      {fields.map((field, index) => (
-        <FieldForm
-          key={index}
-          field={field}
-          index={index}
-          onChange={handleFieldChange}
-          onDelete={handleDeleteField}
-          // scrollDialogContent={scrollDialogContent}
-        />
-      ))}
-
-      {fields.length > 0 && (
-        <>
-          <Divider sx={{ my: 2 }} />
-          <Stack direction="row" spacing={2}>
-            <Button
-              variant="outlined"
-              color="primary"
-              startIcon={<AddIcon />}
-              onClick={handleAddField}
-              sx={{
-                "&:hover": {
-                  backgroundColor: "primary.main",
-                  color: "white",
-                },
-              }}
-            >
-              Add Field
-            </Button>
-            <Button
-              variant="outlined"
-              color="secondary"
-              startIcon={<TemplateIcon />}
-              onClick={handleOpenTemplateSelector}
-              sx={{
-                "&:hover": {
-                  backgroundColor: "secondary.main",
-                  color: "white",
-                },
-              }}
-            >
-              Load Template
-            </Button>
-          </Stack>
-        </>
-      )}
-
-      {/* Template Selector Modal */}
       <TemplateSelector
         open={templateSelectorOpen}
-        onClose={handleCloseTemplateSelector}
+        onClose={() => setTemplateSelectorOpen(false)}
         onTemplateSelect={handleTemplateSelect}
         currentHotoType={location?.hotoType || ""}
+        existingFieldCount={fields.length}
       />
-    </Box>
+    </FormSection>
   );
 };
 

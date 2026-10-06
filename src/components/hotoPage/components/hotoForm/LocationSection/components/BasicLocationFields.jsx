@@ -1,5 +1,6 @@
 import FormField from "./FormField";
 
+// Latitude and longitude are rendered by LocationSection, after the GP and OFC codes
 const BasicLocationFields = ({ location, handleChange }) => (
   <>
     <FormField
@@ -8,36 +9,26 @@ const BasicLocationFields = ({ location, handleChange }) => (
       onChange={handleChange("state")}
     />
     <FormField
-      label="Block Name"
-      value={location.blockName}
-      onChange={handleChange("blockName")}
-    />
-    <FormField
-      label="Block Code"
-      value={location.blockCode}
-      onChange={handleChange("blockCode")}
-    />
-    <FormField
-      label="District Name"
+      label="District name"
       value={location.districtName}
       onChange={handleChange("districtName")}
     />
     <FormField
-      label="District Code"
+      label="District code"
       value={location.districtCode}
       onChange={handleChange("districtCode")}
     />
     <FormField
-      label="Latitude"
-      value={location.latitude}
-      onChange={handleChange("latitude")}
+      label="Block name"
+      value={location.blockName}
+      onChange={handleChange("blockName")}
     />
     <FormField
-      label="Longitude"
-      value={location.longitude}
-      onChange={handleChange("longitude")}
+      label="Block code"
+      value={location.blockCode}
+      onChange={handleChange("blockCode")}
     />
   </>
 );
 
-export default BasicLocationFields; 
+export default BasicLocationFields;

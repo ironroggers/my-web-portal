@@ -1,91 +1,73 @@
-import { Box, Chip, Typography } from "@mui/material";
+import { Box, Button, Checkbox, FormControlLabel, Tooltip, Typography } from "@mui/material";
+import LayersOutlinedIcon from "@mui/icons-material/LayersOutlined";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
-const RouteVisibilityControls = ({ routeVisibility, setRouteVisibility }) => {
-  const handleRouteVisibilityChange = (type) => {
-    setRouteVisibility((prev) => ({
-      ...prev,
-      [type]: !prev[type],
-    }));
-  };
+const ROUTE_TOGGLES = [
+  { type: "desktopSurvey", label: "Desktop survey routes", color: "#2563eb" },
+  { type: "physicalSurvey", label: "Physical survey routes", color: "#f59e0b" },
+];
 
-  const chipsOptions = [
-    {
-      label: "Desktop Survey (Blue)",
-      type: "desktopSurvey",
-      color: "primary",
-      onClick: () => handleRouteVisibilityChange("desktopSurvey"),
-    },
-    {
-      label: "Physical Survey (Yellow)",
-      type: "physicalSurvey",
-      color: "warning",
-      onClick: () => handleRouteVisibilityChange("physicalSurvey"),
-    },
-    {
-      label: "KMLs (Green)",
-      type: "addKML",
-      color: "success",
-      colorConstant: "success",
-      onClick: () => handleRouteVisibilityChange("addKML"),
-    },
-  ];
+/**
+ * Toolbar above the map: route layer toggles and the KML layers dialog.
+ * `addKML` only opens that dialog; loaded KMLs have their own show/hide.
+ */
+const RouteVisibilityControls = ({ routeVisibility, setRouteVisibility, canManageKml, kmlCount = 0, showHint }) => {
+  const toggle = (type) => setRouteVisibility((prev) => ({ ...prev, [type]: !prev[type] }));
 
   return (
     <Box
       sx={{
         display: "flex",
-        mb: 2,
-        p: 2,
-        bgcolor: "rgba(0,0,0,0.03)",
-        borderRadius: "8px 8px 0 0",
         alignItems: "center",
-        gap: 2,
         flexWrap: "wrap",
-        border: "1px solid rgba(0,0,0,0.08)",
-        borderBottom: "none",
+        columnGap: 2,
+        rowGap: 0.5,
+        px: 2,
+        py: 0.75,
+        borderBottom: 1,
+        borderColor: "divider",
       }}
     >
-      <Typography variant="subtitle2" fontWeight={600}>
-        Route Visibility:
-      </Typography>
-      <Box sx={{ display: "flex", gap: 2 }}>
-        {chipsOptions.map((chip) => (
-          <Chip
-            key={chip.label}
-            label={chip.label}
-            color={
-              chip.colorConstant
-                ? chip.colorConstant
-                : routeVisibility[chip.type]
-                ? chip.color
-                : "default"
-            }
-            onClick={chip.onClick}
-            variant={routeVisibility[chip.type] ? "filled" : "outlined"}
-            sx={{ fontWeight: 500, cursor: "pointer" }}
-          />
-        ))}
-      </Box>
-      <Box
-        sx={{
-          ml: "auto",
-          display: "flex",
-          alignItems: "center",
-          gap: 1,
-        }}
-      >
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ fontStyle: "italic" }}
-        >
-          💡 Click on blue numbered markers or "View Location Details" buttons
-          to explore location information.
-          <br />
-          🗺️ Select exactly one location and click anywhere on the map to add
-          temporary route points.
-        </Typography>
-      </Box>
+      {ROUTE_TOGGLES.map((option) => (
+        <FormControlLabel
+          key={option.type}
+          control={<Checkbox size="small" checked={Boolean(routeVisibility[option.type])} onChange={() => toggle(option.type)} />}
+          label={
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+              <Box component="span" sx={{ width: 18, height: 4, borderRadius: 1, bgcolor: option.color }} />
+              <Typography variant="body2">{option.label}</Typography>
+            </Box>
+          }
+          sx={{ mr: 0 }}
+        />
+      ))}
+
+      <Box sx={{ flex: 1 }} />
+
+      {showHint && (
+        <Tooltip title="Select one location, then click the map to add a temporary route point. Click a numbered marker for the location's details.">
+          <Typography
+            variant="caption"
+            tabIndex={0}
+            sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, color: "text.secondary", cursor: "help" }}
+          >
+            <InfoOutlinedIcon sx={{ fontSize: 16 }} />
+            Map tips
+          </Typography>
+        </Tooltip>
+      )}
+      <Tooltip title={canManageKml ? "" : "Select a location to manage its KML layers"}>
+        <span>
+          <Button
+            size="small"
+            startIcon={<LayersOutlinedIcon />}
+            onClick={() => setRouteVisibility((prev) => ({ ...prev, addKML: true }))}
+            disabled={!canManageKml}
+          >
+            KML layers{kmlCount ? ` (${kmlCount})` : ""}
+          </Button>
+        </span>
+      </Tooltip>
     </Box>
   );
 };

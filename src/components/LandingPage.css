@@ -75,24 +75,24 @@
 }
 
 /* Card hover effects */
-.MuiCard-root {
+:where(.dashboard-container) .MuiCard-root {
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   overflow: hidden;
 }
 
-.MuiCard-root:hover {
+:where(.dashboard-container) .MuiCard-root:hover {
   transform: translateY(-8px);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
 }
 
 /* Stats cards */
-.MuiLinearProgress-root {
+:where(.dashboard-container) .MuiLinearProgress-root {
   height: 10px !important;
   border-radius: 5px;
   background-color: rgba(0, 0, 0, 0.05);
 }
 
-.MuiLinearProgress-bar {
+:where(.dashboard-container) .MuiLinearProgress-bar {
   border-radius: 5px;
 }
 
@@ -197,13 +197,13 @@
 }
 
 /* Make grids center-aligned */
-.MuiGrid-container {
+:where(.dashboard-container) .MuiGrid-container {
   margin: 0 auto !important;
   width: 100% !important;
 }
 
 /* Make cards center-aligned */
-.MuiCard-root {
+:where(.dashboard-container) .MuiCard-root {
   margin: 0 auto;
   width: 100%;
 }
@@ -253,40 +253,40 @@
 }
 
 /* Other styles */
-.MuiCard-root,
-.MuiPaper-root {
+:where(.dashboard-container) .MuiCard-root,
+:where(.dashboard-container) .MuiPaper-root {
   border-radius: 16px !important;
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
 }
 
-.MuiButton-root {
+:where(.dashboard-container) .MuiButton-root {
   border-radius: 12px !important;
   padding: 8px 20px !important;
   font-weight: 600 !important;
   text-transform: none !important;
 }
 
-.MuiLinearProgress-root {
+:where(.dashboard-container) .MuiLinearProgress-root {
   height: 8px !important;
   border-radius: 4px;
   background-color: rgba(0, 0, 0, 0.05);
 }
 
-.MuiLinearProgress-bar {
+:where(.dashboard-container) .MuiLinearProgress-bar {
   border-radius: 4px;
 }
 
-.MuiChip-root {
+:where(.dashboard-container) .MuiChip-root {
   border-radius: 8px !important;
   font-weight: 500 !important;
   height: 32px !important;
 }
 
-.MuiListItem-root {
+:where(.dashboard-container) .MuiListItem-root {
   border-radius: 12px !important;
 }
 
-.MuiDivider-root {
+:where(.dashboard-container) .MuiDivider-root {
   opacity: 0.6;
 }
 

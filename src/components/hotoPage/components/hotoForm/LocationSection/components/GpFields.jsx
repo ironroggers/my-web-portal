@@ -3,16 +3,16 @@ import FormField from "./FormField";
 const GpFields = ({ location, handleChange }) => (
   <>
     <FormField
-      label="GP Name"
+      label="GP name"
       value={location.gpName}
       onChange={handleChange("gpName")}
     />
     <FormField
-      label="GP Code"
+      label="GP code"
       value={location.gpCode}
       onChange={handleChange("gpCode")}
     />
   </>
 );
 
-export default GpFields; 
+export default GpFields;

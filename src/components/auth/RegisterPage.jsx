@@ -6,7 +6,6 @@ import {
   Typography, 
   TextField, 
   Button, 
-  Paper, 
   Grid,
   Alert,
   IconButton,
@@ -15,13 +14,12 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Avatar,
   CircularProgress
 } from '@mui/material';
 import { useAuth } from '../../context/AuthContext';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import PersonAddAltIcon from '@mui/icons-material/PersonAddAlt';
+import AuthLayout from './AuthLayout';
 
 const RegisterPage = () => {
   const [formData, setFormData] = useState({
@@ -120,169 +118,158 @@ const RegisterPage = () => {
   }
 
   return (
-    <Container component="main" maxWidth="sm">
-      <Paper 
-        elevation={3} 
-        sx={{ 
-          mt: 8, 
-          p: 4, 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center',
-          borderRadius: 2
-        }}
-      >
-        <Avatar sx={{ m: 1, bgcolor: 'secondary.main' }}>
-          <PersonAddAltIcon />
-        </Avatar>
-        <Typography component="h1" variant="h5" sx={{ mb: 3 }}>
-          Create an Account
-        </Typography>
-        
-        {error && (
-          <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-        
-        <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <TextField
-                required
-                fullWidth
-                id="username"
-                label="Username"
-                name="username"
-                autoComplete="username"
-                value={formData.username}
+    <AuthLayout formMaxWidth={520}>
+      <Typography component="h1" sx={{ fontSize: '1.625rem', fontWeight: 700, letterSpacing: '-0.01em' }}>
+        Create an account
+      </Typography>
+      <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5, mb: 4 }}>
+        Fill in the details below to register a new user.
+      </Typography>
+      
+      {error && (
+        <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+      
+      <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
+        <Grid container spacing={2}>
+          <Grid size={12}>
+            <TextField
+              required
+              fullWidth
+              id="username"
+              label="Username"
+              name="username"
+              autoComplete="username"
+              value={formData.username}
+              onChange={handleChange}
+            />
+          </Grid>
+          
+          <Grid size={12}>
+            <TextField
+              required
+              fullWidth
+              id="email"
+              label="Email Address"
+              name="email"
+              autoComplete="email"
+              value={formData.email}
+              onChange={handleChange}
+            />
+          </Grid>
+          
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField
+              required
+              fullWidth
+              name="password"
+              label="Password"
+              type={showPassword ? 'text' : 'password'}
+              id="password"
+              autoComplete="new-password"
+              value={formData.password}
+              onChange={handleChange}
+              error={!passwordsMatch}
+              helperText={!passwordsMatch && "Passwords don't match"}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle password visibility"
+                      onClick={handleClickShowPassword}
+                      edge="end"
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Grid>
+          
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField
+              required
+              fullWidth
+              name="confirmPassword"
+              label="Confirm Password"
+              type={showPassword ? 'text' : 'password'}
+              id="confirmPassword"
+              autoComplete="new-password"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              error={!passwordsMatch}
+              helperText={!passwordsMatch && "Passwords don't match"}
+            />
+          </Grid>
+          
+          <Grid size={12}>
+            <FormControl fullWidth required>
+              <InputLabel id="role-label">Role</InputLabel>
+              <Select
+                labelId="role-label"
+                id="role"
+                name="role"
+                value={formData.role}
+                label="Role"
                 onChange={handleChange}
-              />
-            </Grid>
-            
-            <Grid item xs={12}>
-              <TextField
-                required
-                fullWidth
-                id="email"
-                label="Email Address"
-                name="email"
-                autoComplete="email"
-                value={formData.email}
-                onChange={handleChange}
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                required
-                fullWidth
-                name="password"
-                label="Password"
-                type={showPassword ? 'text' : 'password'}
-                id="password"
-                autoComplete="new-password"
-                value={formData.password}
-                onChange={handleChange}
-                error={!passwordsMatch}
-                helperText={!passwordsMatch && "Passwords don't match"}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        aria-label="toggle password visibility"
-                        onClick={handleClickShowPassword}
-                        edge="end"
-                      >
-                        {showPassword ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                required
-                fullWidth
-                name="confirmPassword"
-                label="Confirm Password"
-                type={showPassword ? 'text' : 'password'}
-                id="confirmPassword"
-                autoComplete="new-password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                error={!passwordsMatch}
-                helperText={!passwordsMatch && "Passwords don't match"}
-              />
-            </Grid>
-            
-            <Grid item xs={12}>
+              >
+                <MenuItem value="SURVEYOR">Surveyor</MenuItem>
+                <MenuItem value="SUPERVISOR">Supervisor</MenuItem>
+                <MenuItem value="PERFORMER">Performer</MenuItem>
+                <MenuItem value="VIEWER">Viewer</MenuItem>
+                <MenuItem value="ADMIN">Admin</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          
+          {formData.role !== 'ADMIN' && (
+            <Grid size={12}>
               <FormControl fullWidth required>
-                <InputLabel id="role-label">Role</InputLabel>
+                <InputLabel id="reporting-to-label">Reporting To</InputLabel>
                 <Select
-                  labelId="role-label"
-                  id="role"
-                  name="role"
-                  value={formData.role}
-                  label="Role"
+                  labelId="reporting-to-label"
+                  id="reportingTo"
+                  name="reportingTo"
+                  value={formData.reportingTo}
+                  label="Reporting To"
                   onChange={handleChange}
                 >
-                  <MenuItem value="SURVEYOR">Surveyor</MenuItem>
-                  <MenuItem value="SUPERVISOR">Supervisor</MenuItem>
-                  <MenuItem value="PERFORMER">Performer</MenuItem>
-                  <MenuItem value="VIEWER">Viewer</MenuItem>
-                  <MenuItem value="ADMIN">Admin</MenuItem>
+                  {potentialManagers.map((manager) => (
+                    <MenuItem key={manager._id} value={manager._id}>
+                      {manager.username} ({manager.role})
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
-            
-            {formData.role !== 'ADMIN' && (
-              <Grid item xs={12}>
-                <FormControl fullWidth required>
-                  <InputLabel id="reporting-to-label">Reporting To</InputLabel>
-                  <Select
-                    labelId="reporting-to-label"
-                    id="reportingTo"
-                    name="reportingTo"
-                    value={formData.reportingTo}
-                    label="Reporting To"
-                    onChange={handleChange}
-                  >
-                    {potentialManagers.map((manager) => (
-                      <MenuItem key={manager._id} value={manager._id}>
-                        {manager.username} ({manager.role})
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-            )}
+          )}
+        </Grid>
+        
+        <Button
+          type="submit"
+          fullWidth
+          variant="contained"
+          size="large"
+          sx={{ mt: 3, mb: 2, py: 1.25 }}
+          disabled={loading}
+        >
+          {loading ? 'Registering...' : 'Register'}
+        </Button>
+        
+        <Grid container sx={{ justifyContent: 'center' }}>
+          <Grid>
+            <Link to="/login" style={{ textDecoration: 'none' }}>
+              <Typography variant="body2" color="primary">
+                {"Already have an account? Sign in"}
+              </Typography>
+            </Link>
           </Grid>
-          
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            sx={{ mt: 3, mb: 2 }}
-            disabled={loading}
-          >
-            {loading ? 'Registering...' : 'Register'}
-          </Button>
-          
-          <Grid container justifyContent="center">
-            <Grid item>
-              <Link to="/login" style={{ textDecoration: 'none' }}>
-                <Typography variant="body2" color="primary">
-                  {"Already have an account? Sign in"}
-                </Typography>
-              </Link>
-            </Grid>
-          </Grid>
-        </Box>
-      </Paper>
-    </Container>
+        </Grid>
+      </Box>
+    </AuthLayout>
   );
 };
 

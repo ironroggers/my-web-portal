@@ -7,17 +7,21 @@ import {
   DialogActions,
   Button,
 } from "@mui/material";
+import { ErrorOutline } from "@mui/icons-material";
 
 const ErrorDialog = ({ open, onClose, message }) => {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      {/* <DialogTitle>Upload Error</DialogTitle> */}
+      <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+        <ErrorOutline sx={{ color: "error.main" }} />
+        Upload failed
+      </DialogTitle>
       <DialogContent>
-        <DialogContentText sx={{ whiteSpace: "pre-line" }}>
+        <DialogContentText variant="body2" sx={{ whiteSpace: "pre-line" }}>
           {message}
         </DialogContentText>
       </DialogContent>
-      <DialogActions>
+      <DialogActions sx={{ px: 3, py: 1.5 }}>
         <Button onClick={onClose} color="primary" variant="contained">
           OK
         </Button>
@@ -27,4 +31,3 @@ const ErrorDialog = ({ open, onClose, message }) => {
 };
 
 export default ErrorDialog;
-

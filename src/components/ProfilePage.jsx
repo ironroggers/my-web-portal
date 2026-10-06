@@ -1,202 +1,282 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Container, 
-  Box, 
-  Typography, 
-  TextField, 
-  Button, 
-  Paper, 
-  Grid,
+import React, { useCallback, useEffect, useState } from 'react';
+import {
   Alert,
   Avatar,
-  CircularProgress
+  Box,
+  Button,
+  Card,
+  CircularProgress,
+  Divider,
+  Grid,
+  Skeleton,
+  Stack,
+  TextField,
+  Typography,
 } from '@mui/material';
+import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { useAuth } from '../context/AuthContext';
-import PersonIcon from '@mui/icons-material/Person';
+import PageHeader from './common/PageHeader';
+import SectionCard from './common/SectionCard';
+
+const ROLE_LABELS = {
+  ADMIN: 'Admin',
+  SUPERVISOR: 'Supervisor',
+  'EXECUTION ENGINEER': 'Execution Engineer',
+  SURVEYOR: 'Surveyor',
+  VIEWER: 'Viewer',
+};
+
+const EMPTY_FORM = { username: '', email: '', phone: '' };
+
+const toForm = (profile) => ({
+  username: profile?.username || '',
+  email: profile?.email || '',
+  phone: profile?.phone || '',
+});
+
+const getInitials = (name) =>
+  (name || '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('') || '?';
+
+// `reportingTo` may arrive populated ({ username }) or as a bare id
+const getManagerName = (reportingTo) =>
+  reportingTo && typeof reportingTo === 'object' ? reportingTo.username || reportingTo.email : null;
+
+const DetailRow = ({ label, value }) => (
+  <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, py: 1.25 }}>
+    <Typography variant="body2" sx={{ color: 'text.secondary', flexShrink: 0 }}>
+      {label}
+    </Typography>
+    <Typography
+      variant="body2"
+      sx={{ fontWeight: 500, textAlign: 'right', minWidth: 0, overflowWrap: 'anywhere', color: value ? 'text.primary' : 'text.disabled' }}
+    >
+      {value || '—'}
+    </Typography>
+  </Box>
+);
 
 const ProfilePage = () => {
   const { user, token, getProfile, updateProfile } = useAuth();
-  const [profileData, setProfileData] = useState({
-    username: '',
-    email: '',
-    phone: ''
-  });
-  const [loading, setLoading] = useState(true);
+  // undefined while loading, null if the request failed
+  const [profile, setProfile] = useState(undefined);
+  const [formData, setFormData] = useState(EMPTY_FORM);
+  const [loadError, setLoadError] = useState('');
   const [updating, setUpdating] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
-  
-  // Load user profile data
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const profile = await getProfile();
-        setProfileData({
-          username: profile.username || '',
-          email: profile.email || '',
-          phone: profile.phone || ''
-        });
-      } catch (error) {
-        setMessage({ type: 'error', text: error.message || 'Failed to load profile data' });
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    if (user && token) {
-      loadProfile();
-    } else {
-      setLoading(false);
+
+  const loadProfile = useCallback(async () => {
+    setProfile(undefined);
+    setLoadError('');
+    try {
+      const data = await getProfile();
+      setProfile(data);
+      setFormData(toForm(data));
+    } catch (error) {
+      setProfile(null);
+      setLoadError(error.message || 'Failed to load profile data');
     }
-  }, [user, token, getProfile]);
-  
+    // getProfile is recreated on every AuthContext render; load once per sign-in
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  // Load once per sign-in; saving updates the page from the response instead of reloading
+  useEffect(() => {
+    if (token) loadProfile();
+  }, [token, loadProfile]);
+
+  const savedForm = toForm(profile);
+  const isDirty = Boolean(profile) && Object.keys(EMPTY_FORM).some((key) => formData[key] !== savedForm[key]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setProfileData({ ...profileData, [name]: value });
+    setFormData((previous) => ({ ...previous, [name]: value }));
+    if (message.type === 'success') setMessage({ type: '', text: '' });
   };
-  
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setUpdating(true);
     setMessage({ type: '', text: '' });
-    
+
     try {
-      await updateProfile(profileData);
-      setMessage({ 
-        type: 'success', 
-        text: 'Profile updated successfully!' 
-      });
+      const updated = await updateProfile(formData);
+      // Show what the server saved, which may differ from what was typed
+      const saved = { ...profile, ...formData, ...updated };
+      setProfile(saved);
+      setFormData(toForm(saved));
+      setMessage({ type: 'success', text: 'Your profile has been updated.' });
     } catch (error) {
-      setMessage({ 
-        type: 'error', 
-        text: error.message || 'Failed to update profile' 
-      });
+      setMessage({ type: 'error', text: error.message || 'Failed to update profile' });
     } finally {
       setUpdating(false);
     }
   };
-  
-  if (loading) {
-    return (
-      <Container sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-        <CircularProgress />
-      </Container>
-    );
-  }
-  
+
+  const handleDiscard = () => {
+    setFormData(savedForm);
+    setMessage({ type: '', text: '' });
+  };
+
+  const isLoading = profile === undefined;
+  // Fall back to the signed-in user while the profile loads or if it failed
+  const account = { ...user, ...profile };
+  const roleLabel = ROLE_LABELS[account.role] || account.role;
+
   return (
-    <Container component="main" maxWidth="md">
-      <Paper 
-        elevation={3} 
-        sx={{ 
-          mt: 4, 
-          p: 4, 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center',
-          borderRadius: 2
-        }}
-      >
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center', 
-          mb: 3 
-        }}>
-          <Avatar 
-            sx={{ 
-              bgcolor: 'primary.main', 
-              width: 72, 
-              height: 72, 
-              mb: 2 
-            }}
-          >
-            <PersonIcon fontSize="large" />
-          </Avatar>
-          <Typography component="h1" variant="h4">
-            {user?.username}
-          </Typography>
-          <Typography color="text.secondary" variant="subtitle1">
-            {user?.role}
-          </Typography>
-        </Box>
-        
-        {message.text && (
-          <Alert 
-            severity={message.type} 
-            sx={{ width: '100%', mb: 3 }}
-            onClose={() => setMessage({ type: '', text: '' })}
-          >
-            {message.text}
-          </Alert>
-        )}
-        
-        <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                id="username"
-                label="Username"
-                name="username"
-                value={profileData.username}
-                onChange={handleChange}
-                required
-              />
-            </Grid>
-            
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                id="email"
-                label="Email Address"
-                name="email"
-                type="email"
-                value={profileData.email}
-                onChange={handleChange}
-                required
-              />
-            </Grid>
-            
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                id="phone"
-                label="Phone Number"
-                name="phone"
-                type="tel"
-                value={profileData.phone || ''}
-                onChange={handleChange}
-              />
-            </Grid>
-            
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                id="role"
-                label="Role"
-                value={user?.role || ''}
-                InputProps={{
-                  readOnly: true,
-                }}
-                disabled
-              />
-            </Grid>
-            
-            <Grid item xs={12}>
-              <Button
-                type="submit"
-                variant="contained"
-                disabled={updating}
-                sx={{ mt: 2 }}
+    <Box>
+      <PageHeader title="My Profile" subtitle="Your account details and contact information" />
+
+      <Grid container spacing={3} sx={{ alignItems: 'flex-start' }}>
+        {/* Identity */}
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Card>
+            <Box sx={{ p: 3, textAlign: 'center' }}>
+              <Avatar
+                sx={{ width: 72, height: 72, mx: 'auto', mb: 1.5, fontSize: '1.5rem', fontWeight: 600, bgcolor: 'primary.main' }}
               >
-                {updating ? 'Updating...' : 'Update Profile'}
-              </Button>
-            </Grid>
-          </Grid>
-        </Box>
-      </Paper>
-    </Container>
+                {getInitials(account.username)}
+              </Avatar>
+              <Typography variant="h6" sx={{ overflowWrap: 'anywhere' }}>
+                {account.username || 'Your account'}
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary', overflowWrap: 'anywhere' }}>
+                {account.email}
+              </Typography>
+            </Box>
+            <Divider />
+            <Box sx={{ px: 3, py: 0.5, '& > :not(:last-child)': { borderBottom: 1, borderColor: 'divider' } }}>
+              {isLoading ? (
+                Array.from({ length: 4 }, (_, index) => <Skeleton key={index} variant="text" height={44} />)
+              ) : (
+                <>
+                  <DetailRow label="Role" value={roleLabel} />
+                  <DetailRow label="Designation" value={account.designation} />
+                  <DetailRow label="Project" value={account.project} />
+                  {account.role !== 'ADMIN' && <DetailRow label="Reports to" value={getManagerName(account.reportingTo)} />}
+                </>
+              )}
+            </Box>
+          </Card>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 8 }}>
+          <Stack spacing={3}>
+            {/* Contact details */}
+            <SectionCard
+              title="Contact details"
+              subtitle="Your name, email and phone number"
+              icon={<PersonOutlineIcon />}
+            >
+              {loadError ? (
+                <Alert
+                  severity="error"
+                  action={
+                    <Button color="inherit" size="small" onClick={loadProfile}>
+                      Retry
+                    </Button>
+                  }
+                >
+                  {loadError}
+                </Alert>
+              ) : (
+                <Box component="form" onSubmit={handleSubmit}>
+                  {message.text && (
+                    <Alert severity={message.type} sx={{ mb: 2.5 }} onClose={() => setMessage({ type: '', text: '' })}>
+                      {message.text}
+                    </Alert>
+                  )}
+
+                  <Grid container spacing={2.5}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      {isLoading ? (
+                        <Skeleton variant="rounded" height={40} />
+                      ) : (
+                        <TextField
+                          fullWidth
+                          size="small"
+                          id="username"
+                          label="Name"
+                          name="username"
+                          value={formData.username}
+                          onChange={handleChange}
+                          autoComplete="name"
+                          required
+                        />
+                      )}
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      {isLoading ? (
+                        <Skeleton variant="rounded" height={40} />
+                      ) : (
+                        <TextField
+                          fullWidth
+                          size="small"
+                          id="phone"
+                          label="Phone number"
+                          name="phone"
+                          type="tel"
+                          value={formData.phone}
+                          onChange={handleChange}
+                          autoComplete="tel"
+                        />
+                      )}
+                    </Grid>
+                    <Grid size={12}>
+                      {isLoading ? (
+                        <Skeleton variant="rounded" height={40} />
+                      ) : (
+                        <TextField
+                          fullWidth
+                          size="small"
+                          id="email"
+                          label="Email address"
+                          name="email"
+                          type="email"
+                          value={formData.email}
+                          onChange={handleChange}
+                          autoComplete="email"
+                          helperText="You sign in with this address"
+                          required
+                        />
+                      )}
+                    </Grid>
+                  </Grid>
+
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5, mt: 3 }}>
+                    <Button color="inherit" onClick={handleDiscard} disabled={!isDirty || updating}>
+                      Discard
+                    </Button>
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      disabled={!isDirty || updating}
+                      startIcon={updating ? <CircularProgress size={16} color="inherit" /> : undefined}
+                    >
+                      {updating ? 'Saving…' : 'Save changes'}
+                    </Button>
+                  </Box>
+                </Box>
+              )}
+            </SectionCard>
+
+            {/* Password */}
+            <SectionCard title="Password" icon={<LockOutlinedIcon />}>
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                Passwords can't be changed here. If you need a new password, ask a portal administrator to set one for
+                you from the Users page.
+              </Typography>
+            </SectionCard>
+          </Stack>
+        </Grid>
+      </Grid>
+    </Box>
   );
 };
 
-export default ProfilePage; 
+export default ProfilePage;

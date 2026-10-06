@@ -1,16 +1,10 @@
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  CircularProgress,
-  Box,
-} from "@mui/material";
-import { useRef, useState, useEffect } from "react";
+import { Alert, Box, Button, Divider, Skeleton, Stack } from "@mui/material";
+import { useCallback, useEffect, useState } from "react";
 import LocationSection from "./hotoForm/LocationSection/LocationSection";
 import ContactPersonSection from "./hotoForm/ContactPersonSection/ContactPersonSection";
 import FieldsSection from "./hotoForm/FieldsSection/FieldsSection";
+import HotoFormDialog from "./hotoForm/HotoFormDialog";
+import { validateLocation, withoutEmptyMedia } from "./hotoForm/prepareFields";
 import { uploadHotoMedia, updateHoto, fetchSingleHoto } from "../../../services/hotoPageService";
 
 const EditHotoModal = ({
@@ -22,9 +16,14 @@ const EditHotoModal = ({
   locationDistrict,
   fetchAllHotoInfo,
 }) => {
-  const [loading, setLoading] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
-  
+  // The record currently in the form; anything else means it is still loading
+  const [loadedId, setLoadedId] = useState(null);
+  const [loadError, setLoadError] = useState("");
+  // null, "upload" or "save"
+  const [savingStep, setSavingStep] = useState(null);
+  const [error, setError] = useState("");
+  const [errors, setErrors] = useState({});
+
   const [location, setLocation] = useState({
     state: "kerala",
     blockName: locationName,
@@ -49,21 +48,15 @@ const EditHotoModal = ({
   });
 
   const [fields, setFields] = useState([]);
-  const dialogContentRef = useRef(null);
 
-  // Load existing HOTO data when modal opens
-  useEffect(() => {
-    if (open && hotoId) {
-      loadHotoData();
-    }
-  }, [open, hotoId]);
-
-  const loadHotoData = async () => {
+  const loadHotoData = useCallback(async () => {
+    setLoadedId(null);
+    setLoadError("");
+    setError("");
+    setErrors({});
     try {
-      setInitialLoading(true);
       const hotoData = await fetchSingleHoto(hotoId);
-      
-      // Populate location data
+
       setLocation({
         state: hotoData.state || "kerala",
         blockName: hotoData.blockName || locationName,
@@ -80,7 +73,6 @@ const EditHotoModal = ({
         remarks: hotoData.remarks || "",
       });
 
-      // Populate contact person data
       setContactPerson({
         name: hotoData.contactPerson?.name || "",
         email: hotoData.contactPerson?.email || "",
@@ -88,46 +80,58 @@ const EditHotoModal = ({
         description: hotoData.contactPerson?.description || "",
       });
 
-      // Populate fields data
       setFields(hotoData.fields || []);
-      
-    } catch (error) {
-      console.error("Error loading HOTO data:", error);
-    } finally {
-      setInitialLoading(false);
+      setLoadedId(hotoId);
+    } catch (err) {
+      // Saving is blocked until the record loads, so a failed load can't overwrite it
+      setLoadError(`Couldn't load this HOTO${err.message ? ` (${err.message})` : ""}. Check the connection and try again.`);
     }
-  };
+  }, [hotoId, locationName, locationDistrict]);
 
-  const ScrollDialogContent = () => {
-    if (dialogContentRef.current) {
-      dialogContentRef.current.scrollTo({
-        top: dialogContentRef.current.scrollHeight,
-        behavior: "smooth",
-      });
+  // Reload whenever the dialog opens, so cancelled edits are discarded
+  useEffect(() => {
+    if (open && hotoId) {
+      loadHotoData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, hotoId]);
+
+  const isLoaded = loadedId === hotoId && Boolean(hotoId);
+
+  const handleLocationChange = (updater) => {
+    setLocation(updater);
+    if (errors.hotoType) setErrors({});
   };
 
   const handleSubmit = async () => {
+    const validation = validateLocation(location);
+    setErrors(validation);
+    if (Object.keys(validation).length > 0) {
+      setError("Fill in the required fields before saving.");
+      return;
+    }
+
+    setError("");
     try {
-      setLoading(true);
-      
-      // First upload media files if any new ones exist
+      const cleanFields = withoutEmptyMedia(fields);
+      const hasNewMedia = cleanFields.some((field) => field.mediaFiles?.some((media) => media.file));
+      setSavingStep(hasNewMedia ? "upload" : "save");
+
+      // Upload only newly chosen files (they have a `file`); keep existing media as is
       const fieldsWithMedia = await Promise.all(
-        fields.map(async (field) => {
+        cleanFields.map(async (field) => {
           if (field.mediaFiles && field.mediaFiles.length > 0) {
-            // Check if any media files need to be uploaded (have a 'file' property)
-            const newMediaFiles = field.mediaFiles.filter(media => media.file);
-            
+            const newMediaFiles = field.mediaFiles.filter((media) => media.file);
+
             if (newMediaFiles.length > 0) {
               const uploadedMedia = await uploadHotoMedia({
                 fields: [{ ...field, mediaFiles: newMediaFiles }],
               });
-              
-              // Combine existing media with newly uploaded media
-              const existingMedia = field.mediaFiles.filter(media => !media.file);
+
+              const existingMedia = field.mediaFiles.filter((media) => !media.file);
               return {
                 ...field,
-                mediaFiles: [...existingMedia, ...uploadedMedia.fields[0].mediaFiles]
+                mediaFiles: [...existingMedia, ...uploadedMedia.fields[0].mediaFiles],
               };
             }
           }
@@ -135,7 +139,7 @@ const EditHotoModal = ({
         })
       );
 
-      // Prepare the HOTO data according to the API schema
+      setSavingStep("save");
       const hotoData = {
         locationId: locationId,
         ...location,
@@ -143,95 +147,78 @@ const EditHotoModal = ({
         fields: fieldsWithMedia,
       };
 
-      const response = await updateHoto(hotoId, hotoData);
-      console.log("HOTO updated successfully:", response);
+      await updateHoto(hotoId, hotoData);
       fetchAllHotoInfo();
       onClose();
-    } catch (error) {
-      console.error("Error updating HOTO:", error);
+    } catch (err) {
+      setError(err.message || "Couldn't save your changes. Please try again.");
     } finally {
-      setLoading(false);
+      setSavingStep(null);
     }
   };
 
-  const handleClose = () => {
-    if (!loading) {
-      onClose();
+  const renderBody = () => {
+    if (loadError) {
+      return (
+        <Alert
+          severity="error"
+          action={
+            <Button color="inherit" size="small" onClick={loadHotoData}>
+              Retry
+            </Button>
+          }
+        >
+          {loadError}
+        </Alert>
+      );
     }
+
+    if (!isLoaded) {
+      return (
+        <Box aria-busy="true" aria-label="Loading HOTO">
+          <Skeleton variant="text" width={120} height={28} sx={{ mb: 1.5 }} />
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: "repeat(2, minmax(0, 1fr))" }, gap: 2, mb: 4 }}>
+            {Array.from({ length: 8 }, (_, index) => (
+              <Skeleton key={index} variant="rounded" height={40} />
+            ))}
+          </Box>
+          <Skeleton variant="text" width={120} height={28} sx={{ mb: 1.5 }} />
+          <Skeleton variant="rounded" height={160} />
+        </Box>
+      );
+    }
+
+    return (
+      <Stack spacing={3} divider={<Divider />}>
+        <LocationSection location={location} setLocation={handleLocationChange} errors={errors} />
+        <ContactPersonSection contactPerson={contactPerson} setContactPerson={setContactPerson} />
+        <FieldsSection
+          fields={fields}
+          setFields={setFields}
+          location={location}
+          setLocation={handleLocationChange}
+        />
+      </Stack>
+    );
   };
 
   return (
-    <Dialog
+    <HotoFormDialog
       open={open}
-      onClose={handleClose}
-      maxWidth="md"
-      fullWidth
-      slotProps={{
-        paper: {
-          sx: {
-            borderRadius: 2,
-            bgcolor: "background.paper",
-          },
-        },
-      }}
+      onClose={onClose}
+      title="Edit HOTO"
+      subtitle={[locationName, locationDistrict].filter(Boolean).join(", ")}
+      saving={Boolean(savingStep)}
+      savingLabel={savingStep === "upload" ? "Uploading media…" : "Saving…"}
+      submitLabel="Save changes"
+      submitDisabled={!isLoaded}
+      onSubmit={handleSubmit}
+      error={error}
+      onDismissError={() => setError("")}
     >
-      <DialogTitle
-        sx={{
-          px: 3,
-          py: 2,
-          borderBottom: "1px solid",
-          borderColor: "divider",
-        }}
-      >
-        Edit HOTO Entry
-      </DialogTitle>
-
-      <DialogContent sx={{ p: 3 }} ref={dialogContentRef}>
-        {initialLoading ? (
-          <Box display="flex" justifyContent="center" alignItems="center" py={4}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <>
-            <LocationSection location={location} setLocation={setLocation} />
-            <ContactPersonSection
-              contactPerson={contactPerson}
-              setContactPerson={setContactPerson}
-            />
-            <FieldsSection
-              fields={fields}
-              setFields={setFields}
-              scrollDialogContent={ScrollDialogContent}
-              location={location}
-              setLocation={setLocation}
-            />
-          </>
-        )}
-      </DialogContent>
-
-      <DialogActions
-        sx={{
-          px: 3,
-          py: 2,
-          borderTop: "1px solid",
-          borderColor: "divider",
-        }}
-      >
-        <Button onClick={handleClose} variant="outlined" color="inherit" disabled={loading}>
-          Cancel
-        </Button>
-        <Button 
-          onClick={handleSubmit} 
-          variant="contained" 
-          color="primary"
-          disabled={loading || initialLoading}
-          startIcon={loading ? <CircularProgress size={16} /> : null}
-        >
-          {loading ? "Updating..." : "Update HOTO"}
-        </Button>
-      </DialogActions>
-    </Dialog>
+      {renderBody()}
+    </HotoFormDialog>
   );
 };
 
-export default EditHotoModal; 
+export default EditHotoModal;

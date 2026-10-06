@@ -1,17 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Box, Typography, Paper, CircularProgress, Alert, Autocomplete, TextField } from '@mui/material';
+import { Box, Typography, Paper, CircularProgress, Alert, Autocomplete, TextField, Divider } from '@mui/material';
+import { format } from 'date-fns';
 import axios from 'axios';
 import { MapContainer, TileLayer, Marker, Popup, CircleMarker, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import {ATTENDANCE_URL, AUTH_URL} from "../API/api-keys.jsx";
 import { useAuth } from '../context/AuthContext';
+import { staffRoleColors } from '../theme/theme';
 
-// Fix the default icon issue in Leaflet
+// Fix the default icon issue in Leaflet (app-wide; the Locations map's KML pins use it)
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
+  iconRetinaUrl: markerIcon2x,
   iconUrl: markerIcon,
   shadowUrl: markerShadow,
   iconSize: [25, 41],
@@ -71,8 +75,6 @@ const AttendanceMapView = ({ projectFilter = 'ALL' }) => {
         const endDate = new Date();
         endDate.setHours(23, 59, 59, 999);
 
-        console.log('Fetching attendance data...');
-
         // Get all attendance records for today with status 'present'
         const attendanceResponse = await axios.get(`${ATTENDANCE_API_URL}/attendance/all`, {
           params: {
@@ -87,8 +89,6 @@ const AttendanceMapView = ({ projectFilter = 'ALL' }) => {
           console.error('Attendance API Error:', error);
           throw new Error(`Attendance API Error: ${error.message}`);
         });
-
-        console.log('Attendance data received:', attendanceResponse.data);
 
         // Filter only records with valid numeric location data (including zeros)
         const raw = attendanceResponse.data.data || [];
@@ -108,8 +108,6 @@ const AttendanceMapView = ({ projectFilter = 'ALL' }) => {
               longitude: Number(record.location.longitude)
             }
           }));
-
-        console.log('Filtered users with location:', usersWithLocation.length);
 
         // Fetch user data from auth API to get roles (attempt to fetch ALL users, bypassing any pagination)
         const authHeaders = { Authorization: `Bearer ${localStorage.getItem('token')}` };
@@ -147,8 +145,6 @@ const AttendanceMapView = ({ projectFilter = 'ALL' }) => {
         };
 
         const allUsers = await fetchAllUsers();
-
-        console.log('User data received:', { count: allUsers?.length || 0 });
 
         setAttendances(usersWithLocation);
         setUsers(allUsers || []);
@@ -212,62 +208,65 @@ const AttendanceMapView = ({ projectFilter = 'ALL' }) => {
     return defaultCenter;
   };
 
+  const formatLocationText = (loc) => {
+    if (!loc) return '-';
+    if (loc.address) return loc.address;
+    if (typeof loc.latitude !== 'undefined' && typeof loc.longitude !== 'undefined') {
+      return `${loc.latitude}, ${loc.longitude}`;
+    }
+    if (Array.isArray(loc.coordinates) && loc.coordinates.length === 2) {
+      return `${loc.coordinates[1]}, ${loc.coordinates[0]}`;
+    }
+    return '-';
+  };
+
+  const formatRole = (role) => (role ? role.charAt(0) + role.slice(1).toLowerCase() : 'Unknown role');
+
+  const formatTime = (value) => (value ? new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null);
+
+  const PopupLocation = ({ title, location, emptyText }) => (
+    <Box sx={{ mt: 1, p: 1, border: 1, borderColor: 'divider', borderRadius: 1, bgcolor: 'background.default' }}>
+      <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>{title}</Typography>
+      {location ? (
+        <>
+          <Typography variant="caption" component="div" sx={{ lineHeight: 1.4, mt: 0.25 }}>
+            {formatLocationText(location)}
+          </Typography>
+          {location.latitude !== undefined && location.longitude !== undefined && (
+            <Typography variant="caption" component="div" sx={{ color: 'text.secondary', mt: 0.25 }}>
+              {location.latitude}, {location.longitude}
+            </Typography>
+          )}
+        </>
+      ) : (
+        <Typography variant="caption" component="div" sx={{ color: 'text.secondary', mt: 0.25 }}>{emptyText}</Typography>
+      )}
+    </Box>
+  );
+
+  const LegendDot = ({ color }) => (
+    <Box component="span" sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: color, border: '2px solid #fff', boxShadow: '0 0 0 1px rgba(0,0,0,0.15)', flexShrink: 0 }} />
+  );
+
   // Render map only when we have data and not loading
   const renderMap = () => {
     if (!filteredAttendances.length) {
       return (
-        <Box sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100%',
-          bgcolor: '#f5f5f5',
-          border: '1px solid #e0e0e0',
-          borderRadius: '4px'
-        }}>
-          <Typography variant="body1">No location data available for today</Typography>
+        <Box sx={{ display: 'grid', placeItems: 'center', height: '100%', bgcolor: 'background.default', textAlign: 'center', p: 3 }}>
+          <Box>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>No check-ins with a location today</Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+              Staff appear here once they check in from the mobile app.
+            </Typography>
+          </Box>
         </Box>
       );
     }
 
     const center = getCenter();
-    console.log('Map center:', center);
-    console.log('Attendances to show:', filteredAttendances.length);
 
     const supervisorsCount = filteredAttendances.filter(a => getUserDetails(a.userId).role === 'SUPERVISOR').length;
     const surveyorsCount = filteredAttendances.length - supervisorsCount;
-
-    const popupSectionStyle = {
-      marginTop: '8px',
-      padding: '6px 8px',
-      border: '1px solid #e0e0e0',
-      borderRadius: '6px',
-      background: '#fafafa'
-    };
-
-    const addrTextStyle = {
-      whiteSpace: 'normal',
-      lineHeight: 1.3,
-      marginTop: '4px'
-    };
-
-    const smallTextStyle = {
-      color: '#666',
-      fontSize: '12px',
-      marginTop: '4px'
-    };
-
-    const formatLocationText = (loc) => {
-      if (!loc) return '-';
-      if (loc.address) return loc.address;
-      if (typeof loc.latitude !== 'undefined' && typeof loc.longitude !== 'undefined') {
-        return `${loc.latitude}, ${loc.longitude}`;
-      }
-      if (Array.isArray(loc.coordinates) && loc.coordinates.length === 2) {
-        return `${loc.coordinates[1]}, ${loc.coordinates[0]}`;
-      }
-      return '-';
-    };
 
     return (
       <MapContainer
@@ -293,99 +292,104 @@ const AttendanceMapView = ({ projectFilter = 'ALL' }) => {
           <MapFlyTo position={[selectedAttendance.location.latitude, selectedAttendance.location.longitude]} />
         )}
 
-        {/* Search Control */}
-        <div style={{
-          position: 'absolute',
-          top: '12px',
-          right: '12px',
-          zIndex: 1000,
-          width: '300px',
-        }}>
-          <Paper elevation={3} sx={{ p: 1 }}>
-            <Autocomplete
-              size="small"
-              options={searchOptions}
-              getOptionLabel={(option) => option.label}
-              value={(() => {
-                if (!selectedUserId) return null;
-                const user = filteredAttendances.find(a => a.userId === selectedUserId);
-                if (!user) return null;
-                const details = getUserDetails(selectedUserId);
-                return {
-                  userId: selectedUserId,
-                  label: details.username || details.email || selectedUserId,
-                  latitude: user.location.latitude,
-                  longitude: user.location.longitude,
-                };
-              })()}
-              onChange={(event, newValue) => {
-                if (newValue) {
-                  setSelectedUserId(newValue.userId);
-                } else {
-                  setSelectedUserId(null);
-                }
-              }}
-              renderInput={(params) => (
-                <TextField {...params} label="Search user on map" variant="outlined" />
-              )}
-            />
-          </Paper>
-        </div>
+        {/* Summary and legend */}
+        <Paper
+          elevation={4}
+          sx={{
+            position: 'absolute',
+            zIndex: 1000,
+            px: 2,
+            py: 1.5,
+            minWidth: 200,
+            // Phones: bottom-left, leaving the top edge to the search box
+            top: { xs: 'auto', sm: 12 },
+            bottom: { xs: 28, sm: 'auto' },
+            left: { xs: 12, sm: isViewer ? 12 : 56 },
+          }}
+        >
+          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+            Checked in today · {format(new Date(), 'd MMM yyyy')}
+          </Typography>
+          <Typography sx={{ fontSize: '1.5rem', fontWeight: 600, lineHeight: 1.3 }}>
+            {filteredAttendances.length}
+          </Typography>
+          <Divider sx={{ my: 1 }} />
+          <Box sx={{ display: 'grid', gap: 0.75 }}>
+            {[
+              { label: 'Supervisors', count: supervisorsCount, color: staffRoleColors.SUPERVISOR },
+              { label: 'Surveyors & others', count: surveyorsCount, color: staffRoleColors.SURVEYOR },
+            ].map((item) => (
+              <Box key={item.label} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <LegendDot color={item.color} />
+                <Typography variant="body2" sx={{ flex: 1 }}>{item.label}</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{item.count}</Typography>
+              </Box>
+            ))}
+          </Box>
+        </Paper>
 
-        {/* Legend */}
-        <div className="info legend" style={{
-          position: 'absolute',
-          bottom: '20px',
-          right: '10px',
-          backgroundColor: 'white',
-          padding: '10px',
-          borderRadius: '5px',
-          zIndex: 1000,
-          boxShadow: '0 0 5px rgba(0,0,0,0.2)'
-        }}>
-          <div style={{ marginBottom: '5px', fontWeight: 'bold' }}>Staff Types</div>
-          <div style={{ marginBottom: '5px' }}>
-            <span style={{
-              display: 'inline-block',
-              width: '12px',
-              height: '12px',
-              borderRadius: '50%',
-              backgroundColor: '#ff5722',
-              marginRight: '5px',
-              border: '1px solid white'
-            }}></span>
-            <span>Supervisor ({supervisorsCount})</span>
-          </div>
-          <div>
-            <span style={{
-              display: 'inline-block',
-              width: '12px',
-              height: '12px',
-              borderRadius: '50%',
-              backgroundColor: '#2196f3',
-              marginRight: '5px',
-              border: '1px solid white'
-            }}></span>
-            <span>Surveyor ({surveyorsCount})</span>
-          </div>
-        </div>
+        {/* Search Control */}
+        <Paper
+          elevation={4}
+          sx={{
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            left: { xs: isViewer ? 12 : 56, sm: 'auto' },
+            zIndex: 1000,
+            width: { xs: 'auto', sm: 300 },
+            p: 1,
+          }}
+        >
+          <Autocomplete
+            size="small"
+            options={searchOptions}
+            getOptionLabel={(option) => option.label}
+            isOptionEqualToValue={(option, value) => option.userId === value.userId}
+            value={(() => {
+              if (!selectedUserId) return null;
+              const user = filteredAttendances.find(a => a.userId === selectedUserId);
+              if (!user) return null;
+              const details = getUserDetails(selectedUserId);
+              return {
+                userId: selectedUserId,
+                label: details.username || details.email || selectedUserId,
+                latitude: user.location.latitude,
+                longitude: user.location.longitude,
+              };
+            })()}
+            onChange={(event, newValue) => {
+              if (newValue) {
+                setSelectedUserId(newValue.userId);
+              } else {
+                setSelectedUserId(null);
+              }
+            }}
+            renderInput={(params) => (
+              <TextField {...params} placeholder="Find a staff member" inputProps={{ ...params.inputProps, 'aria-label': 'Find a staff member on the map' }} />
+            )}
+          />
+        </Paper>
 
         {filteredAttendances.map((attendance, index) => {
           const user = getUserDetails(attendance.userId);
           const isSupervisor = user.role === 'SUPERVISOR';
-          const markerColor = isSupervisor ? '#ff5722' : '#2196f3'; // Orange for supervisors, blue for surveyors
+          const markerColor = isSupervisor ? staffRoleColors.SUPERVISOR : staffRoleColors.SURVEYOR;
           const isSelected = selectedUserId === attendance.userId;
+          const lastSession = attendance.sessions && attendance.sessions.length > 0
+            ? attendance.sessions[attendance.sessions.length - 1]
+            : null;
 
           return (
             <CircleMarker
               key={`${attendance.userId}-${index}`}
               center={[attendance.location.latitude, attendance.location.longitude]}
-              radius={isSelected ? 10 : 8}
+              radius={isSelected ? 10 : 7}
               pathOptions={{
                 fillColor: markerColor,
-                fillOpacity: isSelected ? 1 : 0.8,
-                color: isSelected ? '#000' : '#fff',
-                weight: isSelected ? 2 : 1
+                fillOpacity: isSelected ? 1 : 0.85,
+                color: isSelected ? '#111827' : '#fff',
+                weight: 2
               }}
               interactive={!isViewer}
               eventHandlers={isViewer ? {} : {
@@ -394,56 +398,28 @@ const AttendanceMapView = ({ projectFilter = 'ALL' }) => {
             >
               {!isViewer && (
               <Popup>
-                <div style={{ padding: '6px 6px 8px 6px', fontSize: '14px', maxWidth: '280px' }}>
-                  <div style={{ fontWeight: 'bold', marginBottom: '6px' }}>
-                    {user.username || 'Unknown'}
-                  </div>
-                  <hr style={{ margin: '6px 0', border: '0', borderTop: '1px solid #eee' }} />
-                  <div style={{ marginBottom: '6px' }}><strong>Role:</strong> {user.role || 'Unknown'}</div>
-                  <div style={{ marginBottom: '4px' }}><strong>Status:</strong> {attendance.status}</div>
-                  <div style={{ marginBottom: '4px' }}>
-                    <strong>Check-in time:</strong> {
-                      attendance.sessions && attendance.sessions.length > 0
-                        ? new Date(attendance.sessions[attendance.sessions.length - 1].checkInTime).toLocaleTimeString()
-                        : 'N/A'
-                    }
-                  </div>
-                  <div>
-                    <strong>Check-out time:</strong> {
-                      attendance.sessions && attendance.sessions.length > 0 && attendance.sessions[attendance.sessions.length - 1].checkOutTime
-                        ? new Date(attendance.sessions[attendance.sessions.length - 1].checkOutTime).toLocaleTimeString()
-                        : 'Not checked out yet'
-                    }
-                  </div>
-
-                  {/* Check-in section */}
-                  <div style={popupSectionStyle}>
-                    <div style={{ fontWeight: 600 }}>Check-in</div>
-                    <div style={addrTextStyle}>{formatLocationText(attendance.location)}</div>
-                    {attendance?.location?.latitude !== undefined && attendance?.location?.longitude !== undefined && (
-                      <div style={smallTextStyle}>
-                        Lat: {attendance.location.latitude}, Lng: {attendance.location.longitude}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Check-out section */}
-                  <div style={popupSectionStyle}>
-                    <div style={{ fontWeight: 600 }}>Check-out</div>
-                    {attendance.checkoutLocation ? (
-                      <>
-                        <div style={addrTextStyle}>{formatLocationText(attendance.checkoutLocation)}</div>
-                        {attendance.checkoutLocation.latitude !== undefined && attendance.checkoutLocation.longitude !== undefined && (
-                          <div style={smallTextStyle}>
-                            Lat: {attendance.checkoutLocation.latitude}, Lng: {attendance.checkoutLocation.longitude}
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <div style={smallTextStyle}>Not checked out yet</div>
-                    )}
-                  </div>
-                </div>
+                {/* Leaflet gives popup paragraphs a large margin; Typography handles spacing here */}
+                <Box sx={{ width: 260, '& p.MuiTypography-root': { m: 0 } }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <LegendDot color={markerColor} />
+                    <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>{user.username || 'Unknown'}</Typography>
+                  </Box>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', ml: 2.25 }}>
+                    {formatRole(user.role)} · {attendance.status}
+                  </Typography>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mt: 1.25 }}>
+                    <Box>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>Check-in</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatTime(lastSession?.checkInTime) || 'N/A'}</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>Check-out</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatTime(lastSession?.checkOutTime) || 'Not yet'}</Typography>
+                    </Box>
+                  </Box>
+                  <PopupLocation title="Check-in location" location={attendance.location} />
+                  <PopupLocation title="Check-out location" location={attendance.checkoutLocation} emptyText="Not checked out yet" />
+                </Box>
               </Popup>
               )}
             </CircleMarker>
@@ -455,15 +431,20 @@ const AttendanceMapView = ({ projectFilter = 'ALL' }) => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
-        <CircularProgress />
+      <Box sx={{ display: 'grid', placeItems: 'center', height: '100%' }}>
+        <Box sx={{ textAlign: 'center' }}>
+          <CircularProgress size={28} />
+          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1.5 }}>Loading today's check-ins…</Typography>
+        </Box>
       </Box>
     );
   }
 
   if (error) {
     return (
-      <Alert severity="error">{error}</Alert>
+      <Box sx={{ p: 2.5 }}>
+        <Alert severity="error">{error}</Alert>
+      </Box>
     );
   }
 

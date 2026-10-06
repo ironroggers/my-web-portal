@@ -1,22 +1,29 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
-  Container,
   Box,
   Typography,
   TextField,
   Button,
-  Paper,
-  Grid,
   Alert,
   IconButton,
-  InputAdornment
+  InputAdornment,
+  CircularProgress,
+  Stack,
 } from '@mui/material';
 import { useAuth } from '../../context/AuthContext';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-import { Avatar } from '@mui/material';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import AuthLayout from './AuthLayout';
+
+const FieldLabel = ({ htmlFor, children }) => (
+  <Typography component="label" htmlFor={htmlFor} variant="body2" sx={{ display: 'block', fontWeight: 600, mb: 0.75 }}>
+    {children}
+  </Typography>
+);
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -48,93 +55,107 @@ const LoginPage = () => {
   };
 
   return (
-    <Container component="main" maxWidth="xs">
-      <Paper
-        elevation={3}
-        sx={{
-          mt: 8,
-          p: 4,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          borderRadius: 2
-        }}
-      >
-        <Avatar sx={{ m: 1, bgcolor: 'primary.main' }}>
-          <LockOutlinedIcon />
-        </Avatar>
-        <Typography component="h1" variant="h5" sx={{ mb: 3 }}>
-          Sign in
-        </Typography>
+    <AuthLayout>
+      <Typography component="h1" sx={{ fontSize: '1.625rem', fontWeight: 700, letterSpacing: '-0.01em' }}>
+        Sign in
+      </Typography>
+      <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5, mb: 4 }}>
+        Enter your credentials to access the portal.
+      </Typography>
 
-        {error && (
-          <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
-            {error}
-          </Alert>
-        )}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
 
-        <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            id="email"
-            label="Email Address"
-            name="email"
-            autoComplete="email"
-            autoFocus
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
+      <Box component="form" onSubmit={handleSubmit}>
+        <Stack spacing={2.5}>
+          <Box>
+            <FieldLabel htmlFor="email">Email address</FieldLabel>
+            <TextField
+              required
+              fullWidth
+              id="email"
+              name="email"
+              placeholder="name@company.com"
+              autoComplete="email"
+              autoFocus
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <MailOutlineIcon fontSize="small" sx={{ color: 'text.disabled' }} />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+          </Box>
 
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            name="password"
-            label="Password"
-            type={showPassword ? 'text' : 'password'}
-            id="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    aria-label="toggle password visibility"
-                    onClick={handleClickShowPassword}
-                    edge="end"
-                  >
-                    {showPassword ? <VisibilityOff /> : <Visibility />}
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
+          <Box>
+            <FieldLabel htmlFor="password">Password</FieldLabel>
+            <TextField
+              required
+              fullWidth
+              id="password"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Enter your password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <LockOutlinedIcon fontSize="small" sx={{ color: 'text.disabled' }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        onClick={handleClickShowPassword}
+                        edge="end"
+                        size="small"
+                      >
+                        {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+          </Box>
 
           <Button
             type="submit"
             fullWidth
             variant="contained"
-            sx={{ mt: 3, mb: 2 }}
+            size="large"
             disabled={loading}
+            startIcon={loading ? <CircularProgress size={18} color="inherit" /> : null}
+            sx={{ py: 1.25 }}
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Signing in…' : 'Sign in'}
           </Button>
+        </Stack>
+      </Box>
 
-          {/*<Grid container justifyContent="center">*/}
-          {/*  <Grid item>*/}
-          {/*    <Link to="/register" style={{ textDecoration: 'none' }}>*/}
-          {/*      <Typography variant="body2" color="primary">*/}
-          {/*        {"Don't have an account? Sign up"}*/}
-          {/*      </Typography>*/}
-          {/*    </Link>*/}
-          {/*  </Grid>*/}
-          {/*</Grid>*/}
-        </Box>
-      </Paper>
-    </Container>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{ mt: 4, p: 1.5, borderRadius: 1.5, bgcolor: 'action.hover', alignItems: 'flex-start' }}
+      >
+        <InfoOutlinedIcon sx={{ fontSize: 18, color: 'text.secondary', mt: '1px' }} />
+        <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.6 }}>
+          Portal access is limited to Admin and Viewer accounts. Contact your administrator if you need access.
+        </Typography>
+      </Stack>
+    </AuthLayout>
   );
 };
 

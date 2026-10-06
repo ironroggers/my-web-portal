@@ -29,6 +29,7 @@ const MapComponent = ({
   refreshLocations,
   distance,
   setDistance,
+  isViewer = false,
 }) => {
   const [kmlLoading, setKmlLoading] = useState(false);
   const [routeVisibility, setRouteVisibility] = useState({
@@ -118,6 +119,9 @@ const MapComponent = ({
       <RouteVisibilityControls
         routeVisibility={routeVisibility}
         setRouteVisibility={setRouteVisibility}
+        canManageKml={selectedLocations.length > 0}
+        kmlCount={loadedKMLs.length}
+        showHint={!isViewer}
       />
       <GoogleMap
         mapContainerStyle={containerStyle}

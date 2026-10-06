@@ -1,25 +1,24 @@
-import { FormControl, InputLabel, Select, MenuItem } from "@mui/material";
+import { MenuItem, TextField } from "@mui/material";
+import { HOTO_TYPES } from "../../../../hotoTypes";
 
-const HotoTypeSelector = ({ value, onChange }) => (
-  <FormControl fullWidth size="small">
-    <InputLabel>HOTO Type</InputLabel>
-    <Select
-      value={value}
-      label="HOTO Type"
-      onChange={onChange}
-      sx={{ textTransform: "capitalize" }}
-    >
-      <MenuItem sx={{ textTransform: "capitalize" }} value="block">
-        block
+const HotoTypeSelector = ({ value, onChange, error }) => (
+  <TextField
+    select
+    label="HOTO type"
+    value={value ?? ""}
+    onChange={onChange}
+    size="small"
+    fullWidth
+    required
+    error={Boolean(error)}
+    helperText={error}
+  >
+    {HOTO_TYPES.map((type) => (
+      <MenuItem key={type.value} value={type.value}>
+        {type.label}
       </MenuItem>
-      <MenuItem sx={{ textTransform: "capitalize" }} value="gp">
-        gp
-      </MenuItem>
-      <MenuItem sx={{ textTransform: "capitalize" }} value="ofc">
-        ofc
-      </MenuItem>
-    </Select>
-  </FormControl>
+    ))}
+  </TextField>
 );
 
-export default HotoTypeSelector; 
+export default HotoTypeSelector;

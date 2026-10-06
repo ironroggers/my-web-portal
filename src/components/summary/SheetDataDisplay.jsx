@@ -1,23 +1,35 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import {
+  Alert,
   Box,
-  Select,
-  MenuItem,
   Button,
+  Card,
+  Chip,
+  LinearProgress,
+  MenuItem,
+  Skeleton,
   Table,
   TableBody,
+  TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
-  Paper,
+  TextField,
+  Typography,
 } from "@mui/material";
 import { Add } from "@mui/icons-material";
 import summaryService from "../../services/summaryService";
+import { formatNumber } from "../../utils/formatNumber";
 import HeaderCell from "./HeaderCell";
-import DataRow from "./DataRow";
+import DataRow, { ROW_NUMBER_WIDTH } from "./DataRow";
 import DataModal from "./DataModal";
 import ColumnSelector from "./ColumnSelector";
 import ExcelUploadButton from "./ExcelUploadButton";
+
+const ROW_NUMBER_COLUMN = "Row #";
+const DEFAULT_COLUMN_WIDTH = 200;
+const ROWS_PER_PAGE_OPTIONS = [50, 100, 250, { label: "All", value: -1 }];
 
 const SheetDataDisplay = ({
   sheetNames,
@@ -26,19 +38,45 @@ const SheetDataDisplay = ({
   refreshData,
 }) => {
   const [sheetData, setSheetData] = useState([]);
+  const [loadingSheet, setLoadingSheet] = useState(false);
+  const [sheetError, setSheetError] = useState(null);
   const [searchFilters, setSearchFilters] = useState({});
   const [modalOpen, setModalOpen] = useState(false);
   const [editData, setEditData] = useState(null);
   const [visibleHeaders, setVisibleHeaders] = useState([]);
   const [columnWidths, setColumnWidths] = useState({});
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(100);
+
+  // Sheet whose data should be shown; responses for other sheets are ignored
+  const activeSheet = useRef(selectedSheet);
+
+  const loadSheet = useCallback((sheetName) => {
+    activeSheet.current = sheetName;
+    setLoadingSheet(true);
+    setSheetError(null);
+    summaryService
+      .getSheetData(sheetName)
+      .then((data) => {
+        if (activeSheet.current === sheetName) setSheetData(data.data || []);
+      })
+      .catch(() => {
+        if (activeSheet.current === sheetName) setSheetError(`Could not load the "${sheetName}" sheet.`);
+      })
+      .finally(() => {
+        if (activeSheet.current === sheetName) setLoadingSheet(false);
+      });
+  }, []);
 
   useEffect(() => {
     if (selectedSheet) {
-      summaryService.getSheetData(selectedSheet).then((data) => {
-        setSheetData(data.data || []);
-      });
+      // Filters and paging belong to the previous sheet's columns
+      setSheetData([]);
+      setSearchFilters({});
+      setPage(0);
+      loadSheet(selectedSheet);
     }
-  }, [selectedSheet]);
+  }, [selectedSheet, loadSheet]);
 
   // Get headers from first row
   const headers = useMemo(() => {
@@ -62,7 +100,7 @@ const SheetDataDisplay = ({
         // Default widths: 80px for row number, 200px for data columns
         const defaultWidths = {};
         headers.forEach((header) => {
-          defaultWidths[header] = 200;
+          defaultWidths[header] = DEFAULT_COLUMN_WIDTH;
         });
         setColumnWidths((prev) => ({
           ...prev,
@@ -79,17 +117,37 @@ const SheetDataDisplay = ({
     return sheetData.filter((item) =>
       Object.entries(searchFilters).every(([key, value]) => {
         if (!value) return true;
-        const cellValue = item.rowData[key]?.toString().toLowerCase() || "";
+        const rawValue = key === ROW_NUMBER_COLUMN ? item.rowNumber : item.rowData[key];
+        const cellValue = rawValue?.toString().toLowerCase() || "";
         return cellValue.includes(value.toLowerCase());
       })
     );
   }, [sheetData, searchFilters]);
+
+  const pagedData = useMemo(
+    () => (rowsPerPage === -1 ? filteredData : filteredData.slice(page * rowsPerPage, (page + 1) * rowsPerPage)),
+    [filteredData, page, rowsPerPage]
+  );
+
+  // Columns chosen in the selector that exist in the current sheet
+  const displayedHeaders = useMemo(
+    () => visibleHeaders.filter((header) => headers.includes(header)),
+    [visibleHeaders, headers]
+  );
+
+  const activeFilters = Object.entries(searchFilters).filter(([, value]) => value);
 
   const handleSearch = (header, value) => {
     setSearchFilters((prev) => ({
       ...prev,
       [header]: value,
     }));
+    setPage(0);
+  };
+
+  const clearFilters = () => {
+    setSearchFilters({});
+    setPage(0);
   };
 
   const handleColumnResize = (columnName, newWidth) => {
@@ -138,37 +196,65 @@ const SheetDataDisplay = ({
   const handleSuccess = () => {
     // Refresh data after successful create/update
     refreshData?.();
-    if (selectedSheet) {
-      summaryService.getSheetData(selectedSheet).then((data) => {
-        setSheetData(data.data || []);
-      });
-    }
+    if (selectedSheet) loadSheet(selectedSheet);
   };
 
+  const totalColumns = displayedHeaders.length + 1;
+  const isInitialLoad = loadingSheet && sheetData.length === 0;
+
+  const recordSummary = isInitialLoad
+    ? "Loading records…"
+    : activeFilters.length
+      ? `${formatNumber(filteredData.length)} of ${formatNumber(sheetData.length)} records`
+      : `${formatNumber(sheetData.length)} records`;
+
   return (
-    <Box sx={{ p: 2 }}>
+    <Card>
       {/* Toolbar */}
       <Box
         sx={{
+          p: 2,
           display: "flex",
-          gap: 2,
-          mb: 2,
+          gap: 1.5,
           flexWrap: "wrap",
           alignItems: "center",
+          borderBottom: 1,
+          borderColor: "divider",
         }}
       >
-        <Select
+        <TextField
+          select
+          size="small"
+          label="Data sheet"
           value={selectedSheet || ""}
           onChange={(e) => onSheetChange(e.target.value)}
-          size="small"
-          sx={{ minWidth: 200 }}
+          sx={{ minWidth: 240 }}
         >
           {sheetNames?.map((name) => (
             <MenuItem key={name} value={name}>
               {name}
             </MenuItem>
           ))}
-        </Select>
+        </TextField>
+
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          {recordSummary}
+          {!isInitialLoad && sheetData.length > 0 && " · click a row to edit"}
+        </Typography>
+
+        <Box sx={{ flex: 1 }} />
+
+        <ColumnSelector
+          headers={headers}
+          selectedSheet={selectedSheet}
+          onVisibleHeadersChange={setVisibleHeaders}
+        />
+
+        <ExcelUploadButton
+          selectedSheet={selectedSheet}
+          expectedHeaders={headers}
+          onUploadComplete={handleSuccess}
+        />
 
         <Button
           variant="contained"
@@ -176,34 +262,64 @@ const SheetDataDisplay = ({
           size="small"
           onClick={handleAddNew}
         >
-          Add New
+          Add record
         </Button>
-
-        <ExcelUploadButton
-          selectedSheet={selectedSheet}
-          expectedHeaders={headers}
-          onUploadComplete={handleSuccess}
-        />
       </Box>
 
-      {/* Column Selector */}
-      <ColumnSelector
-        headers={headers}
-        selectedSheet={selectedSheet}
-        onVisibleHeadersChange={setVisibleHeaders}
-      />
+      {/* Active column filters */}
+      {activeFilters.length > 0 && (
+        <Box
+          sx={{
+            px: 2,
+            py: 1,
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 1,
+            alignItems: "center",
+            borderBottom: 1,
+            borderColor: "divider",
+            bgcolor: "background.default",
+          }}
+        >
+          <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>
+            Filtered by
+          </Typography>
+          {activeFilters.map(([column, value]) => (
+            <Chip
+              key={column}
+              size="small"
+              label={`${column}: ${value}`}
+              onDelete={() => handleSearch(column, "")}
+              sx={{ bgcolor: "background.paper", border: 1, borderColor: "divider" }}
+            />
+          ))}
+          <Button size="small" onClick={clearFilters}>
+            Clear all
+          </Button>
+        </Box>
+      )}
+
+      <Box sx={{ height: 2 }}>
+        {loadingSheet && !isInitialLoad && <LinearProgress sx={{ height: 2, borderRadius: 0 }} />}
+      </Box>
+
+      {sheetError && (
+        <Alert severity="error" sx={{ m: 2 }} action={<Button color="inherit" size="small" onClick={() => loadSheet(selectedSheet)}>Retry</Button>}>
+          {sheetError}
+        </Alert>
+      )}
+
       {/* Table */}
-      <TableContainer
-        component={Paper}
-        sx={{ maxWidth: "100%", overflow: "auto" }}
-      >
+      <TableContainer sx={{ maxHeight: "calc(100vh - 300px)", minHeight: 240 }}>
         <Table
+          stickyHeader
           size="small"
           sx={{
             minWidth: 800,
             tableLayout: "fixed",
             "& .MuiTableCell-root": {
-              borderRight: "1px solid rgba(224, 224, 224, 1)",
+              borderRight: 1,
+              borderRightColor: "divider",
             },
             "& .MuiTableCell-root:last-child": {
               borderRight: "none",
@@ -213,38 +329,75 @@ const SheetDataDisplay = ({
           <TableHead>
             <TableRow>
               <HeaderCell
-                label="Row #"
+                label={ROW_NUMBER_COLUMN}
                 onSearch={handleSearch}
-                searchValue={searchFilters["Row #"] || ""}
-                width={80}
-                onResize={(newWidth) => handleColumnResize("Row #", newWidth)}
+                searchValue={searchFilters[ROW_NUMBER_COLUMN] || ""}
+                width={ROW_NUMBER_WIDTH}
               />
-              {visibleHeaders.map((header) => (
+              {displayedHeaders.map((header) => (
                 <HeaderCell
                   key={header}
                   label={header}
                   onSearch={handleSearch}
                   searchValue={searchFilters[header] || ""}
-                  width={columnWidths[selectedSheet]?.[header] || 200}
+                  width={columnWidths[selectedSheet]?.[header] || DEFAULT_COLUMN_WIDTH}
                   onResize={(newWidth) => handleColumnResize(header, newWidth)}
                 />
               ))}
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredData.map((item) => (
-              <DataRow
-                key={item._id}
-                rowNumber={item.rowNumber}
-                rowData={item.rowData}
-                visibleHeaders={visibleHeaders}
-                columnWidths={columnWidths[selectedSheet] || {}}
-                onEdit={() => handleEdit(item)}
-              />
-            ))}
+            {isInitialLoad ? (
+              Array.from({ length: 8 }, (_, index) => (
+                <TableRow key={index}>
+                  <TableCell colSpan={Math.max(totalColumns, 2)}>
+                    <Skeleton variant="text" />
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : pagedData.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={totalColumns} sx={{ py: 6, textAlign: "center", borderBottom: 0 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {activeFilters.length ? "No records match these filters" : "This sheet has no records yet"}
+                  </Typography>
+                  {activeFilters.length > 0 && (
+                    <Button size="small" onClick={clearFilters} sx={{ mt: 1 }}>
+                      Clear filters
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
+            ) : (
+              pagedData.map((item) => (
+                <DataRow
+                  key={item._id}
+                  rowNumber={item.rowNumber}
+                  rowData={item.rowData}
+                  visibleHeaders={displayedHeaders}
+                  columnWidths={columnWidths[selectedSheet] || {}}
+                  onEdit={() => handleEdit(item)}
+                />
+              ))
+            )}
           </TableBody>
         </Table>
       </TableContainer>
+
+      <TablePagination
+        component="div"
+        count={filteredData.length}
+        page={page}
+        onPageChange={(e, newPage) => setPage(newPage)}
+        rowsPerPage={rowsPerPage}
+        onRowsPerPageChange={(e) => {
+          setRowsPerPage(parseInt(e.target.value, 10));
+          setPage(0);
+        }}
+        rowsPerPageOptions={ROWS_PER_PAGE_OPTIONS}
+        labelDisplayedRows={({ from, to, count }) => `${from}–${to} of ${formatNumber(count)}`}
+        sx={{ borderTop: 1, borderColor: "divider" }}
+      />
 
       {/* Modal */}
       <DataModal
@@ -256,7 +409,7 @@ const SheetDataDisplay = ({
         onSuccess={handleSuccess}
         nextRowNumber={nextRowNumber}
       />
-    </Box>
+    </Card>
   );
 };
 

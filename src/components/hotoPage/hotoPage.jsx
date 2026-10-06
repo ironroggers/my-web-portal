@@ -1,24 +1,29 @@
-import { useLocation } from "react-router-dom";
+import { Link as RouterLink, useLocation } from "react-router-dom";
 import { fetchAllHotoList } from "../../services/hotoPageService";
 import { useState, useEffect } from "react";
 import {
-  Container,
-  Paper,
-  Box,
-  Typography,
-  CircularProgress,
   Alert,
-  Tabs,
-  Tab,
+  Box,
   Button,
+  Card,
+  Skeleton,
+  Tab,
+  Tabs,
+  Typography,
 } from "@mui/material";
+import { alpha, useTheme } from "@mui/material/styles";
+import AddIcon from "@mui/icons-material/Add";
+import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import BlockTabPanel from "./components/blockTabPanel";
 import GpTabPanel from "./components/gpTabPanel";
 import OfcTabPanel from "./components/ofcTabPanel";
 import AddHotoModal from "./components/AddHotoModal";
+import PageHeader from "../common/PageHeader";
 
 const HotoPage = () => {
-  const { locationId, locationName, locationDistrict } = useLocation().state;
+  const theme = useTheme();
+  // The location arrives as router state; opening /hoto directly has none
+  const { locationId, locationName, locationDistrict } = useLocation().state || {};
 
   const [loading, setLoading] = useState(true);
   const [blockHotoInfo, setBlockHotoInfo] = useState([]);
@@ -34,142 +39,126 @@ const HotoPage = () => {
       setBlockHotoInfo(response.blockHotoInfo);
       setGpHotoInfo(response.gpHotoInfo);
       setOfcHotoInfo(response.ofcHotoInfo);
-      setLoading(false);
+      setError(null);
     } catch (err) {
       setError(err.message || "Error fetching HOTO information");
+    } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAllHotoInfo();
-  }, []);
+    if (locationId) fetchAllHotoInfo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationId]);
 
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
-  };
+  if (!locationId) {
+    return (
+      <Box>
+        <PageHeader title="HOTO" subtitle="Handover and takeover records" />
+        <Card sx={{ py: 6, px: 3, textAlign: "center" }}>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            Open HOTO from a location
+          </Typography>
+          <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5, mb: 2.5 }}>
+            HOTO records belong to a location. Pick a location in Locations and open its HOTO information.
+          </Typography>
+          <Button component={RouterLink} to="/map" variant="contained" startIcon={<MapOutlinedIcon />}>
+            Go to Locations
+          </Button>
+        </Card>
+      </Box>
+    );
+  }
 
-  const handleOpenAddModal = () => {
-    setIsAddModalOpen(true);
-  };
-
-  const handleCloseAddModal = () => {
-    setIsAddModalOpen(false);
-  };
+  const tabs = [
+    { label: "Block HOTO", count: blockHotoInfo.length },
+    { label: "GP HOTO", count: gpHotoInfo.length },
+    { label: "OFC HOTO", count: ofcHotoInfo.length },
+  ];
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 6 }}>
-      <Paper
-        elevation={3}
-        sx={{ p: 4, borderRadius: "16px", overflow: "hidden" }}
-      >
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            mb: 3,
-            flexWrap: "wrap",
-            gap: 2,
-          }}
-        >
-          <Typography variant="h4" fontWeight="700" sx={{ color: "#1e293b" }}>
-            {locationName}
-          </Typography>
-          <Button
-            variant="outlined"
-            color="primary"
-            sx={{
-              outline: "none",
-              "&:hover": {
-                backgroundColor: "primary.main",
-                color: "white",
-              },
-              "&:focus": {
-                outline: "none",
-              },
-            }}
-            onClick={handleOpenAddModal}
-          >
+    <Box>
+      <PageHeader
+        title={locationName || "HOTO"}
+        subtitle={`Handover and takeover records${locationDistrict ? ` · ${locationDistrict}` : ""}`}
+        actions={
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setIsAddModalOpen(true)}>
             Add HOTO
           </Button>
-        </Box>
-        <Typography
-          variant="subtitle1"
-          sx={{ color: "text.secondary", mb: 3, lineHeight: 1.6 }}
+        }
+      />
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
+
+      <Card>
+        <Tabs
+          value={tabValue}
+          onChange={(event, newValue) => setTabValue(newValue)}
+          variant="scrollable"
+          allowScrollButtonsMobile
+          sx={{ px: 1, borderBottom: 1, borderColor: "divider" }}
         >
-          Handover/Takeover details for {locationName}, {locationDistrict}
-        </Typography>
+          {tabs.map((tab, index) => (
+            <Tab
+              key={tab.label}
+              id={`hoto-tab-${index}`}
+              aria-controls={`hoto-tabpanel-${index}`}
+              label={
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  {tab.label}
+                  <Box
+                    component="span"
+                    sx={{
+                      px: 0.75,
+                      borderRadius: 1,
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      bgcolor: tabValue === index ? alpha(theme.palette.primary.main, 0.1) : "action.hover",
+                      color: tabValue === index ? "primary.main" : "text.secondary",
+                    }}
+                  >
+                    {loading ? "–" : tab.count}
+                  </Box>
+                </Box>
+              }
+            />
+          ))}
+        </Tabs>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 3, borderRadius: "8px" }}>
-            {error}
-          </Alert>
-        )}
-
-        {loading ? (
-          <Box
-            sx={{
-              textAlign: "center",
-              py: 6,
-              minHeight: "70vh",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            <CircularProgress size={60} thickness={4} />
-            <Typography sx={{ mt: 3, fontWeight: 500 }}>
-              Loading HOTO data...
-            </Typography>
-          </Box>
-        ) : (
-          <Box sx={{ minHeight: "70vh" }}>
-            <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-              <Tabs
-                value={tabValue}
-                onChange={handleTabChange}
-                sx={{
-                  "& .MuiTab-root": {
-                    fontSize: "1rem",
-                    fontWeight: 600,
-                    textTransform: "none",
-                    minHeight: "56px",
-                    outline: "None",
-                    borderRadius: "5px",
-                    "&:hover": {
-                      color: "#ffffff",
-                    },
-                  },
-                  "& .Mui-selected": {
-                    color: "primary.main",
-                    fontWeight: 600,
-                  },
-                }}
-              >
-                <Tab label={"Block HOTO"} />
-                <Tab label={"GP HOTO"} />
-                <Tab label={"OFC HOTO"} />
-              </Tabs>
-            </Box>
-
-            <BlockTabPanel blockHotoInfo={blockHotoInfo} tabValue={tabValue} />
-            <GpTabPanel gpHotoInfo={gpHotoInfo} tabValue={tabValue} />
-            <OfcTabPanel ofcHotoInfo={ofcHotoInfo} tabValue={tabValue} />
-          </Box>
-        )}
-      </Paper>
+        <Box sx={{ p: { xs: 2, md: 3 }, minHeight: 320 }}>
+          {loading ? (
+            <>
+              <Box sx={{ display: "flex", gap: 1.5, mb: 3 }}>
+                {Array.from({ length: 3 }, (_, index) => (
+                  <Skeleton key={index} variant="rounded" width={120} height={36} />
+                ))}
+              </Box>
+              <Skeleton variant="rounded" height={220} />
+            </>
+          ) : (
+            <>
+              <BlockTabPanel blockHotoInfo={blockHotoInfo} tabValue={tabValue} />
+              <GpTabPanel gpHotoInfo={gpHotoInfo} tabValue={tabValue} />
+              <OfcTabPanel ofcHotoInfo={ofcHotoInfo} tabValue={tabValue} />
+            </>
+          )}
+        </Box>
+      </Card>
 
       <AddHotoModal
         open={isAddModalOpen}
-        onClose={handleCloseAddModal}
+        onClose={() => setIsAddModalOpen(false)}
         locationId={locationId}
         locationName={locationName}
         locationDistrict={locationDistrict}
         fetchAllHotoInfo={fetchAllHotoInfo}
       />
-    </Container>
+    </Box>
   );
 };
 

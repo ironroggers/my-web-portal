@@ -1,18 +1,13 @@
 import React, { useState, useEffect, useMemo } from "react";
-import "./UserManagement.css";
 import {
-  Container,
   Typography,
   TextField,
   Button,
-  FormControl,
-  InputLabel,
-  Select,
   MenuItem,
-  Grid,
-  Paper,
   Alert,
+  Avatar,
   Box,
+  Card,
   Table,
   TableBody,
   TableCell,
@@ -21,26 +16,32 @@ import {
   TableRow,
   TablePagination,
   Chip,
-  Divider,
   CircularProgress,
-  Card,
-  CardContent,
-  CardHeader,
   Dialog,
   DialogActions,
   DialogContent,
   DialogContentText,
   DialogTitle,
   IconButton,
-  FormHelperText,
   InputAdornment,
+  Skeleton,
+  Snackbar,
+  Tab,
+  Tabs,
+  Tooltip,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
-import PersonAddIcon from "@mui/icons-material/PersonAdd";
-import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
-import DeleteIcon from "@mui/icons-material/Delete";
-import EditIcon from "@mui/icons-material/Edit";
+import { alpha } from "@mui/material/styles";
+import PersonAddAlt1OutlinedIcon from "@mui/icons-material/PersonAddAlt1Outlined";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import SearchIcon from "@mui/icons-material/Search";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import CloseIcon from "@mui/icons-material/Close";
+import FilterAltOffOutlinedIcon from "@mui/icons-material/FilterAltOffOutlined";
 import { AUTH_URL } from "../API/api-keys.jsx";
+import PageHeader from "./common/PageHeader";
 
 const PROJECT_OPTIONS = [
   "BharatNet Kerala",
@@ -56,16 +57,289 @@ const PROJECT_OPTIONS = [
   "Others",
 ];
 
+const ROLE_OPTIONS = [
+  { value: "ADMIN", label: "Admin" },
+  { value: "SUPERVISOR", label: "Supervisor" },
+  { value: "EXECUTION ENGINEER", label: "Execution Engineer" },
+  { value: "SURVEYOR", label: "Surveyor" },
+  { value: "VIEWER", label: "Viewer" },
+];
+
+const ROLE_LABELS = Object.fromEntries(ROLE_OPTIONS.map((role) => [role.value, role.label]));
+
+const EMPTY_FORM = {
+  username: "",
+  email: "",
+  password: "",
+  role: "SURVEYOR",
+  reportingTo: "",
+  designation: "",
+  project: "",
+};
+
+const TABLE_COLUMNS = 6;
+
+// =============================================================================
+// PRESENTATIONAL COMPONENTS
+// =============================================================================
+
+const getInitials = (name = "") =>
+  name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("") || "?";
+
+const UserAvatar = ({ name }) => (
+  <Avatar
+    sx={(theme) => ({
+      width: 32,
+      height: 32,
+      fontSize: "0.75rem",
+      color: "primary.dark",
+      bgcolor: alpha(theme.palette.primary.main, 0.1),
+    })}
+  >
+    {getInitials(name)}
+  </Avatar>
+);
+
+const RoleChip = ({ role }) => {
+  const isAdmin = role === "ADMIN";
+  return (
+    <Chip
+      size="small"
+      label={ROLE_LABELS[role] ?? role ?? "—"}
+      variant={isAdmin ? "filled" : "outlined"}
+      sx={(theme) =>
+        isAdmin
+          ? { bgcolor: alpha(theme.palette.primary.main, 0.1), color: "primary.dark", fontWeight: 600 }
+          : { bgcolor: "background.paper", borderColor: "divider", color: "text.primary" }
+      }
+    />
+  );
+};
+
+const UserIdentity = ({ user }) => (
+  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
+    <UserAvatar name={user.username} />
+    <Box sx={{ minWidth: 0 }}>
+      <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
+        {user.username}
+      </Typography>
+      <Typography variant="caption" noWrap component="div" sx={{ color: "text.secondary" }}>
+        {user.email}
+      </Typography>
+    </Box>
+  </Box>
+);
+
+const RowActions = ({ user, onEdit, onDelete }) => (
+  <Box sx={{ display: "flex", gap: 0.5, justifyContent: "flex-end" }}>
+    <Tooltip title="Edit user">
+      <IconButton size="small" onClick={() => onEdit(user)} aria-label={`Edit ${user.username}`}>
+        <EditOutlinedIcon fontSize="small" />
+      </IconButton>
+    </Tooltip>
+    <Tooltip title="Delete user">
+      <IconButton
+        size="small"
+        onClick={() => onDelete(user)}
+        aria-label={`Delete ${user.username}`}
+        sx={{ "&:hover": { color: "error.main" } }}
+      >
+        <DeleteOutlineIcon fontSize="small" />
+      </IconButton>
+    </Tooltip>
+  </Box>
+);
+
+const UserFormDialog = ({
+  open,
+  editMode,
+  formData,
+  onChange,
+  onSubmit,
+  onClose,
+  loading,
+  error,
+  potentialManagers,
+}) => {
+  const isAdmin = formData.role === "ADMIN";
+
+  return (
+    <Dialog
+      open={open}
+      onClose={loading ? undefined : onClose}
+      maxWidth="sm"
+      fullWidth
+      slotProps={{ paper: { component: "form", onSubmit } }}
+    >
+      <DialogTitle sx={{ display: "flex", alignItems: "flex-start", gap: 2, pr: 1.5 }}>
+        <Box sx={{ flex: 1 }}>
+          {editMode ? "Edit user" : "Add user"}
+          <Typography variant="body2" component="div" sx={{ color: "text.secondary", mt: 0.25 }}>
+            {editMode ? formData.email : "Create a portal or field account"}
+          </Typography>
+        </Box>
+        <IconButton onClick={onClose} disabled={loading} aria-label="Close" size="small">
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent dividers>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+        <Box
+          sx={{
+            display: "grid",
+            gap: 2,
+            gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
+            pt: 0.5,
+          }}
+        >
+          <TextField
+            fullWidth
+            label="Name"
+            id="username"
+            name="username"
+            value={formData.username}
+            onChange={onChange}
+            required
+            size="small"
+            autoFocus={!editMode}
+          />
+          <TextField
+            fullWidth
+            label="Email"
+            id="email"
+            name="email"
+            type="email"
+            value={formData.email}
+            onChange={onChange}
+            required
+            size="small"
+          />
+          <TextField
+            select
+            fullWidth
+            label="Role"
+            id="role"
+            name="role"
+            value={formData.role}
+            onChange={onChange}
+            required
+            size="small"
+          >
+            {ROLE_OPTIONS.map((role) => (
+              <MenuItem key={role.value} value={role.value}>
+                {role.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            fullWidth
+            label="Reporting to"
+            id="reportingTo"
+            name="reportingTo"
+            value={formData.reportingTo}
+            onChange={onChange}
+            required={!isAdmin}
+            disabled={isAdmin}
+            size="small"
+            helperText={isAdmin ? "Not required for Admin role" : undefined}
+          >
+            <MenuItem value="">
+              <em>Select manager</em>
+            </MenuItem>
+            {potentialManagers.map((manager) => (
+              <MenuItem key={manager._id} value={manager._id}>
+                {manager.username}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            fullWidth
+            label="Designation"
+            id="designation"
+            name="designation"
+            value={formData.designation}
+            onChange={onChange}
+            size="small"
+            placeholder="e.g. Senior Surveyor"
+          />
+          <TextField
+            select
+            fullWidth
+            label="Project"
+            id="project"
+            name="project"
+            value={formData.project}
+            onChange={onChange}
+            size="small"
+          >
+            <MenuItem value="">
+              <em>No project</em>
+            </MenuItem>
+            {PROJECT_OPTIONS.map((opt) => (
+              <MenuItem key={opt} value={opt}>
+                {opt}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            fullWidth
+            label="Password"
+            id="password"
+            name="password"
+            type="password"
+            value={formData.password}
+            onChange={onChange}
+            required={!editMode}
+            size="small"
+            autoComplete="new-password"
+            helperText={editMode ? "Leave blank to keep current password" : "Minimum 6 characters"}
+          />
+        </Box>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, py: 1.5 }}>
+        <Button onClick={onClose} disabled={loading} color="inherit">
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          variant="contained"
+          disabled={loading}
+          startIcon={loading ? <CircularProgress size={14} color="inherit" /> : null}
+        >
+          {loading
+            ? editMode
+              ? "Updating…"
+              : "Creating…"
+            : editMode
+              ? "Update user"
+              : "Create user"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+// =============================================================================
+// PAGE
+// =============================================================================
+
 const UserManagement = () => {
-  const [formData, setFormData] = useState({
-    username: "",
-    email: "",
-    password: "",
-    role: "SURVEYOR",
-    reportingTo: "",
-    designation: "",
-    project: "",
-  });
+  const theme = useTheme();
+  const isCompact = useMediaQuery(theme.breakpoints.down("md"));
+
+  const [formData, setFormData] = useState(EMPTY_FORM);
+  const [formOpen, setFormOpen] = useState(false);
+  const [formError, setFormError] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
@@ -76,6 +350,7 @@ const UserManagement = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editUserId, setEditUserId] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -145,6 +420,12 @@ const UserManagement = () => {
     }
   };
 
+  const handleRefresh = () => {
+    setError("");
+    fetchAllUsers();
+    fetchPotentialManagers();
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prevData) => ({
@@ -153,10 +434,25 @@ const UserManagement = () => {
     }));
   };
 
+  const closeForm = () => {
+    setFormOpen(false);
+    setFormError("");
+    setFormData(EMPTY_FORM);
+    setEditMode(false);
+    setEditUserId(null);
+  };
+
+  const openCreateForm = () => {
+    setFormData(EMPTY_FORM);
+    setEditMode(false);
+    setEditUserId(null);
+    setFormError("");
+    setFormOpen(true);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    setSuccess("");
+    setFormError("");
     setLoading(true);
 
     try {
@@ -193,28 +489,19 @@ const UserManagement = () => {
       setSuccess(
         editMode ? "User updated successfully!" : "User created successfully!"
       );
-      setFormData({
-        username: "",
-        email: "",
-        password: "",
-        role: "SURVEYOR",
-        reportingTo: "",
-        designation: "",
-        project: "",
-      });
-      setEditMode(false);
-      setEditUserId(null);
+      closeForm();
 
       fetchAllUsers();
       fetchPotentialManagers();
     } catch (err) {
-      setError(err.message || "An error occurred");
+      setFormError(err.message || "An error occurred");
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (userId) => {
+    setDeleting(true);
     try {
       const response = await fetch(`${AUTH_URL}/api/auth/users/${userId}`, {
         method: "DELETE",
@@ -230,6 +517,7 @@ const UserManagement = () => {
     } catch (err) {
       setError(err.message || "An error occurred while deleting the user");
     } finally {
+      setDeleting(false);
       setDeleteDialogOpen(false);
       setUserToDelete(null);
     }
@@ -247,6 +535,8 @@ const UserManagement = () => {
     });
     setEditMode(true);
     setEditUserId(user._id);
+    setFormError("");
+    setFormOpen(true);
   };
 
   const handleDeleteClick = (user) => {
@@ -254,31 +544,9 @@ const UserManagement = () => {
     setDeleteDialogOpen(true);
   };
 
-  const cancelEdit = () => {
-    setFormData({
-      username: "",
-      email: "",
-      password: "",
-      role: "SURVEYOR",
-      reportingTo: "",
-      designation: "",
-      project: "",
-    });
-    setEditMode(false);
-    setEditUserId(null);
-  };
-
-  // Function to get reporting manager name
-  const getManagerName = (managerId) => {
-    if (!managerId) return "-";
-    const manager = users.find((user) => user._id === managerId);
-    return manager ? manager.username : "Unknown";
-  };
-
-  const isAdmin = formData.role === "ADMIN";
-
-  // Filtered users based on search and filters
-  const filteredUsers = useMemo(() => {
+  // Users matching search, manager and project; role is applied separately so
+  // the role tabs can show how many of these users each role has.
+  const baseFilteredUsers = useMemo(() => {
     let data = users;
 
     const query = searchQuery.trim().toLowerCase();
@@ -291,10 +559,6 @@ const UserManagement = () => {
           name.includes(query) || email.includes(query) || designation.includes(query)
         );
       });
-    }
-
-    if (roleFilter !== "ALL") {
-      data = data.filter((u) => u.role === roleFilter);
     }
 
     if (managerFilter !== "ALL") {
@@ -310,7 +574,30 @@ const UserManagement = () => {
     }
 
     return data;
-  }, [users, searchQuery, roleFilter, managerFilter, projectFilter]);
+  }, [users, searchQuery, managerFilter, projectFilter]);
+
+  const filteredUsers = useMemo(
+    () => (roleFilter === "ALL" ? baseFilteredUsers : baseFilteredUsers.filter((u) => u.role === roleFilter)),
+    [baseFilteredUsers, roleFilter]
+  );
+
+  const roleCounts = useMemo(() => {
+    const counts = {};
+    baseFilteredUsers.forEach((u) => {
+      counts[u.role] = (counts[u.role] || 0) + 1;
+    });
+    return counts;
+  }, [baseFilteredUsers]);
+
+  const hasActiveFilters =
+    Boolean(searchQuery) || roleFilter !== "ALL" || managerFilter !== "ALL" || projectFilter !== "ALL";
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setRoleFilter("ALL");
+    setManagerFilter("ALL");
+    setProjectFilter("ALL");
+  };
 
   // Handle table pagination
   const handleChangePage = (event, newPage) => {
@@ -322,682 +609,312 @@ const UserManagement = () => {
     setPage(0);
   };
 
+  const pageUsers = filteredUsers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const showSkeleton = loadingUsers && users.length === 0;
+
+  const emptyState = (
+    <Box sx={{ py: 6, px: 2, textAlign: "center" }}>
+      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+        No users found
+      </Typography>
+      <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
+        {hasActiveFilters ? "Try adjusting or clearing the filters." : "Add a user to get started."}
+      </Typography>
+    </Box>
+  );
+
   return (
-    <Container maxWidth="xl" className="user-management-container">
-      <Box sx={{ mb: 5, textAlign: "center" }}>
-        <Typography
-          variant="h4"
-          component="h1"
-          sx={{
-            fontWeight: 700,
-            background: "linear-gradient(45deg, #2563eb 30%, #3b82f6 90%)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 2,
-          }}
+    <Box>
+      <PageHeader
+        title="Users"
+        subtitle="Portal and field accounts, their roles and reporting lines"
+        actions={
+          <>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={handleRefresh}
+              disabled={loadingUsers}
+              startIcon={loadingUsers ? <CircularProgress size={14} color="inherit" /> : <RefreshIcon />}
+            >
+              Refresh
+            </Button>
+            <Button variant="contained" size="small" startIcon={<PersonAddAlt1OutlinedIcon />} onClick={openCreateForm}>
+              Add user
+            </Button>
+          </>
+        }
+      />
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
+          {error}
+        </Alert>
+      )}
+
+      <Card>
+        {/* Role tabs double as the role filter */}
+        <Tabs
+          value={roleFilter}
+          onChange={(event, value) => setRoleFilter(value)}
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{ px: 1, borderBottom: 1, borderColor: "divider" }}
         >
-          <PeopleAltIcon sx={{ fontSize: 40, color: "#2563eb" }} />
-          User Access Management
-        </Typography>
-      </Box>
-
-      <Box sx={{ mb: 3 }}>
-        {error && (
-          <Alert
-            severity="error"
-            sx={{ mb: 2 }}
-            action={
-              <IconButton
-                aria-label="close"
-                color="inherit"
-                size="small"
-                onClick={() => setError("")}
-              >
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            }
-          >
-            {error}
-          </Alert>
-        )}
-        {success && (
-          <Alert
-            severity="success"
-            sx={{ mb: 2 }}
-            action={
-              <IconButton
-                aria-label="close"
-                color="inherit"
-                size="small"
-                onClick={() => setSuccess("")}
-              >
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            }
-          >
-            {success}
-          </Alert>
-        )}
-      </Box>
-
-      <Grid container spacing={4}>
-        <Grid item xs={12} md={4} sx={{ width: "100%" }}>
-          <Card elevation={0}>
-            <CardHeader
-              title={editMode ? "Edit User" : "Create New User"}
-              titleTypographyProps={{ variant: "h6" }}
-              avatar={
-                <Box
-                  sx={{
-                    bgcolor: "primary.light",
-                    borderRadius: "12px",
-                    width: 40,
-                    height: 40,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <PersonAddIcon sx={{ color: "white" }} />
-                </Box>
-              }
-            />
-            <CardContent>
-              <form onSubmit={handleSubmit}>
-                <Grid container spacing={2} sx={{ width: "100%" }}>
-                  <Grid item xs={12} sx={{ width: "20%" }}>
-                    <TextField
-                      fullWidth
-                      label="Name"
-                      id="username"
-                      name="username"
-                      value={formData.username}
-                      onChange={handleChange}
-                      required
-                      variant="outlined"
-                      size="small"
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} sx={{ width: "20%" }}>
-                    <TextField
-                      fullWidth
-                      label="Email"
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      required
-                      variant="outlined"
-                      size="small"
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} sx={{ width: "20%" }}>
-                    <TextField
-                      fullWidth
-                      label="Password"
-                      id="password"
-                      name="password"
-                      type="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      required={!editMode}
-                      variant="outlined"
-                      size="small"
-                      helperText={
-                        editMode
-                          ? "Leave blank to keep current password"
-                          : "Minimum 6 characters"
-                      }
-                    />
-                  </Grid>
-
-                  <Grid item xs={6} sx={{ width: "20%" }}>
-                    <FormControl fullWidth variant="outlined" size="small">
-                      <InputLabel id="role-label">Role</InputLabel>
-                      <Select
-                        labelId="role-label"
-                        id="role"
-                        name="role"
-                        value={formData.role}
-                        onChange={handleChange}
-                        required
-                        label="Role"
-                      >
-                        <MenuItem value="SURVEYOR">
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1,
-                            }}
-                          >
-                            <Chip
-                              label="Surveyor"
-                              size="small"
-                              color="success"
-                              sx={{ height: 24 }}
-                            />
-                          </Box>
-                        </MenuItem>
-                        <MenuItem value="SUPERVISOR">
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1,
-                            }}
-                          >
-                            <Chip
-                              label="Supervisor"
-                              size="small"
-                              color="warning"
-                              sx={{ height: 24 }}
-                            />
-                          </Box>
-                        </MenuItem>
-                        <MenuItem value="EXECUTION ENGINEER">
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1,
-                            }}
-                          >
-                            <Chip
-                              label="Execution Engineer"
-                              size="small"
-                              color="info"
-                              sx={{ height: 24 }}
-                            />
-                          </Box>
-                        </MenuItem>
-                        <MenuItem value="VIEWER">
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1,
-                            }}
-                          >
-                            <Chip
-                              label="Viewer"
-                              size="small"
-                              color="default"
-                              sx={{ height: 24 }}
-                            />
-                          </Box>
-                        </MenuItem>
-                        <MenuItem value="ADMIN">
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1,
-                            }}
-                          >
-                            <Chip
-                              label="Admin"
-                              size="small"
-                              color="error"
-                              sx={{ height: 24 }}
-                            />
-                          </Box>
-                        </MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Grid>
-
-                  <Grid item xs={6} sx={{ width: "20%" }}>
-                    <FormControl
-                      fullWidth
-                      variant="outlined"
-                      size="small"
-                      disabled={isAdmin}
-                    >
-                      <InputLabel id="reporting-to-label">
-                        Reporting To
-                      </InputLabel>
-                      <Select
-                        labelId="reporting-to-label"
-                        id="reportingTo"
-                        name="reportingTo"
-                        value={formData.reportingTo}
-                        onChange={handleChange}
-                        required={!isAdmin}
-                        label="Reporting To"
-                      >
-                        <MenuItem value="">
-                          <em>Select Manager</em>
-                        </MenuItem>
-                        {potentialManagers &&
-                          potentialManagers.map((manager) => (
-                            <MenuItem key={manager._id} value={manager._id}>
-                              {manager.username}
-                            </MenuItem>
-                          ))}
-                      </Select>
-                      {isAdmin && (
-                        <FormHelperText>
-                          Not required for Admin role
-                        </FormHelperText>
-                      )}
-                    </FormControl>
-                  </Grid>
-
-                  <Grid item xs={12} sx={{ width: "20%" }}>
-                    <TextField
-                      fullWidth
-                      label="Designation"
-                      id="designation"
-                      name="designation"
-                      value={formData.designation}
-                      onChange={handleChange}
-                      variant="outlined"
-                      size="small"
-                      placeholder="e.g. Senior Surveyor"
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} sx={{ width: "20%" }}>
-                    <FormControl fullWidth variant="outlined" size="small">
-                      <InputLabel id="project-label">Project</InputLabel>
-                      <Select
-                        labelId="project-label"
-                        id="project"
-                        name="project"
-                        value={formData.project}
-                        onChange={handleChange}
-                        label="Project"
-                      >
-                        <MenuItem value="">
-                          <em>Select Project</em>
-                        </MenuItem>
-                        {PROJECT_OPTIONS.map((opt) => (
-                          <MenuItem key={opt} value={opt}>{opt}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-
-                  <Grid item xs={12} sx={{ width: "20%" }}>
+          {[{ value: "ALL", label: "All users" }, ...ROLE_OPTIONS].map((role) => {
+            const count = role.value === "ALL" ? baseFilteredUsers.length : roleCounts[role.value] || 0;
+            return (
+              <Tab
+                key={role.value}
+                value={role.value}
+                label={
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    {role.label}
                     <Box
-                      sx={{ display: "flex", gap: 2, flexDirection: "column" }}
-                    >
-                      <Button
-                        type="submit"
-                        variant="contained"
-                        color="primary"
-                        fullWidth
-                        disabled={loading}
-                        startIcon={
-                          loading ? (
-                            <CircularProgress size={20} />
-                          ) : (
-                            <PersonAddIcon />
-                          )
-                        }
-                      >
-                        {loading
-                          ? editMode
-                            ? "Updating..."
-                            : "Creating..."
-                          : editMode
-                          ? "Update User"
-                          : "Create User"}
-                      </Button>
-                      {editMode && (
-                        <Button
-                          variant="outlined"
-                          color="secondary"
-                          fullWidth
-                          onClick={cancelEdit}
-                          startIcon={<DeleteIcon />}
-                        >
-                          Cancel Edit
-                        </Button>
-                      )}
-                    </Box>
-                  </Grid>
-                </Grid>
-              </form>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={4} sx={{ width: "100%" }}>
-          <Card elevation={0}>
-            <CardHeader
-              title="Existing Users"
-              titleTypographyProps={{ variant: "h6" }}
-              avatar={
-                <Box
-                  sx={{
-                    bgcolor: "primary.light",
-                    borderRadius: "12px",
-                    width: 40,
-                    height: 40,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <PeopleAltIcon sx={{ color: "white" }} />
-                </Box>
-              }
-            />
-            <CardContent>
-              {loadingUsers ? (
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    p: 4,
-                  }}
-                >
-                  <CircularProgress />
-                </Box>
-              ) : (
-                <>
-                  <Box sx={{ mb: 2 }}>
-                    <Grid container spacing={2} alignItems="center">
-                      <Grid item xs={12} md={6}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          placeholder="Search by name, email, or designation"
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          sx={{ width: 320 }}
-                          InputProps={{
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <SearchIcon fontSize="small" />
-                              </InputAdornment>
-                            ),
-                          }}
-                        />
-                      </Grid>
-                      <Grid item xs={6} md={3}>
-                        <FormControl fullWidth size="small" sx={{ width: 220 }}>
-                          <InputLabel id="filter-role-label">Role</InputLabel>
-                          <Select
-                            labelId="filter-role-label"
-                            value={roleFilter}
-                            label="Role"
-                            onChange={(e) => setRoleFilter(e.target.value)}
-                          >
-                            <MenuItem value="ALL">All</MenuItem>
-                            <MenuItem value="ADMIN">Admin</MenuItem>
-                            <MenuItem value="SUPERVISOR">Supervisor</MenuItem>
-                            <MenuItem value="SURVEYOR">Surveyor</MenuItem>
-                            <MenuItem value="EXECUTION ENGINEER">Execution Engineer</MenuItem>
-                            <MenuItem value="VIEWER">Viewer</MenuItem>
-                          </Select>
-                        </FormControl>
-                      </Grid>
-                      <Grid item xs={6} md={3}>
-                        <FormControl fullWidth size="small" sx={{ width: 220 }}>
-                          <InputLabel id="filter-manager-label">Manager</InputLabel>
-                          <Select
-                            labelId="filter-manager-label"
-                            value={managerFilter}
-                            label="Manager"
-                            onChange={(e) => setManagerFilter(e.target.value)}
-                          >
-                            <MenuItem value="ALL">All</MenuItem>
-                            <MenuItem value="UNASSIGNED">Unassigned</MenuItem>
-                            {potentialManagers &&
-                              potentialManagers.map((manager) => (
-                                <MenuItem key={manager._id} value={manager._id}>
-                                  {manager.username}
-                                </MenuItem>
-                              ))}
-                          </Select>
-                        </FormControl>
-                      </Grid>
-                      <Grid item xs={6} md={3}>
-                        <FormControl fullWidth size="small" sx={{ width: 220 }}>
-                          <InputLabel id="filter-project-label">Project</InputLabel>
-                          <Select
-                            labelId="filter-project-label"
-                            value={projectFilter}
-                            label="Project"
-                            onChange={(e) => setProjectFilter(e.target.value)}
-                          >
-                            <MenuItem value="ALL">All</MenuItem>
-                            {PROJECT_OPTIONS.map((opt) => (
-                              <MenuItem key={opt} value={opt}>{opt}</MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                      </Grid>
-                      <Grid item xs={12} md={12}>
-                        <Box sx={{ display: "flex", gap: 1, justifyContent: { xs: "stretch", md: "flex-end" } }}>
-                          <Button
-                            variant="text"
-                            onClick={() => {
-                              setSearchQuery("");
-                              setRoleFilter("ALL");
-                              setManagerFilter("ALL");
-                              setProjectFilter("ALL");
-                            }}
-                          >
-                            Clear filters
-                          </Button>
-                        </Box>
-                      </Grid>
-                    </Grid>
-                  </Box>
-
-                  {filteredUsers.length > 0 ? (
-                    <>
-                      <TableContainer>
-                        <Table size="small">
-                          <TableHead>
-                            <TableRow>
-                              <TableCell>
-                                <Typography variant="subtitle2" fontWeight="bold">
-                                  Username
-                                </Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="subtitle2" fontWeight="bold">
-                                  Email
-                                </Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="subtitle2" fontWeight="bold">
-                                  Role
-                                </Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="subtitle2" fontWeight="bold">
-                                  Designation
-                                </Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="subtitle2" fontWeight="bold">
-                                  Project
-                                </Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="subtitle2" fontWeight="bold">
-                                  Reporting To
-                                </Typography>
-                              </TableCell>
-                              <TableCell align="right">
-                                <Typography variant="subtitle2" fontWeight="bold">
-                                  Actions
-                                </Typography>
-                              </TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {filteredUsers
-                              .slice(
-                                page * rowsPerPage,
-                                page * rowsPerPage + rowsPerPage
-                              )
-                              .map((user) => (
-                                <TableRow key={user._id} hover>
-                                  <TableCell>
-                                    <Box
-                                      sx={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: 1,
-                                      }}
-                                    >
-                                      {user.username}
-                                    </Box>
-                                  </TableCell>
-                                  <TableCell>{user.email}</TableCell>
-                                  <TableCell>
-                                    <Chip
-                                      label={user.role}
-                                      size="small"
-                                      color={
-                                        user.role === "ADMIN"
-                                          ? "error"
-                                          : user.role === "SUPERVISOR"
-                                          ? "warning"
-                                          : user.role === "SURVEYOR"
-                                          ? "success"
-                                          : user.role === "EXECUTION ENGINEER"
-                                          ? "info"
-                                          : "default"
-                                      }
-                                      variant="outlined"
-                                    />
-                                  </TableCell>
-                                  <TableCell>{user.designation || "-"}</TableCell>
-                                  <TableCell>{user.project || "-"}</TableCell>
-                                  <TableCell>
-                                    {user.reportingTo
-                                      ? user.reportingTo.username
-                                      : "-"}
-                                  </TableCell>
-                                  <TableCell align="right">
-                                    <Box
-                                      sx={{
-                                        display: "flex",
-                                        gap: 1,
-                                        justifyContent: "flex-end",
-                                      }}
-                                    >
-                                      <IconButton
-                                        size="small"
-                                        color="primary"
-                                        onClick={() => handleEdit(user)}
-                                        sx={{
-                                          "&:hover": {
-                                            bgcolor: "primary.light",
-                                            "& svg": { color: "white" },
-                                          },
-                                        }}
-                                      >
-                                        <EditIcon fontSize="small" />
-                                      </IconButton>
-                                      <IconButton
-                                        size="small"
-                                        color="error"
-                                        onClick={() => handleDeleteClick(user)}
-                                        sx={{
-                                          "&:hover": {
-                                            bgcolor: "error.light",
-                                            "& svg": { color: "white" },
-                                          },
-                                        }}
-                                      >
-                                        <DeleteIcon fontSize="small" />
-                                      </IconButton>
-                                    </Box>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
-                      <TablePagination
-                        component="div"
-                        count={filteredUsers.length}
-                        rowsPerPage={rowsPerPage}
-                        page={page}
-                        onPageChange={handleChangePage}
-                        onRowsPerPageChange={handleChangeRowsPerPage}
-                        rowsPerPageOptions={[5, 10, 25]}
-                      />
-                    </>
-                  ) : (
-                    <Box
+                      component="span"
                       sx={{
-                        p: 4,
-                        textAlign: "center",
-                        bgcolor: "#f8fafc",
-                        borderRadius: 2,
-                        border: "1px dashed #e2e8f0",
+                        px: 0.75,
+                        borderRadius: 1,
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        bgcolor: roleFilter === role.value ? alpha(theme.palette.primary.main, 0.1) : "action.hover",
+                        color: roleFilter === role.value ? "primary.main" : "text.secondary",
                       }}
                     >
-                      <Typography variant="body1" color="text.secondary">
-                        No users found.
-                      </Typography>
+                      {count}
                     </Box>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+                  </Box>
+                }
+              />
+            );
+          })}
+        </Tabs>
+
+        <Box
+          sx={{
+            p: 2,
+            display: "grid",
+            gap: 1.5,
+            alignItems: "center",
+            gridTemplateColumns: {
+              xs: "1fr",
+              sm: "repeat(2, minmax(0, 1fr))",
+              md: "minmax(0, 2fr) repeat(2, minmax(0, 1fr)) auto",
+            },
+            borderBottom: 1,
+            borderColor: "divider",
+          }}
+        >
+          <TextField
+            size="small"
+            placeholder="Search by name, email, or designation"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            slotProps={{
+              htmlInput: { "aria-label": "Search users" },
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" sx={{ color: "text.secondary" }} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+          <TextField
+            select
+            size="small"
+            label="Manager"
+            value={managerFilter}
+            onChange={(e) => setManagerFilter(e.target.value)}
+          >
+            <MenuItem value="ALL">All managers</MenuItem>
+            <MenuItem value="UNASSIGNED">Unassigned</MenuItem>
+            {potentialManagers.map((manager) => (
+              <MenuItem key={manager._id} value={manager._id}>
+                {manager.username}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            size="small"
+            label="Project"
+            value={projectFilter}
+            onChange={(e) => setProjectFilter(e.target.value)}
+          >
+            <MenuItem value="ALL">All projects</MenuItem>
+            {PROJECT_OPTIONS.map((opt) => (
+              <MenuItem key={opt} value={opt}>
+                {opt}
+              </MenuItem>
+            ))}
+          </TextField>
+          <Button
+            onClick={clearFilters}
+            disabled={!hasActiveFilters}
+            startIcon={<FilterAltOffOutlinedIcon />}
+            sx={{ justifySelf: { xs: "start", md: "end" } }}
+          >
+            Clear
+          </Button>
+        </Box>
+
+        {isCompact ? (
+          <Box>
+            {showSkeleton
+              ? Array.from({ length: 4 }, (_, index) => (
+                  <Box key={index} sx={{ px: 2, py: 1.75 }}>
+                    <Skeleton variant="text" width="60%" />
+                    <Skeleton variant="text" width="40%" />
+                  </Box>
+                ))
+              : pageUsers.length === 0
+                ? emptyState
+                : pageUsers.map((user) => (
+                    <Box key={user._id} sx={{ px: 2, py: 1.5, "& + &": { borderTop: 1, borderColor: "divider" } }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <UserIdentity user={user} />
+                        </Box>
+                        <RowActions user={user} onEdit={handleEdit} onDelete={handleDeleteClick} />
+                      </Box>
+                      <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1, mt: 1, pl: 5.5 }}>
+                        <RoleChip role={user.role} />
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                          {[user.designation, user.project, user.reportingTo && `Reports to ${user.reportingTo.username}`]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  ))}
+          </Box>
+        ) : (
+          <TableContainer>
+            <Table sx={{ minWidth: 820 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>User</TableCell>
+                  <TableCell>Role</TableCell>
+                  <TableCell>Designation</TableCell>
+                  <TableCell>Project</TableCell>
+                  <TableCell>Reporting to</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {showSkeleton ? (
+                  Array.from({ length: 5 }, (_, index) => (
+                    <TableRow key={index}>
+                      {Array.from({ length: TABLE_COLUMNS }, (__, cell) => (
+                        <TableCell key={cell}>
+                          <Skeleton variant="text" width={cell === 0 ? "70%" : "50%"} />
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : pageUsers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={TABLE_COLUMNS} sx={{ p: 0, borderBottom: 0 }}>
+                      {emptyState}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  pageUsers.map((user) => (
+                    <TableRow key={user._id} hover>
+                      <TableCell sx={{ maxWidth: 320 }}>
+                        <UserIdentity user={user} />
+                      </TableCell>
+                      <TableCell>
+                        <RoleChip role={user.role} />
+                      </TableCell>
+                      <TableCell sx={{ color: user.designation ? "text.primary" : "text.disabled" }}>
+                        {user.designation || "—"}
+                      </TableCell>
+                      <TableCell sx={{ color: user.project ? "text.primary" : "text.disabled" }}>
+                        {user.project || "—"}
+                      </TableCell>
+                      <TableCell sx={{ color: user.reportingTo ? "text.primary" : "text.disabled" }}>
+                        {user.reportingTo ? user.reportingTo.username : "—"}
+                      </TableCell>
+                      <TableCell align="right">
+                        <RowActions user={user} onEdit={handleEdit} onDelete={handleDeleteClick} />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+
+        <TablePagination
+          component="div"
+          count={filteredUsers.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          rowsPerPageOptions={[5, 10, 25]}
+          sx={{ borderTop: 1, borderColor: "divider" }}
+        />
+      </Card>
+
+      <UserFormDialog
+        open={formOpen}
+        editMode={editMode}
+        formData={formData}
+        onChange={handleChange}
+        onSubmit={handleSubmit}
+        onClose={closeForm}
+        loading={loading}
+        error={formError}
+        potentialManagers={potentialManagers}
+      />
 
       {/* Delete Confirmation Dialog */}
       <Dialog
         open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-        PaperProps={{
-          elevation: 0,
-          sx: {
-            borderRadius: 2,
-            minWidth: 360,
-          },
-        }}
+        onClose={deleting ? undefined : () => setDeleteDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
       >
-        <DialogTitle sx={{ pb: 1 }}>
-          <Typography variant="h6" component="div" sx={{ fontWeight: 600 }}>
-            Confirm Delete
-          </Typography>
-        </DialogTitle>
-        <DialogContent sx={{ pt: "8px !important" }}>
-          <DialogContentText>
-            Are you sure you want to delete user "{userToDelete?.username}"?
-            This action cannot be undone.
+        <DialogTitle>Delete user?</DialogTitle>
+        <DialogContent>
+          <DialogContentText variant="body2">
+            <strong>{userToDelete?.username}</strong>
+            {userToDelete?.email ? ` (${userToDelete.email})` : ""} will be permanently removed. This action cannot be
+            undone.
           </DialogContentText>
         </DialogContent>
-        <DialogActions sx={{ p: 2, pt: 1 }}>
-          <Button
-            onClick={() => setDeleteDialogOpen(false)}
-            variant="outlined"
-            color="inherit"
-          >
+        <DialogActions sx={{ px: 3, py: 1.5 }}>
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleting} color="inherit">
             Cancel
           </Button>
           <Button
             onClick={() => handleDelete(userToDelete?._id)}
             color="error"
             variant="contained"
-            startIcon={<DeleteIcon />}
+            disabled={deleting}
+            startIcon={deleting ? <CircularProgress size={14} color="inherit" /> : <DeleteOutlineIcon />}
           >
             Delete
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+
+      <Snackbar
+        open={Boolean(success)}
+        autoHideDuration={4000}
+        onClose={() => setSuccess("")}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert severity="success" variant="filled" onClose={() => setSuccess("")} sx={{ width: "100%" }}>
+          {success}
+        </Alert>
+      </Snackbar>
+    </Box>
   );
 };
 

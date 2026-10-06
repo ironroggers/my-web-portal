@@ -4,12 +4,9 @@ import { useNavigate, useLocation as useRouterLocation } from "react-router-dom"
 import {
   Box,
   Typography,
-  Paper,
+  Card,
   CircularProgress,
   Alert,
-  Container,
-  Grid,
-  Chip,
   Autocomplete,
   TextField,
   Button,
@@ -17,23 +14,30 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Divider,
   IconButton,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
+  InputAdornment,
+  ListItemIcon,
+  ListItemText,
+  ListSubheader,
+  Skeleton,
   Snackbar,
   Menu,
   MenuItem,
+  Tooltip,
+  useMediaQuery,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import AddIcon from "@mui/icons-material/Add";
 import CloseIcon from "@mui/icons-material/Close";
-import DeleteIcon from "@mui/icons-material/Delete";
-import EditIcon from "@mui/icons-material/Edit";
-import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import SearchIcon from "@mui/icons-material/Search";
+import TableViewOutlinedIcon from "@mui/icons-material/TableViewOutlined";
+import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
+import PageHeader from "../common/PageHeader";
+import { RoutePointForm, RoutePointTable } from "./RoutePointFields.jsx";
 import SurveySidebar from "./SurveySidebar.jsx";
 import MapComponent from "./MapComponent.jsx";
 import {
@@ -54,13 +58,11 @@ const GOOGLE_MAPS_API_KEY = GOOGLE_MAPS_DIRECTIONS_API;
 // Move libraries array outside component to prevent LoadScript reloading
 const GOOGLE_MAPS_LIBRARIES = ["places"];
 
+// The map sits inside a card, between the route toggles and the legend
 const containerStyle = {
   width: "100%",
-  height: "70vh", // More responsive height
-  borderRadius: "12px",
-  margin: "auto",
-  marginBottom: "32px",
-  boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)", // Add shadow for depth
+  height: "68vh",
+  minHeight: 420,
 };
 
 const defaultCenter = { lat: 9.31, lng: 76.45 }; // Kerala
@@ -84,6 +86,8 @@ const MapViewPage = () => {
   const routerLocation = useRouterLocation();
   const { user } = useAuth();
   const isViewer = user && user.role === 'VIEWER';
+  const theme = useTheme();
+  const isPhone = useMediaQuery(theme.breakpoints.down('sm'));
   const [locations, setLocations] = useState([]);
   const [locationRoutes, setLocationRoutes] = useState([]); // [{points, directions, routeInfo, mapCenter, error}]
   const [surveyRoutes, setSurveyRoutes] = useState([]); // [{locationId, directions}]
@@ -418,9 +422,7 @@ const MapViewPage = () => {
 
       // Specific handling for CORS errors
       if (err.message.includes("Failed to fetch") || err.name === "TypeError") {
-        setError(
-          "CORS error: Unable to access the API. This might be due to cross-origin restrictions. Please ensure the API has CORS enabled."
-        );
+        setError("Couldn't reach the location service. Check your connection and refresh the page.");
       } else {
         setError(err.message || "Error fetching locations");
       }
@@ -1724,168 +1726,169 @@ const MapViewPage = () => {
     }
   };
 
-  return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 6 }}>
-      <Paper
-        elevation={3}
-        sx={{ p: 4, borderRadius: "16px", overflow: "hidden" }}
-      >
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            mb: 3,
-            flexWrap: "wrap",
-            gap: 2,
-          }}
-        >
-          <Typography variant="h4" fontWeight="700" sx={{ color: "#1e293b" }}>
-            OFC Route Map View
+  const routeCalculating = isRouteCalculationInProgress();
+  const selectedLocationValue =
+    selectedLocations.length > 0
+      ? `${selectedLocations[0].location.block} (${selectedLocations[0].location.district})`
+      : null;
+
+  const dialogTitle = (title, subtitle, onClose) => (
+    <DialogTitle sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        {title}
+        {subtitle && (
+          <Typography variant="body2" component="div" sx={{ color: "text.secondary", mt: 0.25 }}>
+            {subtitle}
           </Typography>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AddIcon />}
-            onClick={handleOpenCreateDialog}
-            disabled={isViewer}
-            sx={{
-              borderRadius: "8px",
-              px: 3,
-              py: 1,
-              fontWeight: 600,
-              boxShadow: "0 4px 6px rgba(37, 99, 235, 0.2)",
-              '&.Mui-disabled': {
-                bgcolor: '#bdbdbd',
-                color: '#ffffff',
-                boxShadow: 'none'
-              }
-            }}
-          >
-            Create New Location
-          </Button>
-        </Box>
-        <Typography
-          variant="subtitle1"
-          sx={{ color: "text.secondary", mb: 3, lineHeight: 1.6 }}
-        >
-          All locations' routes are shown in blue. Survey points are shown in
-          yellow. For locations with status 5, survey points are connected with
-          yellow routes.
-        </Typography>
-
-        {/* Search and controls section */}
-        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mb: 4 }}>
-          <Box sx={{ width: { xs: "100%", sm: "50%" } }}>
-            <Autocomplete
-              // Remove multiple prop for single selection
-              options={locationOptions}
-              value={
-                selectedLocations.length > 0
-                  ? `${selectedLocations[0].location.block} (${selectedLocations[0].location.district})`
-                  : null
-              }
-              onChange={handleLocationSelect}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Select Location"
-                  variant="outlined"
-                  fullWidth
-                  InputProps={{
-                    ...params.InputProps,
-                    sx: { borderRadius: "8px" },
-                  }}
-                />
-              )}
-              clearOnEscape
-              isOptionEqualToValue={(option, value) => option === value}
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  "& fieldset": { borderColor: "rgba(0, 0, 0, 0.12)" },
-                  "&:hover fieldset": { borderColor: "primary.main" },
-                },
-                "& .MuiAutocomplete-option": {
-                  fontSize: "0.95rem",
-                  whiteSpace: "normal",
-                  wordBreak: "break-word",
-                },
-                "& .MuiAutocomplete-inputRoot": {
-                  minHeight: "52px",
-                },
-              }}
-              ListboxProps={{
-                sx: { maxHeight: 250 },
-              }}
-            />
-          </Box>
-          {selectedLocations.length > 0 && (
-            <Box sx={{ display: "flex", gap: 1 }}>
-              <Button
-                variant="outlined"
-                color="primary"
-                startIcon={<EditIcon />}
-                onClick={handleOpenEditDialog}
-                disabled={isViewer}
-                sx={{ borderRadius: "8px", fontWeight: 500, flex: 1,
-                  '&.Mui-disabled': {
-                    bgcolor: '#eeeeee',
-                    color: '#9e9e9e',
-                    borderColor: '#bdbdbd'
-                  }
-                }}
-              >
-                Edit
-              </Button>
-              <Button
-                variant="outlined"
-                color="success"
-                startIcon={<FileDownloadIcon />}
-                onClick={handleExportClick}
-                disabled={
-                  selectedLocations.length === 0 ||
-                  isRouteCalculationInProgress() ||
-                  isViewer
-                }
-                sx={{
-                  borderRadius: "8px",
-                  fontWeight: 500,
-                  flex: 1,
-                  opacity: isRouteCalculationInProgress() ? 0.6 : 1,
-                }}
-              >
-                {isRouteCalculationInProgress() ? "Calculating..." : "Export"}
-              </Button>
-            </Box>
-          )}
-        </Box>
-
-        {error && (
-          <Alert severity="error" sx={{ mb: 3, borderRadius: "8px" }}>
-            {error}
-          </Alert>
         )}
+      </Box>
+      <IconButton aria-label="Close" onClick={onClose} size="small" sx={{ mt: -0.5, mr: -1 }}>
+        <CloseIcon fontSize="small" />
+      </IconButton>
+    </DialogTitle>
+  );
 
-        {loading || !isLoaded ? (
-          <Box sx={{ textAlign: "center", py: 6 }}>
-            <CircularProgress size={60} thickness={4} />
-            <Typography sx={{ mt: 3, fontWeight: 500 }}>
-              Loading map data...
-            </Typography>
+  const sectionHeading = (title, description) => (
+    <Box sx={{ mb: 2 }}>
+      <Typography component="h3" variant="subtitle1" sx={{ fontWeight: 600, lineHeight: 1.4 }}>
+        {title}
+      </Typography>
+      {description && (
+        <Typography variant="caption" component="p" sx={{ color: "text.secondary" }}>
+          {description}
+        </Typography>
+      )}
+    </Box>
+  );
+
+  const fieldGridSx = {
+    display: "grid",
+    gap: 2,
+    gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: "repeat(2, minmax(0, 1fr))", md: "repeat(3, minmax(0, 1fr))" },
+  };
+
+  return (
+    <Box>
+      <PageHeader
+        title="Locations"
+        subtitle="OFC routes, survey points and field data for each block"
+        actions={
+          <Tooltip title={isViewer ? "Viewers can't create locations" : ""}>
+            <span>
+              <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreateDialog} disabled={isViewer}>
+                New location
+              </Button>
+            </span>
+          </Tooltip>
+        }
+      />
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
+      {/* Location picker and actions */}
+      <Card sx={{ mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1.5, p: 2 }}>
+          <Autocomplete
+            options={locationOptions}
+            value={selectedLocationValue}
+            onChange={handleLocationSelect}
+            clearOnEscape
+            isOptionEqualToValue={(option, value) => option === value}
+            loading={loading}
+            sx={{ width: { xs: "100%", sm: 380 } }}
+            slotProps={{ listbox: { sx: { maxHeight: 320 } } }}
+            renderOption={(props, option) => {
+              const { key, ...optionProps } = props;
+              const match = option.match(/^(.*) \((.*)\)$/);
+              return (
+                <Box component="li" key={key} {...optionProps} sx={{ flexDirection: "column", alignItems: "flex-start !important" }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    {match ? match[1] : option}
+                  </Typography>
+                  {match && (
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                      {match[2]}
+                    </Typography>
+                  )}
+                </Box>
+              );
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                size="small"
+                placeholder="Find a location by block or district"
+                inputProps={{ ...params.inputProps, "aria-label": "Find a location" }}
+                InputProps={{
+                  ...params.InputProps,
+                  startAdornment: (
+                    <>
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" sx={{ color: "text.secondary" }} />
+                      </InputAdornment>
+                      {params.InputProps.startAdornment}
+                    </>
+                  ),
+                }}
+              />
+            )}
+          />
+
+          {selectedLocations.length > 0 && (
+            <>
+              <Button variant="outlined" startIcon={<EditOutlinedIcon />} onClick={handleOpenEditDialog} disabled={isViewer}>
+                Edit location
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={routeCalculating ? <CircularProgress size={16} color="inherit" /> : <FileDownloadOutlinedIcon />}
+                endIcon={routeCalculating ? undefined : <ExpandMoreIcon />}
+                onClick={handleExportClick}
+                disabled={routeCalculating || isViewer}
+                aria-haspopup="menu"
+              >
+                {routeCalculating ? "Calculating routes…" : "Export"}
+              </Button>
+            </>
+          )}
+
+          <Box sx={{ flex: 1 }} />
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            {loading ? "Loading locations…" : `${locations.length} ${locations.length === 1 ? "location" : "locations"}`}
+          </Typography>
+        </Box>
+      </Card>
+
+      {loading || !isLoaded ? (
+        <Card>
+          <Skeleton variant="rectangular" height={44} />
+          <Box sx={{ position: "relative" }}>
+            <Skeleton variant="rectangular" sx={{ height: containerStyle.height, minHeight: containerStyle.minHeight }} />
+            <Box sx={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, px: 2, py: 1.25, bgcolor: "background.paper", borderRadius: 1.5, boxShadow: 3 }}>
+                <CircularProgress size={18} />
+                <Typography variant="body2">Loading map…</Typography>
+              </Box>
+            </Box>
           </Box>
-        ) : (
-          <>
-            <InfoCardComponent
-              selectedLocations={selectedLocations}
-              locationRoutes={locationRoutes}
-              surveyRoutes={surveyRoutes}
-              surveys={surveys}
-              getSurveysForLocation={getSurveysForLocation}
-              handleLocationMarkerClick={handleLocationMarkerClick}
-              STATUS_MAPPING={STATUS_MAPPING}
-              distance={distance}
-            />
-            <SymbolsComponent surveys={surveys} />
+        </Card>
+      ) : (
+        <>
+          <InfoCardComponent
+            selectedLocations={selectedLocations}
+            locationRoutes={locationRoutes}
+            surveyRoutes={surveyRoutes}
+            surveys={surveys}
+            getSurveysForLocation={getSurveysForLocation}
+            handleLocationMarkerClick={handleLocationMarkerClick}
+            STATUS_MAPPING={STATUS_MAPPING}
+            distance={distance}
+          />
+          <Card>
             <MapComponent
               mapCenter={mapCenter}
               mapZoom={mapZoom}
@@ -1907,729 +1910,124 @@ const MapViewPage = () => {
               refreshLocations={refreshLocations}
               distance={distance}
               setDistance={setDistance}
+              isViewer={isViewer}
             />
-          </>
-        )}
-      </Paper>
+            <SymbolsComponent surveys={surveys} />
+          </Card>
+        </>
+      )}
 
       {/* Create Location Dialog */}
-      <Dialog
-        open={openCreateDialog}
-        onClose={handleCloseCreateDialog}
-        fullWidth
-        maxWidth="lg"
-        PaperProps={{
-          sx: {
-            borderRadius: "12px",
-            overflow: "hidden",
-          },
-        }}
-      >
-        <DialogTitle
-          sx={{
-            bgcolor: "primary.main",
-            color: "white",
-            fontSize: "1.3rem",
-            fontWeight: 600,
-            py: 2,
-          }}
-        >
-          Create New Location
-          <IconButton
-            aria-label="close"
-            onClick={handleCloseCreateDialog}
-            sx={{
-              position: "absolute",
-              right: 16,
-              top: 12,
-              color: "white",
-            }}
-          >
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent dividers sx={{ p: 3 }}>
-          <Box sx={{ p: 1 }}>
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  label="State"
-                  name="state"
-                  value={newLocation.state}
-                  onChange={handleLocationInputChange}
-                  fullWidth
-                  margin="normal"
-                  required
-                  InputProps={{
-                    sx: { borderRadius: "8px" },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  label="State Code"
-                  name="state_code"
-                  value={newLocation.state_code}
-                  onChange={handleLocationInputChange}
-                  fullWidth
-                  margin="normal"
-                  required
-                  InputProps={{
-                    sx: { borderRadius: "8px" },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  label="District"
-                  name="district"
-                  value={newLocation.district}
-                  onChange={handleLocationInputChange}
-                  fullWidth
-                  margin="normal"
-                  required
-                  InputProps={{
-                    sx: { borderRadius: "8px" },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  label="District Code"
-                  name="district_code"
-                  value={newLocation.district_code}
-                  onChange={handleLocationInputChange}
-                  fullWidth
-                  margin="normal"
-                  required
-                  InputProps={{
-                    sx: { borderRadius: "8px" },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  label="Block"
-                  name="block"
-                  value={newLocation.block}
-                  onChange={handleLocationInputChange}
-                  fullWidth
-                  margin="normal"
-                  required
-                  InputProps={{
-                    sx: { borderRadius: "8px" },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  label="Block Code"
-                  name="block_code"
-                  value={newLocation.block_code}
-                  onChange={handleLocationInputChange}
-                  fullWidth
-                  margin="normal"
-                  required
-                  InputProps={{
-                    sx: { borderRadius: "8px" },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  label="Block Address"
-                  name="block_address"
-                  value={newLocation.block_address}
-                  onChange={handleLocationInputChange}
-                  fullWidth
-                  margin="normal"
-                  required
-                  InputProps={{
-                    sx: { borderRadius: "8px" },
-                  }}
-                />
-              </Grid>
-            </Grid>
+      <Dialog open={openCreateDialog} onClose={creatingLocation ? undefined : handleCloseCreateDialog} fullWidth maxWidth="md" fullScreen={isPhone} scroll="paper">
+        {dialogTitle("New location", "The block and the route its OFC desktop survey follows", handleCloseCreateDialog)}
+        <DialogContent dividers>
+          {sectionHeading("Location")}
+          <Box sx={fieldGridSx}>
+            <TextField label="State" name="state" value={newLocation.state} onChange={handleLocationInputChange} size="small" required />
+            <TextField label="State code" name="state_code" value={newLocation.state_code} onChange={handleLocationInputChange} size="small" required />
+            <TextField label="District" name="district" value={newLocation.district} onChange={handleLocationInputChange} size="small" required />
+            <TextField label="District code" name="district_code" value={newLocation.district_code} onChange={handleLocationInputChange} size="small" required />
+            <TextField label="Block" name="block" value={newLocation.block} onChange={handleLocationInputChange} size="small" required />
+            <TextField label="Block code" name="block_code" value={newLocation.block_code} onChange={handleLocationInputChange} size="small" required />
+            <TextField
+              label="Block address"
+              name="block_address"
+              value={newLocation.block_address}
+              onChange={handleLocationInputChange}
+              size="small"
+              required
+              sx={{ gridColumn: "1 / -1" }}
+            />
+          </Box>
 
-            <Box
-              sx={{
-                mt: 4,
-                mb: 3,
-                borderLeft: "4px solid",
-                borderColor: "secondary.main",
-                pl: 2,
-                py: 0.5,
-              }}
-            >
-              <Typography variant="h6" fontWeight={600}>
-                Add Route Points
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Add all points in the order they should appear in the route
-              </Typography>
-            </Box>
-
-            {/* New route point form */}
-            <Paper
-              sx={{
-                p: 2,
-                borderRadius: "12px",
-                mb: 3,
-                bgcolor: "rgba(0,0,0,0.02)",
-              }}
-            >
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    label="Place Name"
-                    name="place"
-                    value={newRoutePoint.place}
-                    onChange={handleRoutePointChange}
-                    fullWidth
-                    margin="normal"
-                    required
-                    InputProps={{
-                      sx: { borderRadius: "8px" },
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    label="Latitude"
-                    name="latitude"
-                    type="number"
-                    value={newRoutePoint.latitude}
-                    onChange={handleRoutePointChange}
-                    fullWidth
-                    margin="normal"
-                    required
-                    inputProps={{ step: 0.000001, min: -90, max: 90 }}
-                    InputProps={{
-                      sx: { borderRadius: "8px" },
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    label="Longitude"
-                    name="longitude"
-                    type="number"
-                    value={newRoutePoint.longitude}
-                    onChange={handleRoutePointChange}
-                    fullWidth
-                    margin="normal"
-                    required
-                    inputProps={{ step: 0.000001, min: -180, max: 180 }}
-                    InputProps={{
-                      sx: { borderRadius: "8px" },
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    select
-                    label="Point Type"
-                    name="type"
-                    value={newRoutePoint.type}
-                    onChange={handleRoutePointChange}
-                    fullWidth
-                    margin="normal"
-                    required
-                    InputProps={{
-                      sx: { borderRadius: "8px" },
-                    }}
-                  >
-                    <MenuItem value="BHQ">BHQ (Block Head Quarter)</MenuItem>
-                    <MenuItem value="GP">GP (Gram Panchayat)</MenuItem>
-                    <MenuItem value="others">Others</MenuItem>
-                  </TextField>
-                </Grid>
-                <Grid item xs={12} display="flex" justifyContent="flex-end">
-                  <Button
-                    variant="contained"
-                    color="secondary"
-                    onClick={handleAddRoutePoint}
-                    disabled={
-                      !newRoutePoint.place ||
-                      !newRoutePoint.type ||
-                      !newRoutePoint.latitude ||
-                      !newRoutePoint.longitude
-                    }
-                    sx={{
-                      borderRadius: "8px",
-                      px: 3,
-                      fontWeight: 500,
-                      "&:hover": {
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                      },
-                    }}
-                  >
-                    Add Point
-                  </Button>
-                </Grid>
-              </Grid>
-            </Paper>
-
-            {/* Display route points table */}
-            {newLocation.route.length > 0 && (
-              <TableContainer
-                component={Paper}
-                sx={{
-                  mt: 3,
-                  borderRadius: "12px",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-                }}
-              >
-                <Table size="small">
-                  <TableHead sx={{ bgcolor: "primary.light" }}>
-                    <TableRow>
-                      <TableCell sx={{ color: "white", fontWeight: 500 }}>
-                        Place
-                      </TableCell>
-                      <TableCell sx={{ color: "white", fontWeight: 500 }}>
-                        Latitude
-                      </TableCell>
-                      <TableCell sx={{ color: "white", fontWeight: 500 }}>
-                        Longitude
-                      </TableCell>
-                      <TableCell sx={{ color: "white", fontWeight: 500 }}>
-                        Type
-                      </TableCell>
-                      <TableCell sx={{ color: "white", fontWeight: 500 }}>
-                        Actions
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {newLocation.route.map((point, index) => (
-                      <TableRow
-                        key={index}
-                        sx={{
-                          "&:nth-of-type(odd)": { bgcolor: "rgba(0,0,0,0.02)" },
-                        }}
-                      >
-                        <TableCell>{point.place}</TableCell>
-                        <TableCell>{point.latitude.toFixed(6)}</TableCell>
-                        <TableCell>{point.longitude.toFixed(6)}</TableCell>
-                        <TableCell>{point.type}</TableCell>
-                        <TableCell>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleRemoveRoutePoint(index)}
-                            sx={{
-                              "&:hover": {
-                                bgcolor: "error.light",
-                                color: "white",
-                              },
-                            }}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
+          <Divider sx={{ my: 3 }} />
+          {sectionHeading("Route points", "Add the points in the order the route should follow")}
+          <RoutePointForm point={newRoutePoint} onChange={handleRoutePointChange} onAdd={handleAddRoutePoint} />
+          <Box sx={{ mt: 2 }}>
+            <RoutePointTable points={newLocation.route} onRemove={handleRemoveRoutePoint} />
           </Box>
         </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button
-            onClick={handleCloseCreateDialog}
-            variant="outlined"
-            sx={{ borderRadius: "8px", px: 3 }}
-          >
+        <DialogActions sx={{ px: 3, py: 1.5 }}>
+          <Button onClick={handleCloseCreateDialog} color="inherit" disabled={creatingLocation}>
             Cancel
           </Button>
           <Button
             onClick={handleCreateLocation}
             variant="contained"
-            color="primary"
-            disabled={
-              creatingLocation ||
-              !newLocation.district ||
-              !newLocation.block ||
-              newLocation.route.length === 0
-            }
-            sx={{
-              borderRadius: "8px",
-              px: 4,
-              fontWeight: 600,
-              ml: 2,
-            }}
+            disabled={creatingLocation || !newLocation.district || !newLocation.block || newLocation.route.length === 0}
+            startIcon={creatingLocation ? <CircularProgress size={16} color="inherit" /> : undefined}
           >
-            {creatingLocation ? "Creating..." : "Create Location"}
+            {creatingLocation ? "Creating…" : "Create location"}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Edit Location Dialog */}
-      <Dialog
-        open={openEditDialog}
-        onClose={handleCloseEditDialog}
-        fullWidth
-        maxWidth="lg"
-        PaperProps={{
-          sx: {
-            borderRadius: "12px",
-            overflow: "hidden",
-          },
-        }}
-      >
-        <DialogTitle
-          sx={{
-            bgcolor: "primary.main",
-            color: "white",
-            fontSize: "1.3rem",
-            fontWeight: 600,
-            py: 2,
-          }}
-        >
-          Edit Location
-          <IconButton
-            aria-label="close"
-            onClick={handleCloseEditDialog}
-            sx={{
-              position: "absolute",
-              right: 16,
-              top: 12,
-              color: "white",
-            }}
-          >
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
+      <Dialog open={openEditDialog} onClose={updatingLocation ? undefined : handleCloseEditDialog} fullWidth maxWidth="md" fullScreen={isPhone} scroll="paper">
+        {dialogTitle(
+          "Edit location",
+          editLocation ? [editLocation.block, editLocation.district].filter(Boolean).join(", ") : null,
+          handleCloseEditDialog
+        )}
         <DialogContent dividers>
           {editLocation && (
             <>
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    label="State"
-                    name="state"
-                    value={editLocation.state}
-                    onChange={handleEditLocationInputChange}
-                    fullWidth
-                    margin="normal"
-                    disabled
-                  />
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    label="State Code"
-                    name="state_code"
-                    value={editLocation.state_code}
-                    onChange={handleEditLocationInputChange}
-                    fullWidth
-                    margin="normal"
-                    disabled
-                  />
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    label="District"
-                    name="district"
-                    value={editLocation.district}
-                    onChange={handleEditLocationInputChange}
-                    fullWidth
-                    margin="normal"
-                    disabled
-                  />
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    label="District Code"
-                    name="district_code"
-                    value={editLocation.district_code}
-                    onChange={handleEditLocationInputChange}
-                    fullWidth
-                    margin="normal"
-                    disabled
-                  />
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    label="Block"
-                    name="block"
-                    value={editLocation.block}
-                    onChange={handleEditLocationInputChange}
-                    fullWidth
-                    margin="normal"
-                    disabled
-                  />
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    label="Block Code"
-                    name="block_code"
-                    value={editLocation.block_code}
-                    onChange={handleEditLocationInputChange}
-                    fullWidth
-                    margin="normal"
-                    disabled
-                  />
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    label="Block Address"
-                    name="block_address"
-                    value={editLocation.block_address}
-                    onChange={handleEditLocationInputChange}
-                    fullWidth
-                    margin="normal"
-                    disabled
-                  />
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    label="Status"
-                    name="status"
-                    type="number"
-                    value={editLocation.status}
-                    onChange={handleEditLocationInputChange}
-                    fullWidth
-                    margin="normal"
-                    required
-                    inputProps={{ min: 1, max: 6 }}
-                    select
-                  >
-                    {Object.entries(STATUS_MAPPING).map(([value, label]) => (
-                      <MenuItem key={value} value={parseInt(value)}>
-                        {label}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-              </Grid>
+              {sectionHeading("Location", "Names and codes are fixed once a location is created")}
+              <Box sx={fieldGridSx}>
+                <TextField label="State" value={editLocation.state || ""} size="small" disabled />
+                <TextField label="State code" value={editLocation.state_code || ""} size="small" disabled />
+                <TextField label="District" value={editLocation.district || ""} size="small" disabled />
+                <TextField label="District code" value={editLocation.district_code || ""} size="small" disabled />
+                <TextField label="Block" value={editLocation.block || ""} size="small" disabled />
+                <TextField label="Block code" value={editLocation.block_code || ""} size="small" disabled />
+                <TextField
+                  label="Block address"
+                  value={editLocation.block_address || ""}
+                  size="small"
+                  disabled
+                  sx={{ gridColumn: { md: "1 / 3" } }}
+                />
+                <TextField
+                  select
+                  label="Status"
+                  name="status"
+                  value={editLocation.status}
+                  onChange={handleEditLocationInputChange}
+                  size="small"
+                  required
+                >
+                  {Object.entries(STATUS_MAPPING).map(([value, label]) => (
+                    <MenuItem key={value} value={parseInt(value)}>
+                      {label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Box>
 
-              <Typography variant="h6" sx={{ mt: 3, mb: 2 }}>
-                Edit Route Points
-              </Typography>
-
-              {/* New route point form */}
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    label="Place Name"
-                    name="place"
-                    value={editRoutePoint.place}
-                    onChange={handleEditRoutePointChange}
-                    fullWidth
-                    margin="normal"
-                    required
-                  />
-                </Grid>
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    label="Latitude"
-                    name="latitude"
-                    type="number"
-                    value={editRoutePoint.latitude}
-                    onChange={handleEditRoutePointChange}
-                    fullWidth
-                    margin="normal"
-                    required
-                    inputProps={{ step: 0.000001, min: -90, max: 90 }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    label="Longitude"
-                    name="longitude"
-                    type="number"
-                    value={editRoutePoint.longitude}
-                    onChange={handleEditRoutePointChange}
-                    fullWidth
-                    margin="normal"
-                    required
-                    inputProps={{ step: 0.000001, min: -180, max: 180 }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    select
-                    label="Point Type"
-                    name="type"
-                    value={editRoutePoint.type}
-                    onChange={handleEditRoutePointChange}
-                    fullWidth
-                    margin="normal"
-                    required
-                  >
-                    <MenuItem value="BHQ">BHQ (Block Head Quarter)</MenuItem>
-                    <MenuItem value="GP">GP (Gram Panchayat)</MenuItem>
-                    <MenuItem value="others">Others</MenuItem>
-                  </TextField>
-                </Grid>
-                <Grid item xs={12} display="flex" justifyContent="flex-end">
-                  <Button
-                    variant="contained"
-                    color="secondary"
-                    onClick={handleAddEditRoutePoint}
-                    disabled={
-                      !editRoutePoint.place ||
-                      !editRoutePoint.type ||
-                      !editRoutePoint.latitude ||
-                      !editRoutePoint.longitude
-                    }
-                  >
-                    Add Point
-                  </Button>
-                </Grid>
-              </Grid>
-
-              {/* Display route points table with drag-and-drop */}
-              {editLocation.route && editLocation.route.length > 0 && (
-                <Box sx={{ mt: 3 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      mb: 2,
-                      p: 2,
-                      bgcolor: "info.light",
-                      borderRadius: "8px",
-                      color: "info.contrastText",
-                    }}
-                  >
-                    <DragIndicatorIcon sx={{ mr: 1 }} />
-                    <Typography variant="subtitle2" fontWeight={500}>
-                      Drag to reorder points. The first point is both the
-                      starting and ending point.
-                    </Typography>
-                  </Box>
-
-                  <TableContainer
-                    component={Paper}
-                    sx={{
-                      borderRadius: "12px",
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-                    }}
-                  >
-                    <Table size="small">
-                      <TableHead sx={{ bgcolor: "primary.light" }}>
-                        <TableRow>
-                          <TableCell
-                            width="80px"
-                            sx={{ color: "white", fontWeight: 500 }}
-                          >
-                            Order
-                          </TableCell>
-                          <TableCell sx={{ color: "white", fontWeight: 500 }}>
-                            Place
-                          </TableCell>
-                          <TableCell sx={{ color: "white", fontWeight: 500 }}>
-                            Latitude
-                          </TableCell>
-                          <TableCell sx={{ color: "white", fontWeight: 500 }}>
-                            Longitude
-                          </TableCell>
-                          <TableCell sx={{ color: "white", fontWeight: 500 }}>
-                            Type
-                          </TableCell>
-                          <TableCell sx={{ color: "white", fontWeight: 500 }}>
-                            Actions
-                          </TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {editLocation.route.map((point, index) => (
-                          <TableRow
-                            key={index}
-                            draggable
-                            onDragStart={(e) => handleDragStart(e, index)}
-                            onDragOver={handleDragOver}
-                            onDrop={(e) => handleDrop(e, index)}
-                            sx={{
-                              cursor: "move",
-                              "&:hover": { bgcolor: "rgba(0,0,0,0.04)" },
-                              ...(index === 0
-                                ? {
-                                    bgcolor: "primary.light",
-                                    "& .MuiTableCell-root": {
-                                      color: "white",
-                                      fontWeight: 500,
-                                    },
-                                  }
-                                : {
-                                    "&:nth-of-type(odd)": {
-                                      bgcolor: "rgba(0,0,0,0.02)",
-                                    },
-                                  }),
-                            }}
-                          >
-                            <TableCell>
-                              <Box
-                                sx={{ display: "flex", alignItems: "center" }}
-                              >
-                                <DragIndicatorIcon
-                                  fontSize="small"
-                                  sx={{ mr: 1, cursor: "grab" }}
-                                />
-                                {index + 1}
-                              </Box>
-                            </TableCell>
-                            <TableCell>{point.place}</TableCell>
-                            <TableCell>
-                              {Number(point.latitude).toFixed(6)}
-                            </TableCell>
-                            <TableCell>
-                              {Number(point.longitude).toFixed(6)}
-                            </TableCell>
-                            <TableCell>
-                              <Chip
-                                label={point.type}
-                                size="small"
-                                color={index === 0 ? "default" : "primary"}
-                                variant={index === 0 ? "default" : "outlined"}
-                                sx={{ fontWeight: 500 }}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <IconButton
-                                size="small"
-                                color={index === 0 ? "default" : "error"}
-                                onClick={() =>
-                                  handleRemoveEditRoutePoint(index)
-                                }
-                                sx={{
-                                  "&:hover": {
-                                    bgcolor:
-                                      index === 0
-                                        ? "rgba(255,255,255,0.2)"
-                                        : "error.light",
-                                    color: index === 0 ? "inherit" : "white",
-                                  },
-                                }}
-                              >
-                                <DeleteIcon />
-                              </IconButton>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </Box>
-              )}
+              <Divider sx={{ my: 3 }} />
+              {sectionHeading("Route points", "Drag rows to reorder. The first point is where the route starts and ends.")}
+              <RoutePointForm point={editRoutePoint} onChange={handleEditRoutePointChange} onAdd={handleAddEditRoutePoint} />
+              <Box sx={{ mt: 2 }}>
+                <RoutePointTable
+                  points={editLocation.route}
+                  onRemove={handleRemoveEditRoutePoint}
+                  dragHandlers={{ onDragStart: handleDragStart, onDragOver: handleDragOver, onDrop: handleDrop }}
+                />
+              </Box>
             </>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseEditDialog}>Cancel</Button>
+        <DialogActions sx={{ px: 3, py: 1.5 }}>
+          <Button onClick={handleCloseEditDialog} color="inherit" disabled={updatingLocation}>
+            Cancel
+          </Button>
           <Button
             onClick={handleUpdateLocation}
             variant="contained"
-            color="primary"
-            disabled={
-              updatingLocation ||
-              !editLocation ||
-              editLocation.route.length === 0
-            }
+            disabled={updatingLocation || !editLocation || editLocation.route.length === 0}
+            startIcon={updatingLocation ? <CircularProgress size={16} color="inherit" /> : undefined}
           >
-            {updatingLocation ? "Updating..." : "Update Location"}
+            {updatingLocation ? "Saving…" : "Save changes"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -2641,22 +2039,7 @@ const MapViewPage = () => {
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
-        <Alert
-          onClose={handleCloseSnackbar}
-          severity={snackbar.severity || "info"}
-          sx={{
-            width: "100%",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-            borderRadius: "8px",
-            "& .MuiAlert-icon": {
-              fontSize: "1.25rem",
-            },
-            "& .MuiAlert-message": {
-              fontSize: "0.95rem",
-              fontWeight: 500,
-            },
-          }}
-        >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity || "info"} variant="filled" sx={{ width: "100%", boxShadow: 6 }}>
           {snackbar.message}
         </Alert>
       </Snackbar>
@@ -2666,185 +2049,82 @@ const MapViewPage = () => {
         anchorEl={exportAnchorEl}
         open={openExportMenu}
         onClose={handleExportClose}
-        PaperProps={{
-          sx: {
-            borderRadius: "8px",
-            mt: 1,
-            boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
-          },
-        }}
+        slotProps={{ paper: { sx: { mt: 0.5, minWidth: 260 } }, list: { dense: true } }}
       >
-        <Box sx={{ px: 2, py: 1, borderBottom: "1px solid rgba(0,0,0,0.1)" }}>
-          <Typography
-            variant="subtitle2"
-            fontWeight={600}
-            color="text.secondary"
-          >
-            OFC Routes (Desktop Survey)
-          </Typography>
-        </Box>
-        <MenuItem
-          onClick={() => handleExportToExcel("desktop")}
-          sx={{ py: 1.5, px: 3 }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-            <FileDownloadIcon color="primary" />
-            <Typography>Export to Excel</Typography>
-          </Box>
+        <ListSubheader sx={{ lineHeight: 2.5, bgcolor: "transparent" }}>Desktop survey routes</ListSubheader>
+        <MenuItem onClick={() => handleExportToExcel("desktop")}>
+          <ListItemIcon>
+            <TableViewOutlinedIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Excel" />
         </MenuItem>
-        <MenuItem
-          onClick={() => handleExportToKML("desktop")}
-          sx={{ py: 1.5, px: 3 }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-            <FileDownloadIcon color="primary" />
-            <Typography>Export to KML</Typography>
-          </Box>
+        <MenuItem onClick={() => handleExportToKML("desktop")}>
+          <ListItemIcon>
+            <MapOutlinedIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="KML" />
         </MenuItem>
-
-        <Box
-          sx={{
-            px: 2,
-            py: 1,
-            borderBottom: "1px solid rgba(0,0,0,0.1)",
-            mt: 1,
-          }}
-        >
-          <Typography
-            variant="subtitle2"
-            fontWeight={600}
-            color="text.secondary"
-          >
-            Survey Routes (Physical Survey)
-          </Typography>
-        </Box>
-        <MenuItem
-          onClick={() => handlePhysicalSurveyExport()}
-          sx={{ py: 1.5, px: 3 }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-            <FileDownloadIcon color="warning" />
-            <Typography>Export to Excel</Typography>
-          </Box>
+        <Divider />
+        <ListSubheader sx={{ lineHeight: 2.5, bgcolor: "transparent" }}>Physical survey routes</ListSubheader>
+        <MenuItem onClick={() => handlePhysicalSurveyExport()}>
+          <ListItemIcon>
+            <TableViewOutlinedIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Excel" />
         </MenuItem>
-        <MenuItem
-          onClick={() => handleExportToKML("physical")}
-          sx={{ py: 1.5, px: 3 }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-            <FileDownloadIcon color="warning" />
-            <Typography>Export to KML</Typography>
-          </Box>
+        <MenuItem onClick={() => handleExportToKML("physical")}>
+          <ListItemIcon>
+            <MapOutlinedIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="KML" />
         </MenuItem>
       </Menu>
 
       {/* Survey Sidebar */}
-      {sidebarOpen && selectedSurvey ? (
-        <SurveySidebar
-          open={sidebarOpen}
-          survey={selectedSurvey}
-          loading={loadingSurvey}
-          onClose={handleSidebarClose}
-        />
-      ) : sidebarOpen ? (
-        <SurveySidebar
-          open={sidebarOpen}
-          survey={null}
-          loading={loadingSurvey}
-          onClose={handleSidebarClose}
-        />
-      ) : null}
+      {sidebarOpen && (
+        <SurveySidebar open={sidebarOpen} survey={selectedSurvey || null} loading={loadingSurvey} onClose={handleSidebarClose} />
+      )}
 
       {/* Map Click Dialog */}
-      <Dialog
-        open={mapClickDialog.open}
-        onClose={handleMapClickDialogClose}
-        fullWidth
-        maxWidth="sm"
-        PaperProps={{
-          sx: {
-            borderRadius: "12px",
-            overflow: "hidden",
-          },
-        }}
-      >
-        <DialogTitle
-          sx={{
-            bgcolor: "primary.main",
-            color: "white",
-            fontSize: "1.3rem",
-            fontWeight: 600,
-            py: 2,
-          }}
-        >
-          Add Point to Route
-          <IconButton
-            aria-label="close"
-            onClick={handleMapClickDialogClose}
-            sx={{
-              position: "absolute",
-              right: 16,
-              top: 12,
-              color: "white",
-            }}
-          >
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
+      <Dialog open={mapClickDialog.open} onClose={addingPoint ? undefined : handleMapClickDialogClose} fullWidth maxWidth="xs">
+        {dialogTitle("Add point to route?", "Adds a temporary point to the desktop survey route", handleMapClickDialogClose)}
         <DialogContent dividers>
-          <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-            Do you want to add this point to the desktop survey route?
-          </Typography>
           {mapClickDialog.coordinates && (
-            <Box
-              sx={{
-                p: 2,
-                bgcolor: "rgba(0,0,0,0.04)",
-                borderRadius: "8px",
-                mb: 2,
-              }}
-            >
-              <Typography variant="subtitle2" fontWeight={600}>
-                Point Coordinates:
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Latitude: {mapClickDialog.coordinates.lat.toFixed(6)}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Longitude: {mapClickDialog.coordinates.lng.toFixed(6)}
-              </Typography>
+            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.5, mb: 2 }}>
+              {[
+                ["Latitude", mapClickDialog.coordinates.lat],
+                ["Longitude", mapClickDialog.coordinates.lng],
+              ].map(([label, value]) => (
+                <Box key={label} sx={{ px: 1.5, py: 1, border: 1, borderColor: "divider", borderRadius: 1.5 }}>
+                  <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
+                    {label}
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                    {value.toFixed(6)}
+                  </Typography>
+                </Box>
+              ))}
             </Box>
           )}
-          <Typography
-            variant="caption"
-            color="warning.main"
-            sx={{
-              display: "block",
-              mt: 1,
-              p: 1,
-              bgcolor: "warning.light",
-              borderRadius: "4px",
-              color: "warning.dark",
-            }}
-          >
-            Note: This point will be added to the route but excluded from all
-            exports (Excel and KML). It's only for visual reference and route
-            planning.
-          </Typography>
+          <Alert severity="info" icon={false}>
+            The point is for route planning only: it's drawn on the map but left out of every Excel and KML export.
+          </Alert>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleMapClickDialogClose}>Cancel</Button>
+        <DialogActions sx={{ px: 3, py: 1.5 }}>
+          <Button onClick={handleMapClickDialogClose} color="inherit" disabled={addingPoint}>
+            Cancel
+          </Button>
           <Button
             onClick={handleAddPointToRoute}
             variant="contained"
-            color="primary"
             disabled={addingPoint}
+            startIcon={addingPoint ? <CircularProgress size={16} color="inherit" /> : undefined}
           >
-            {addingPoint ? "Adding..." : "Add Point"}
+            {addingPoint ? "Adding…" : "Add point"}
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </Box>
   );
 };
 

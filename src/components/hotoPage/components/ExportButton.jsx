@@ -1,14 +1,10 @@
-import { Button, Menu, MenuItem, Box, Typography } from "@mui/material";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import { Button, ListItemIcon, ListItemText, Menu, MenuItem } from "@mui/material";
+import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import TableViewOutlinedIcon from "@mui/icons-material/TableViewOutlined";
 import { useState } from "react";
 import { exportHotoUtil } from "../../../utils/exportHotoUtil.jsx";
-
-// Default export items (can be overridden via props)
-const DEFAULT_OPTIONS = [
-  { key: "block", label: "Export Block To Excel", color: "primary" },
-  { key: "gp", label: "Export GP To Excel", color: "primary" },
-  { key: "ofc", label: "Export OFC To Excel", color: "primary" },
-];
+import { HOTO_TYPES } from "../hotoTypes";
 
 const ExportButton = ({ hotos }) => {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -22,39 +18,40 @@ const ExportButton = ({ hotos }) => {
     handleClose();
   };
 
+  const countFor = (type) => (hotos || []).filter((hoto) => hoto.hotoType === type).length;
+
   return (
     <>
       <Button
         variant="outlined"
-        color="success"
-        startIcon={<FileDownloadIcon />}
+        startIcon={<FileDownloadOutlinedIcon />}
+        endIcon={<ExpandMoreIcon />}
         onClick={handleClick}
-        sx={{ borderRadius: "8px", fontWeight: 500, flex: 1 }}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? "hoto-export-menu" : undefined}
       >
         Export
       </Button>
       <Menu
+        id="hoto-export-menu"
         anchorEl={anchorEl}
         open={open}
         onClose={handleClose}
-        PaperProps={{
-          sx: {
-            borderRadius: "8px",
-            mt: 1,
-            boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
-          },
-        }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        slotProps={{ paper: { sx: { mt: 0.5, minWidth: 240 } } }}
       >
-        {DEFAULT_OPTIONS.map(({ key, label, color }) => (
-          <MenuItem
-            key={key}
-            onClick={() => handleExport(key)}
-            sx={{ py: 1.5, px: 3 }}
-          >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-              <FileDownloadIcon color={color || "primary"} />
-              <Typography>{label}</Typography>
-            </Box>
+        {/* Exporting a type with no records does nothing, so those entries are disabled */}
+        {HOTO_TYPES.map(({ value, label }) => (
+          <MenuItem key={value} onClick={() => handleExport(value)} disabled={countFor(value) === 0}>
+            <ListItemIcon>
+              <TableViewOutlinedIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary={`${label} HOTO to Excel`}
+              secondary={`${countFor(value)} ${countFor(value) === 1 ? "record" : "records"}`}
+            />
           </MenuItem>
         ))}
       </Menu>

@@ -4,7 +4,6 @@ import {
   Typography,
   Tabs,
   Tab,
-  Paper,
   Table,
   TableBody,
   TableCell,
@@ -12,45 +11,78 @@ import {
   TableHead,
   TableRow,
   CircularProgress,
-  Collapse,
   IconButton,
   Chip,
   Alert,
-  Grid,
-  Card,
-  CardContent,
-  Divider,
   Avatar,
   Tooltip,
   useTheme,
   Button,
+  ButtonGroup,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
   MenuItem,
+  Skeleton,
   TextField,
-  InputAdornment
+  InputAdornment,
+  TablePagination,
+  useMediaQuery
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
-import PersonIcon from '@mui/icons-material/Person';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CancelIcon from '@mui/icons-material/Cancel';
-import ScheduleIcon from '@mui/icons-material/Schedule';
-import FileDownloadIcon from '@mui/icons-material/FileDownload';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import axios from 'axios';
 import moment from 'moment';
 import {ATTENDANCE_URL, AUTH_URL} from "../API/api-keys.jsx";
-import { convertToExcelAndDownload } from '../utils/convertToExcelAndDownload.jsx';
 import * as XLSX from 'xlsx';
+import Meter from './common/Meter';
+import StatusPill from './common/StatusPill';
+import { staffRoleColors } from '../theme/theme';
+
+// Display label and pill tone for each attendance status
+const STATUS_META = {
+  present: { label: 'Present', tone: 'success' },
+  late: { label: 'Late', tone: 'warning' },
+  absent: { label: 'Absent', tone: 'error' },
+  overtime: { label: 'Overtime', tone: 'info' },
+  holiday: { label: 'Holiday', tone: 'default' },
+};
+
+const getStatusMeta = (status) =>
+  STATUS_META[status] ?? { label: status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown', tone: 'default' };
+
+const ROLE_LABELS = {
+  ADMIN: 'Admin',
+  SUPERVISOR: 'Supervisor',
+  SURVEYOR: 'Surveyor',
+  'EXECUTION ENGINEER': 'Execution Engineer',
+  VIEWER: 'Viewer',
+};
+
+const TABLE_COLUMNS = 9;
+
+const getInitials = (name = '') =>
+  name.trim().split(/\s+/).slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join('') || '?';
+
+const CountCell = ({ value, emphasise }) => (
+  <TableCell
+    align="center"
+    sx={{
+      fontVariantNumeric: 'tabular-nums',
+      fontWeight: value > 0 ? 600 : 400,
+      color: value > 0 ? (emphasise ? 'error.dark' : 'text.primary') : 'text.disabled',
+    }}
+  >
+    {value}
+  </TableCell>
+);
 
 // Define API URLs - using environment variables if available
 const ATTENDANCE_API_URL = ATTENDANCE_URL+'/api';
@@ -58,6 +90,7 @@ const AUTH_API_URL = AUTH_URL+'/api';
 
 const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
   const theme = useTheme();
+  const isPhone = useMediaQuery(theme.breakpoints.down('sm'));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [userType, setUserType] = useState('all');
@@ -73,14 +106,25 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
   const [selectedMonth, setSelectedMonth] = useState(moment().format('YYYY-MM'));
   const [exportingUser, setExportingUser] = useState(null);
   const [exportLoading, setExportLoading] = useState(false);
+  const [exportError, setExportError] = useState(null);
 
   // Global export state
   const [globalExportDialogOpen, setGlobalExportDialogOpen] = useState(false);
   const [globalSelectedMonth, setGlobalSelectedMonth] = useState(moment().format('YYYY-MM'));
   const [globalExportLoading, setGlobalExportLoading] = useState(false);
+  const [globalExportError, setGlobalExportError] = useState(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Pagination state
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  // Reset pagination whenever filters/search change
+  useEffect(() => {
+    setPage(0);
+  }, [searchQuery, userType, projectFilter]);
 
   // Update ref when locationNames changes
   useEffect(() => {
@@ -122,18 +166,7 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
       const attendanceByUser = {};
       const newLocations = {};
       
-      // Debug: Log attendance data to see statuses
-      console.log('Attendance Data Debug:', attendanceResponse.data.data);
-      
       (attendanceResponse.data.data || []).forEach(record => {
-        // Debug: Log each record's status
-        console.log('Attendance Record:', {
-          userId: record.userId,
-          date: record.date,
-          status: record.status,
-          sessions: record.sessions
-        });
-        
         if (!attendanceByUser[record.userId]) {
           attendanceByUser[record.userId] = [];
         }
@@ -278,29 +311,19 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
       );
     });
 
-  // Get status color
-  const getStatusColor = (status) => {
-    switch(status) {
-      case 'present': return theme.palette.success.main;
-      case 'absent': return theme.palette.error.main;
-      case 'late': return theme.palette.warning.main;
-      case 'overtime': return theme.palette.info.main;
-      case 'holiday': return theme.palette.grey[400];
-      default: return theme.palette.grey[500];
-    }
+  // Handle table pagination
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
   };
 
-  // Get status icon
-  const getStatusIcon = (status) => {
-    switch(status) {
-      case 'present': return <CheckCircleIcon fontSize="small" />;
-      case 'absent': return <CancelIcon fontSize="small" />;
-      case 'late': return <ScheduleIcon fontSize="small" />;
-      case 'overtime': return <ScheduleIcon fontSize="small" />;
-      case 'holiday': return <ScheduleIcon fontSize="small" />;
-      default: return null;
-    }
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
   };
+
+  // Clamp in case a refetch leaves fewer users than the current page needs
+  const currentPage = Math.min(page, Math.max(0, Math.ceil(filteredUsers.length / rowsPerPage) - 1));
+  const pageUsers = filteredUsers.slice(currentPage * rowsPerPage, currentPage * rowsPerPage + rowsPerPage);
 
   // Get user attendance for a specific date
   const getUserAttendanceForDate = (userId, date) => {
@@ -425,6 +448,7 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
     setExportDialogOpen(false);
     setExportingUser(null);
     setSelectedMonth(moment().format('YYYY-MM'));
+    setExportError(null);
   };
 
   const handleMonthChange = (event) => {
@@ -459,6 +483,7 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
 
     try {
       setExportLoading(true);
+      setExportError(null);
 
       // Fetch monthly attendance data
       const monthlyData = await fetchMonthlyAttendanceData(exportingUser._id, selectedMonth);
@@ -573,7 +598,7 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
       handleExportClose();
     } catch (error) {
       console.error('Error exporting attendance:', error);
-      alert('Failed to export attendance data. Please try again.');
+      setExportError('Failed to export attendance data. Please try again.');
     } finally {
       setExportLoading(false);
     }
@@ -587,6 +612,7 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
   const handleGlobalExportClose = () => {
     setGlobalExportDialogOpen(false);
     setGlobalSelectedMonth(moment().format('YYYY-MM'));
+    setGlobalExportError(null);
   };
 
   const handleGlobalMonthChange = (event) => {
@@ -598,6 +624,7 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
 
     try {
       setGlobalExportLoading(true);
+      setGlobalExportError(null);
 
       const workbook = XLSX.utils.book_new();
       const monthStart = moment(globalSelectedMonth).startOf('month');
@@ -751,7 +778,7 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
       handleGlobalExportClose();
     } catch (error) {
       console.error('Error exporting global attendance:', error);
-      alert('Failed to export attendance data. Please try again.');
+      setGlobalExportError('Failed to export attendance data. Please try again.');
     } finally {
       setGlobalExportLoading(false);
     }
@@ -854,7 +881,7 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
     if (detailLoading) {
       return (
         <TableRow>
-          <TableCell colSpan={9}>
+          <TableCell colSpan={TABLE_COLUMNS} sx={{ bgcolor: 'background.default' }}>
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
               <CircularProgress size={24} />
             </Box>
@@ -863,149 +890,119 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
       );
     }
 
+    const summary = [
+      { label: 'Present', value: presentDays },
+      { label: 'Late', value: lateDays },
+      { label: 'Absent', value: absentDays },
+    ];
+
     return (
       <TableRow>
-        <TableCell colSpan={9}>
-          <Box sx={{ p: 3, bgcolor: 'background.paper', borderRadius: 1 }}>
-            <Typography variant="h6" gutterBottom>
-              Weekly Attendance: {user.username || 'Unknown User'}
-            </Typography>
+        <TableCell colSpan={TABLE_COLUMNS} sx={{ p: 0, bgcolor: 'background.default' }}>
+          {/* Zero intrinsic width keeps the detail from resizing the table columns */}
+          <Box sx={{ width: 0, minWidth: '100%' }}>
+            <Box sx={{ p: 2.5, pl: { md: 9 } }}>
+              <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
+                <Typography variant="subtitle2">
+                  Daily record · {user.username || 'Unknown User'}
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                  Sundays are holidays and are not counted as working days
+                </Typography>
+              </Box>
 
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-              <Grid item xs={12} sm={4}>
-                <Card variant="outlined">
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Typography variant="subtitle2" color="textSecondary">Present</Typography>
-                      <Chip
-                        icon={<CheckCircleIcon />}
-                        label={presentDays}
-                        color="success"
-                        size="small"
-                        variant="outlined"
-                      />
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                  gap: '1px',
+                  bgcolor: 'divider',
+                  border: 1,
+                  borderColor: 'divider',
+                  borderRadius: 1.5,
+                  overflow: 'hidden',
+                  mb: 2,
+                  maxWidth: 420,
+                }}
+              >
+                {summary.map((item) => (
+                  <Box key={item.label} sx={{ bgcolor: 'background.paper', px: 2, py: 1 }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>{item.label}</Typography>
+                    <Typography sx={{ fontSize: '1.125rem', fontWeight: 600 }}>{item.value}</Typography>
+                  </Box>
+                ))}
+              </Box>
 
-              <Grid item xs={12} sm={4}>
-                <Card variant="outlined">
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Typography variant="subtitle2" color="textSecondary">Late</Typography>
-                      <Chip
-                        icon={<ScheduleIcon />}
-                        label={lateDays}
-                        color="warning"
-                        size="small"
-                        variant="outlined"
-                      />
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
+              <TableContainer sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, bgcolor: 'background.paper' }}>
+                <Table size="small" sx={{ '& tbody tr:last-of-type td': { borderBottom: 0 } }}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Day</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Check-in</TableCell>
+                      <TableCell>Check-out</TableCell>
+                      <TableCell align="right">Hours</TableCell>
+                      <TableCell>Check-in location</TableCell>
+                      <TableCell>Check-out location</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {weekDates.map((date, index) => {
+                      const isFuture = moment(date).isAfter(today);
+                      const attendance = getUserAttendanceForDateDetail(date);
+                      const checkInTime = attendance.sessions && attendance.sessions.length > 0
+                        ? moment(attendance.sessions[0].checkInTime).format('hh:mm A')
+                        : '-';
+                      const checkOutTime = attendance.sessions && attendance.sessions.length > 0 && attendance.sessions[0].checkOutTime
+                        ? moment(attendance.sessions[0].checkOutTime).format('hh:mm A')
+                        : '-';
+                      const hoursWorked = attendance.sessions && attendance.sessions.length > 0 && attendance.sessions[0].checkOutTime
+                        ? moment.duration(moment(attendance.sessions[0].checkOutTime).diff(moment(attendance.sessions[0].checkInTime))).asHours().toFixed(2)
+                        : '-';
+                      const status = getStatusMeta(attendance.status);
+                      const isToday = moment(date).isSame(today, 'day');
 
-              <Grid item xs={12} sm={4}>
-                <Card variant="outlined">
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Typography variant="subtitle2" color="textSecondary">Absent</Typography>
-                      <Chip
-                        icon={<CancelIcon />}
-                        label={absentDays}
-                        color="error"
-                        size="small"
-                        variant="outlined"
-                      />
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-
-            <TableContainer component={Paper} variant="outlined">
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Day</TableCell>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Check-in</TableCell>
-                    <TableCell>Check-out</TableCell>
-                    <TableCell>Hours</TableCell>
-                    <TableCell>Check-in Location</TableCell>
-                    <TableCell>Check-out Location</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {weekDates.map((date, index) => {
-                    const isFuture = moment(date).isAfter(today);
-                    const attendance = getUserAttendanceForDateDetail(date);
-                    const checkInTime = attendance.sessions && attendance.sessions.length > 0
-                      ? moment(attendance.sessions[0].checkInTime).format('hh:mm A')
-                      : '-';
-                    const checkOutTime = attendance.sessions && attendance.sessions.length > 0 && attendance.sessions[0].checkOutTime
-                      ? moment(attendance.sessions[0].checkOutTime).format('hh:mm A')
-                      : '-';
-                    const hoursWorked = attendance.sessions && attendance.sessions.length > 0 && attendance.sessions[0].checkOutTime
-                      ? moment.duration(moment(attendance.sessions[0].checkOutTime).diff(moment(attendance.sessions[0].checkInTime))).asHours().toFixed(2)
-                      : '-';
- 
-                    // Debug: Log attendance status for this date
-                    console.log('Date attendance debug:', {
-                      date: moment(date).format('YYYY-MM-DD'),
-                      attendance: attendance,
-                      status: attendance.status,
-                      isFuture: isFuture
-                    });
-
-                    return (
-                      <TableRow key={index} sx={{ '&:nth-of-type(odd)': { bgcolor: 'action.hover' } }}>
-                        <TableCell>{moment(date).format('dddd')}</TableCell>
-                        <TableCell>{moment(date).format('MMM DD, YYYY')}</TableCell>
-                        <TableCell>
-                          {isFuture ? (
-                            <Typography variant="body2" color="textSecondary">Upcoming</Typography>
-                          ) : (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              {getStatusIcon(attendance.status)}
-                              <Typography
-                                variant="body2"
-                                sx={{ color: getStatusColor(attendance.status) }}
-                              >
-                                {attendance.status.charAt(0).toUpperCase() + attendance.status.slice(1)}
-                              </Typography>
-                            </Box>
-                          )}
-                        </TableCell>
-                        <TableCell>{isFuture ? '-' : checkInTime}</TableCell>
-                        <TableCell>{isFuture ? '-' : checkOutTime}</TableCell>
-                        <TableCell>{isFuture ? '-' : hoursWorked}</TableCell>
-                        <TableCell>
-                          {!isFuture && attendance.location ? (
-                            <Tooltip title={getLocationName(attendance.location)}>
-                              <Typography noWrap sx={{ maxWidth: 220 }}>
-                                {getLocationName(attendance.location)}
-                              </Typography>
-                            </Tooltip>
-                          ) : '-'}
-                        </TableCell>
-                        <TableCell>
-                          {!isFuture && attendance.checkoutLocation ? (
-                            <Tooltip title={getLocationName(attendance.checkoutLocation)}>
-                              <Typography noWrap sx={{ maxWidth: 220 }}>
-                                {getLocationName(attendance.checkoutLocation)}
-                              </Typography>
-                            </Tooltip>
-                          ) : '-'}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                      return (
+                        <TableRow key={index} sx={isToday ? { bgcolor: (t) => alpha(t.palette.primary.main, 0.04) } : undefined}>
+                          <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 500 }}>{moment(date).format('ddd, D MMM')}</Typography>
+                            {isToday && <Typography variant="caption" sx={{ color: 'primary.main' }}>Today</Typography>}
+                          </TableCell>
+                          <TableCell>
+                            {isFuture ? (
+                              <Typography variant="body2" sx={{ color: 'text.disabled' }}>Upcoming</Typography>
+                            ) : (
+                              <StatusPill label={status.label} tone={status.tone} />
+                            )}
+                          </TableCell>
+                          <TableCell sx={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{isFuture ? '-' : checkInTime}</TableCell>
+                          <TableCell sx={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{isFuture ? '-' : checkOutTime}</TableCell>
+                          <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>{isFuture ? '-' : hoursWorked}</TableCell>
+                          <TableCell sx={{ maxWidth: 240 }}>
+                            {!isFuture && attendance.location ? (
+                              <Tooltip title={getLocationName(attendance.location)}>
+                                <Typography variant="body2" noWrap>
+                                  {getLocationName(attendance.location)}
+                                </Typography>
+                              </Tooltip>
+                            ) : '-'}
+                          </TableCell>
+                          <TableCell sx={{ maxWidth: 240 }}>
+                            {!isFuture && attendance.checkoutLocation ? (
+                              <Tooltip title={getLocationName(attendance.checkoutLocation)}>
+                                <Typography variant="body2" noWrap>
+                                  {getLocationName(attendance.checkoutLocation)}
+                                </Typography>
+                              </Tooltip>
+                            ) : '-'}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
           </Box>
         </TableCell>
       </TableRow>
@@ -1052,100 +1049,95 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
       return distanceKm !== null && distanceKm > 3;
     });
 
+    const roleColor = staffRoleColors[user.role];
+
     return (
       <>
         <TableRow
           hover
           onClick={() => handleUserSelect(user._id)}
-          sx={{
-            cursor: 'pointer',
-            '&:hover': {
-              bgcolor: theme.palette.action.hover
-            },
-          }}
+          sx={{ cursor: 'pointer', '& > td': open ? { borderBottom: 0 } : {} }}
         >
-          <TableCell>
+          <TableCell padding="checkbox">
             <IconButton
-              aria-label="expand row"
+              aria-label={open ? 'Collapse daily record' : 'Expand daily record'}
+              aria-expanded={open}
               size="small"
-              onClick={() => handleUserSelect(user._id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleUserSelect(user._id);
+              }}
             >
-              {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+              {open ? <KeyboardArrowUpIcon fontSize="small" /> : <KeyboardArrowDownIcon fontSize="small" />}
             </IconButton>
           </TableCell>
           <TableCell>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Avatar
                 sx={{
-                  bgcolor: user.role === 'SUPERVISOR' ? theme.palette.primary.main : theme.palette.secondary.main,
                   width: 32,
-                  height: 32
+                  height: 32,
+                  fontSize: '0.75rem',
+                  color: 'primary.dark',
+                  bgcolor: alpha(theme.palette.primary.main, 0.1),
                 }}
               >
-                {user.role === 'SUPERVISOR' ? <SupervisorAccountIcon fontSize="small" /> : <PersonIcon fontSize="small" />}
+                {getInitials(user.username)}
               </Avatar>
-              <Typography variant="body2" fontWeight={500}>
-                {user.username || 'Unknown'}
-              </Typography>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
+                  {user.username || 'Unknown'}
+                </Typography>
+                {user.project && (
+                  <Typography variant="caption" noWrap component="div" sx={{ color: 'text.secondary' }}>
+                    {user.project}
+                  </Typography>
+                )}
+              </Box>
             </Box>
           </TableCell>
           <TableCell>
             <Chip
-              label={user.role || 'Unknown'}
-              size="small"
-              color={user.role === 'SUPERVISOR' ? 'primary' : 'secondary'}
-              variant="outlined"
-            />
-          </TableCell>
-          <TableCell align="center">
-            <Chip
-              label={presentDays}
-              color="success"
               size="small"
               variant="outlined"
+              label={ROLE_LABELS[user.role] || user.role || 'Unknown'}
+              icon={roleColor ? <Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: roleColor, ml: '8px !important' }} /> : undefined}
+              sx={{ bgcolor: 'background.paper', borderColor: 'divider' }}
             />
           </TableCell>
-          <TableCell align="center">
-            <Chip
-              label={lateDays}
-              color="warning"
-              size="small"
-              variant="outlined"
-            />
+          <CountCell value={presentDays} />
+          <CountCell value={lateDays} />
+          <CountCell value={absentDays} emphasise />
+          <TableCell sx={{ minWidth: 150 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Meter value={attendancePercentage} sx={{ flex: 1 }} aria-label={`Attendance ${attendancePercentage}%`} />
+              <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 40, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                {attendancePercentage + '%'}
+              </Typography>
+            </Box>
           </TableCell>
-          <TableCell align="center">
-            <Chip
-              label={absentDays}
-              color="error"
-              size="small"
-              variant="outlined"
-            />
-          </TableCell>
-          <TableCell align="center">
-            {attendancePercentage + '%'}
-          </TableCell>
-          <TableCell align="center">
-            {hasLongDistanceIssue && (
+          <TableCell>
+            {hasLongDistanceIssue ? (
               <Tooltip title="Check-in and check-out locations are farther than 3 km on one or more days this week">
-                <Chip
-                  icon={<WarningAmberIcon />}
-                  label="3km+"
-                  color="error"
-                  size="small"
-                  sx={{ mr: 1 }}
-                />
+                <span>
+                  <StatusPill label="3 km+ gap" tone="error" />
+                </span>
               </Tooltip>
+            ) : (
+              <Typography variant="body2" sx={{ color: 'text.disabled' }}>—</Typography>
             )}
-            <Tooltip title="Export Attendance">
+          </TableCell>
+          <TableCell align="right">
+            <Tooltip title="Export monthly report">
               <IconButton
                 size="small"
+                aria-label={`Export attendance for ${user.username || 'user'}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleExportClick(user);
                 }}
-                color="primary"
               >
-                <FileDownloadIcon fontSize="small" />
+                <FileDownloadOutlinedIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           </TableCell>
@@ -1155,17 +1147,30 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
     );
   };
 
+  const monthOptions = getMonthOptions();
+  const weekLabel = `${moment(weekStart).format('D MMM')} – ${moment(weekStart).add(6, 'days').format('D MMM YYYY')}`;
+  const isCurrentWeek = moment(weekStart).isSame(moment(), 'week');
+
+  const userTypeTabs = [
+    { value: 'all', label: 'All staff', count: allUsersCount },
+    { value: 'supervisors', label: 'Supervisors', count: supervisorsCount },
+    { value: 'surveyors', label: 'Surveyors', count: surveyorsCount },
+  ];
+
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-        <CircularProgress />
+      <Box>
+        <Skeleton variant="rounded" height={44} sx={{ mb: 2 }} />
+        {Array.from({ length: 6 }, (_, index) => (
+          <Skeleton key={index} variant="text" height={44} />
+        ))}
       </Box>
     );
   }
 
   if (error) {
     return (
-      <Alert severity="error" sx={{ my: 2 }}>
+      <Alert severity="error">
         {error}
       </Alert>
     );
@@ -1173,236 +1178,242 @@ const AttendanceDetailedView = ({ projectFilter = 'ALL' }) => {
 
   return (
     <Box sx={{ width: '100%' }}>
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-        <Typography variant="h6" component="h2" sx={{ mb: 1 }}>
-          Detailed Attendance View
-        </Typography>
-        <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-          Weekly attendance records for supervisors and surveyors
-        </Typography>
+      {/* Toolbar */}
+      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1.5, mb: 2 }}>
+        <ButtonGroup size="small" variant="outlined" aria-label="Week navigation">
+          <Button onClick={goToPreviousWeek} aria-label="Previous week">
+            <ChevronLeftIcon fontSize="small" />
+          </Button>
+          <Button disabled sx={{ '&.Mui-disabled': { color: 'text.primary', borderColor: 'divider' }, minWidth: 190 }}>
+            {weekLabel}
+          </Button>
+          <Button onClick={goToNextWeek} disabled={isCurrentWeek} aria-label="Next week">
+            <ChevronRightIcon fontSize="small" />
+          </Button>
+        </ButtonGroup>
+        <Button size="small" onClick={goToCurrentWeek} disabled={isCurrentWeek}>
+          This week
+        </Button>
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, flexWrap: 'wrap', gap: 2 }}>
-          <Box>
-            <Tabs value={userType} onChange={handleTabChange}>
-              <Tab value="all" label={`All (${allUsersCount})`} />
-              <Tab value="supervisors" label={`Supervisors (${supervisorsCount})`} />
-              <Tab value="surveyors" label={`Surveyors (${surveyorsCount})`} />
-            </Tabs>
-          </Box>
-          
-          {/* Search Field */}
-          <Box sx={{ minWidth: 250 }}>
-            <TextField
-              size="small"
-              placeholder="Search users..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon color="action" />
-                  </InputAdornment>
-                ),
-                endAdornment: searchQuery && (
-                  <InputAdornment position="end">
-                    <IconButton
-                      size="small"
-                      onClick={() => setSearchQuery('')}
-                      edge="end"
-                    >
-                      <ClearIcon />
-                    </IconButton>
-                  </InputAdornment>
-                )
-              }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  backgroundColor: 'background.paper',
-                }
-              }}
-            />
-          </Box>
+        <Box sx={{ flex: 1 }} />
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            {/* Global Export Button */}
-            <Button
-              variant="contained"
-              startIcon={<FileDownloadIcon />}
-              onClick={handleGlobalExportClick}
-              color="primary"
-              size="small"
-            >
-              Export All Users
-            </Button>
-
-            {/* Week Navigation */}
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Tooltip title="Previous Week">
-                <IconButton size="small" onClick={goToPreviousWeek}>
-                  <KeyboardArrowDownIcon />
-                </IconButton>
-              </Tooltip>
-
-              <Typography variant="subtitle2" sx={{ fontWeight: 500 }}>
-                {moment(weekStart).format('MMM DD')} - {moment(weekStart).add(6, 'days').format('MMM DD, YYYY')}
-              </Typography>
-
-              <Tooltip title="Next Week">
-                <IconButton size="small" onClick={goToNextWeek}>
-                  <KeyboardArrowUpIcon />
-                </IconButton>
-              </Tooltip>
-
-              <Tooltip title="Current Week">
-                <IconButton size="small" onClick={goToCurrentWeek} color="primary">
-                  <ScheduleIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </Box>
-          </Box>
-        </Box>
+        <TextField
+          size="small"
+          placeholder="Search staff"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          sx={{ width: { xs: '100%', sm: 260 } }}
+          slotProps={{
+            htmlInput: { 'aria-label': 'Search staff' },
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                </InputAdornment>
+              ),
+              endAdornment: searchQuery && (
+                <InputAdornment position="end">
+                  <IconButton size="small" onClick={() => setSearchQuery('')} edge="end" aria-label="Clear search">
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            },
+          }}
+        />
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<FileDownloadOutlinedIcon />}
+          onClick={handleGlobalExportClick}
+        >
+          Export all
+        </Button>
       </Box>
 
-      {/* Search Results Info */}
-      {searchQuery.trim() && (
-        <Box sx={{ mb: 2 }}>
-          <Typography variant="body2" color="text.secondary">
-            {filteredUsers.length === 0 
-              ? `No users found matching "${searchQuery}"`
-              : `Showing ${filteredUsers.length} user${filteredUsers.length !== 1 ? 's' : ''} matching "${searchQuery}"`
-            }
-          </Typography>
-        </Box>
-      )}
+      <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, overflow: 'hidden' }}>
+        <Tabs
+          value={userType}
+          onChange={handleTabChange}
+          sx={{ px: 1, borderBottom: 1, borderColor: 'divider', minHeight: 40, '& .MuiTab-root': { minHeight: 40 } }}
+        >
+          {userTypeTabs.map((tab) => (
+            <Tab
+              key={tab.value}
+              value={tab.value}
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {tab.label}
+                  <Box
+                    component="span"
+                    sx={{
+                      px: 0.75,
+                      borderRadius: 1,
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      bgcolor: userType === tab.value ? alpha(theme.palette.primary.main, 0.1) : 'action.hover',
+                      color: userType === tab.value ? 'primary.main' : 'text.secondary',
+                    }}
+                  >
+                    {tab.count}
+                  </Box>
+                </Box>
+              }
+            />
+          ))}
+        </Tabs>
 
-      {filteredUsers.length === 0 ? (
-        <Alert severity="info">
-          {searchQuery.trim() ? `No users found matching "${searchQuery}"` : 'No users found'}
-        </Alert>
-      ) : (
-        <TableContainer component={Paper} variant="outlined">
-          <Table aria-label="attendance table">
-            <TableHead>
-              <TableRow>
-                <TableCell width="50px"></TableCell>
-                <TableCell>Name</TableCell>
-                <TableCell>Role</TableCell>
-                <TableCell align="center">Present</TableCell>
-                <TableCell align="center">Late</TableCell>
-                <TableCell align="center">Absent</TableCell>
-                <TableCell align="center">Attendance %</TableCell>
-                <TableCell align="center">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredUsers.map((user) => (
-                <UserRow key={user._id} user={user} />
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+        {filteredUsers.length === 0 ? (
+          <Box sx={{ py: 6, px: 2, textAlign: 'center' }}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {searchQuery.trim() ? `No staff match "${searchQuery}"` : 'No staff found'}
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+              {searchQuery.trim() ? 'Try a different name, email, role or project.' : 'Check the project filter above.'}
+            </Typography>
+          </Box>
+        ) : (
+          <TableContainer>
+            <Table aria-label="weekly attendance" sx={{ minWidth: 900 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell padding="checkbox" />
+                  <TableCell>Name</TableCell>
+                  <TableCell>Role</TableCell>
+                  <TableCell align="center">Present</TableCell>
+                  <TableCell align="center">Late</TableCell>
+                  <TableCell align="center">Absent</TableCell>
+                  <TableCell>Attendance</TableCell>
+                  <TableCell>Flags</TableCell>
+                  <TableCell align="right">Export</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {pageUsers.map((user) => (
+                  <UserRow key={user._id} user={user} />
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+
+        <TablePagination
+          component="div"
+          count={filteredUsers.length}
+          rowsPerPage={rowsPerPage}
+          page={currentPage}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          rowsPerPageOptions={[5, 10, 25]}
+          labelRowsPerPage={isPhone ? 'Rows:' : 'Rows per page:'}
+          sx={{ borderTop: 1, borderColor: 'divider' }}
+        />
+      </Box>
 
       {/* Export Dialog */}
-      <Dialog 
-        open={exportDialogOpen} 
-        onClose={handleExportClose}
-        maxWidth="sm"
+      <Dialog
+        open={exportDialogOpen}
+        onClose={exportLoading ? undefined : handleExportClose}
+        maxWidth="xs"
         fullWidth
       >
         <DialogTitle>
-          Export Attendance Report
+          Export monthly report
           {exportingUser && (
-            <Typography variant="body2" color="textSecondary">
-              For: {exportingUser.username} ({exportingUser.role})
+            <Typography variant="body2" component="div" sx={{ color: 'text.secondary', mt: 0.25 }}>
+              {exportingUser.username} · {ROLE_LABELS[exportingUser.role] || exportingUser.role}
             </Typography>
           )}
         </DialogTitle>
         <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            <FormControl fullWidth>
-              <InputLabel>Select Month</InputLabel>
-              <Select
-                value={selectedMonth}
-                onChange={handleMonthChange}
-                label="Select Month"
-              >
-                {getMonthOptions().map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
+          {exportError && <Alert severity="error" sx={{ mb: 2 }}>{exportError}</Alert>}
+          <TextField
+            select
+            fullWidth
+            size="small"
+            label="Month"
+            value={selectedMonth}
+            onChange={handleMonthChange}
+            sx={{ mt: 1 }}
+            helperText="Downloads an Excel file with one row per day"
+          >
+            {monthOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleExportClose}>
+        <DialogActions sx={{ px: 3, py: 1.5 }}>
+          <Button onClick={handleExportClose} disabled={exportLoading} color="inherit">
             Cancel
           </Button>
-          <Button 
+          <Button
             onClick={handleExportConfirm}
             variant="contained"
             disabled={exportLoading}
-            startIcon={exportLoading ? <CircularProgress size={20} /> : <FileDownloadIcon />}
+            startIcon={exportLoading ? <CircularProgress size={14} color="inherit" /> : <FileDownloadOutlinedIcon />}
           >
-            {exportLoading ? 'Exporting...' : 'Export'}
+            {exportLoading ? 'Exporting…' : 'Export'}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Global Export Dialog */}
-      <Dialog 
-        open={globalExportDialogOpen} 
-        onClose={handleGlobalExportClose}
-        maxWidth="sm"
+      <Dialog
+        open={globalExportDialogOpen}
+        onClose={globalExportLoading ? undefined : handleGlobalExportClose}
+        maxWidth="xs"
         fullWidth
       >
         <DialogTitle>
-          Export All Users Attendance Report
-          <Typography variant="body2" color="textSecondary">
-            {projectFilter === 'ALL' 
-              ? 'This will export attendance data for all users across all projects.'
-              : `This will export attendance data for users in the "${projectFilter}" project only.`
+          Export all staff
+          <Typography variant="body2" component="div" sx={{ color: 'text.secondary', mt: 0.25 }}>
+            {projectFilter === 'ALL'
+              ? 'All users across all projects'
+              : `Users in the "${projectFilter}" project only`
             }
           </Typography>
         </DialogTitle>
         <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            <FormControl fullWidth>
-              <InputLabel>Select Month</InputLabel>
-              <Select
-                value={globalSelectedMonth}
-                onChange={handleGlobalMonthChange}
-                label="Select Month"
-              >
-                {getMonthOptions().map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            
-            {filteredUsers.length > 0 && (
-              <Typography variant="body2" color="textSecondary" sx={{ mt: 2 }}>
-                Will export data for {filteredUsers.length} user(s)
-                {projectFilter !== 'ALL' && ` from the "${projectFilter}" project`}
-              </Typography>
-            )}
-          </Box>
+          {globalExportError && <Alert severity="error" sx={{ mb: 2 }}>{globalExportError}</Alert>}
+          <TextField
+            select
+            fullWidth
+            size="small"
+            label="Month"
+            value={globalSelectedMonth}
+            onChange={handleGlobalMonthChange}
+            sx={{ mt: 1 }}
+            helperText={
+              filteredUsers.length > 0
+                ? `Will export data for ${filteredUsers.length} user(s)${projectFilter !== 'ALL' ? ` from the "${projectFilter}" project` : ''}`
+                : undefined
+            }
+          >
+            {monthOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          {globalExportLoading && (
+            <Typography variant="caption" component="p" sx={{ color: 'text.secondary', mt: 2 }}>
+              Collecting each user's records — this can take a minute for large teams.
+            </Typography>
+          )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleGlobalExportClose}>
+        <DialogActions sx={{ px: 3, py: 1.5 }}>
+          <Button onClick={handleGlobalExportClose} disabled={globalExportLoading} color="inherit">
             Cancel
           </Button>
-          <Button 
+          <Button
             onClick={handleGlobalExportConfirm}
             variant="contained"
             disabled={globalExportLoading}
-            startIcon={globalExportLoading ? <CircularProgress size={20} /> : <FileDownloadIcon />}
+            startIcon={globalExportLoading ? <CircularProgress size={14} color="inherit" /> : <FileDownloadOutlinedIcon />}
           >
-            {globalExportLoading ? 'Exporting...' : 'Export All Users'}
+            {globalExportLoading ? 'Exporting…' : 'Export all'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -1,30 +1,34 @@
 import React, { useState, useEffect } from "react";
 import {
+  Alert,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Button,
   TextField,
-  Select,
   MenuItem,
-  FormControl,
-  InputLabel,
   Box,
+  CircularProgress,
+  IconButton,
+  Typography,
 } from "@mui/material";
+import { Close } from "@mui/icons-material";
 import summaryService from "../../services/summaryService";
+
+const YES_NO_OPTIONS = ["Yes", "No"];
 
 const DataModal = ({ open, onClose, editData, sheetName, headers, onSuccess, nextRowNumber }) => {
   const [formData, setFormData] = useState({});
   const [loading, setLoading] = useState(false);
+  const [saveError, setSaveError] = useState(null);
 
   // Helper function to determine if a field should be a yes/no dropdown
   const isYesNoField = (fieldName, value) => {
-    // Check field name for common yes/no patterns
-    const yesNoKeywords = ['yes', 'no', 'y/n', 'yn', 'boolean', 'flag', 'status'];
-    const fieldLower = fieldName.toLowerCase();
+    // Check field name for common yes/no words (whole words, so "SNOC" does not match "no")
+    const yesNoKeywords = /\b(yes|no|y\/n|yn|boolean|flag|status)\b/i;
 
-    if (yesNoKeywords.some(keyword => fieldLower.includes(keyword))) {
+    if (yesNoKeywords.test(fieldName)) {
       return true;
     }
 
@@ -50,6 +54,7 @@ const DataModal = ({ open, onClose, editData, sheetName, headers, onSuccess, nex
       });
       setFormData(initialData);
     }
+    setSaveError(null);
   }, [editData, headers, open]);
 
   const handleChange = (field, value) => {
@@ -61,6 +66,7 @@ const DataModal = ({ open, onClose, editData, sheetName, headers, onSuccess, nex
 
   const handleSave = async () => {
     setLoading(true);
+    setSaveError(null);
     try {
       if (editData) {
         // Update existing record
@@ -79,38 +85,69 @@ const DataModal = ({ open, onClose, editData, sheetName, headers, onSuccess, nex
       onClose();
     } catch (error) {
       console.error("Error saving data:", error);
-      alert("Failed to save data");
+      setSaveError("Failed to save data. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
+  const rowNumber = editData ? editData.rowNumber : nextRowNumber;
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        {editData ? "Edit Data" : "Create New Data"}
+    <Dialog open={open} onClose={loading ? undefined : onClose} maxWidth="md" fullWidth scroll="paper">
+      <DialogTitle sx={{ display: "flex", alignItems: "flex-start", gap: 2, pr: 1.5 }}>
+        <Box sx={{ flex: 1 }}>
+          {editData ? "Edit record" : "New record"}
+          <Typography variant="body2" component="div" sx={{ color: "text.secondary", mt: 0.25 }}>
+            {sheetName}
+            {rowNumber ? ` · Row ${rowNumber}` : ""}
+          </Typography>
+        </Box>
+        <IconButton onClick={onClose} disabled={loading} aria-label="Close" size="small">
+          <Close fontSize="small" />
+        </IconButton>
       </DialogTitle>
-      <DialogContent>
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 2 }}>
+      <DialogContent dividers>
+        {saveError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {saveError}
+          </Alert>
+        )}
+        <Box
+          sx={{
+            display: "grid",
+            gap: 2,
+            gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
+            pt: 0.5,
+          }}
+        >
           {Object.keys(formData).map((field) => {
             const isYesNo = isYesNoField(field, formData[field]);
 
             if (isYesNo) {
+              const value = formData[field] ?? "";
+              // Keep values that are not Yes/No (e.g. a status) selectable so they are not hidden
+              const options =
+                value !== "" && !YES_NO_OPTIONS.includes(value) ? [...YES_NO_OPTIONS, value] : YES_NO_OPTIONS;
               return (
-                <FormControl key={field} size="small" fullWidth>
-                  <InputLabel>{field}</InputLabel>
-                  <Select
-                    value={formData[field] || ""}
-                    label={field}
-                    onChange={(e) => handleChange(field, e.target.value)}
-                  >
-                    <MenuItem value="">
-                      <em>Select...</em>
+                <TextField
+                  key={field}
+                  select
+                  label={field}
+                  value={value}
+                  onChange={(e) => handleChange(field, e.target.value)}
+                  size="small"
+                  fullWidth
+                >
+                  <MenuItem value="">
+                    <em>Not set</em>
+                  </MenuItem>
+                  {options.map((option) => (
+                    <MenuItem key={option} value={option}>
+                      {option}
                     </MenuItem>
-                    <MenuItem value="Yes">Yes</MenuItem>
-                    <MenuItem value="No">No</MenuItem>
-                  </Select>
-                </FormControl>
+                  ))}
+                </TextField>
               );
             }
 
@@ -118,7 +155,7 @@ const DataModal = ({ open, onClose, editData, sheetName, headers, onSuccess, nex
               <TextField
                 key={field}
                 label={field}
-                value={formData[field] || ""}
+                value={formData[field] ?? ""}
                 onChange={(e) => handleChange(field, e.target.value)}
                 size="small"
                 fullWidth
@@ -127,16 +164,17 @@ const DataModal = ({ open, onClose, editData, sheetName, headers, onSuccess, nex
           })}
         </Box>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={loading}>
+      <DialogActions sx={{ px: 3, py: 1.5 }}>
+        <Button onClick={onClose} disabled={loading} color="inherit">
           Cancel
         </Button>
         <Button
           variant="contained"
           onClick={handleSave}
           disabled={loading}
+          startIcon={loading ? <CircularProgress size={14} color="inherit" /> : null}
         >
-          {loading ? "Saving..." : "Save"}
+          {loading ? "Saving…" : editData ? "Save changes" : "Create record"}
         </Button>
       </DialogActions>
     </Dialog>
@@ -144,4 +182,3 @@ const DataModal = ({ open, onClose, editData, sheetName, headers, onSuccess, nex
 };
 
 export default DataModal;
-

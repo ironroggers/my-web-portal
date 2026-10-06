@@ -1,121 +1,292 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Container,
-  Typography,
-  Box,
-  Card,
-  CardContent,
-  Grid,
-  Chip,
-  Button,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  IconButton,
-  Paper,
   Alert,
-  Breadcrumbs,
-  Link,
-  CircularProgress,
-  TextField,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Select,
-  Stack,
-  Divider,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TablePagination,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Avatar,
-  Badge,
-  Tooltip,
-  CardMedia,
+  Box,
+  Button,
+  ButtonBase,
+  Card,
   Collapse,
+  Grid,
+  IconButton,
+  InputAdornment,
+  Link,
+  MenuItem,
+  Skeleton,
+  TablePagination,
+  TextField,
+  Tooltip,
+  Typography,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import {
-  LocationOn as LocationOnIcon,
+  Add as AddIcon,
   ArrowBack as ArrowBackIcon,
-  Assignment as AssignmentIcon,
-  Public as PublicIcon,
-  Terrain as TerrainIcon,
-  Business as BusinessIcon,
-  Person as PersonIcon,
-  CalendarToday as CalendarTodayIcon,
-  GpsFixed as GPSIcon,
   Search as SearchIcon,
   Clear as ClearIcon,
-  Visibility as VisibilityIcon,
-  PhotoLibrary as PhotoLibraryIcon,
-  Close as CloseIcon,
-  FilterList as FilterListIcon,
   Refresh as RefreshIcon,
   ExpandMore as ExpandMoreIcon,
-  Image as ImageIcon,
-  OndemandVideo as VideoIcon,
-  InsertDriveFile as FileIcon,
-  Description as DescriptionIcon,
-  Numbers as NumbersIcon,
-  List as ListIcon,
-  Folder as FolderIcon,
-  OpenInNew as OpenInNewIcon,
-  GetApp as DownloadIcon,
-  PhoneAndroid as PhoneAndroidIcon,
-  AccessTime as AccessTimeIcon,
-  Email as EmailIcon,
-  Phone as PhoneIcon,
-  CheckCircle as CheckCircleIcon,
-  Cancel as CancelIcon,
-  Info as InfoIcon,
-  Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
+  EditOutlined as EditIcon,
+  DeleteOutline as DeleteIcon,
+  PhotoLibraryOutlined as PhotoLibraryIcon,
+  FilterListOff as FilterListOffIcon,
 } from "@mui/icons-material";
 import { useParams, useNavigate } from "react-router-dom";
-import {
-  fetchAllHotoList,
-  fetchLocationDetails,
-  uploadHotoMedia,
-  createHoto,
-  deleteHoto,
-} from "../services/hotoPageService";
-
-// Import the existing form components
+import { fetchAllHotoList, fetchLocationDetails, deleteHoto } from "../services/hotoPageService";
 import AddHotoModal from "./hotoPage/components/AddHotoModal";
 import EditHotoModal from "./hotoPage/components/EditHotoModal";
 import ExportButton from "./hotoPage/components/ExportButton";
+import { getHotoTypeLabel } from "./hotoPage/hotoTypes";
+import PageHeader from "./common/PageHeader";
+import StatTile from "./common/StatTile";
+import StatusPill from "./common/StatusPill";
+import MediaViewerDialog from "./common/MediaViewerDialog";
+import MediaTile from "./common/MediaTile";
+import DetailRow from "./common/DetailRow";
+import ConfirmDeleteDialog from "./common/ConfirmDeleteDialog";
+import { formatMediaDate, getCoordinates, googleMapsUrl } from "../utils/mediaUtils";
+
+const DATE_FILTERS = [
+  { value: "", label: "Any time" },
+  { value: "today", label: "Today" },
+  { value: "week", label: "Last 7 days" },
+  { value: "month", label: "This month" },
+];
+
+const MEDIA_FILTERS = [
+  { value: "", label: "With or without media" },
+  { value: "yes", label: "With media" },
+  { value: "no", label: "Without media" },
+];
+
+const countMedia = (hoto) => (hoto.fields || []).reduce((total, field) => total + (field.mediaFiles?.length || 0), 0);
+
+// "Block · Vypin", "GP · Elamkunnapuzha"…
+const getHotoTitle = (hoto) => {
+  const type = hoto.hotoType?.toLowerCase();
+  const name = (type === "gp" && hoto.gpName) || (type === "ofc" && hoto.ofcName) || hoto.blockName || hoto.gpName || hoto.ofcName;
+  return `${getHotoTypeLabel(hoto.hotoType) || "HOTO"} · ${name || "Unnamed"}`;
+};
+
+const HotoRow = ({ hoto, expanded, onToggle, onEdit, onDelete, onOpenMedia }) => {
+  const mediaCount = countMedia(hoto);
+  const coordinates = getCoordinates(hoto);
+  const contact = hoto.contactPerson || {};
+  const panelId = `hoto-panel-${hoto._id}`;
+
+  return (
+    <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
+      <Box sx={{ display: "flex", alignItems: "stretch" }}>
+        <ButtonBase
+          onClick={onToggle}
+          aria-expanded={expanded}
+          aria-controls={panelId}
+          sx={(theme) => ({
+            flex: 1,
+            minWidth: 0,
+            display: "flex",
+            // Stretch on phones so long text truncates instead of overflowing
+            alignItems: { xs: "stretch", md: "center" },
+            flexDirection: { xs: "column", md: "row" },
+            gap: { xs: 1, md: 2 },
+            pl: 2.5,
+            pr: 1,
+            py: 1.75,
+            textAlign: "left",
+            bgcolor: expanded ? alpha(theme.palette.primary.main, 0.03) : "transparent",
+            "&:hover": { bgcolor: "action.hover" },
+            "&.Mui-focusVisible": { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: -2 },
+          })}
+        >
+          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5, flex: 1, minWidth: 0 }}>
+            <ExpandMoreIcon
+              fontSize="small"
+              sx={{ mt: 0.25, color: "text.secondary", transform: expanded ? "rotate(180deg)" : "none", transition: "transform 150ms" }}
+            />
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                {getHotoTitle(hoto)}
+              </Typography>
+              <Typography variant="body2" noWrap sx={{ color: "text.secondary", maxWidth: { md: 520 } }}>
+                {hoto.remarks || (contact.name ? `Contact: ${contact.name}` : "No remarks")}
+              </Typography>
+            </Box>
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1.5, pl: { xs: 4, md: 0 } }}>
+            <StatusPill label={getHotoTypeLabel(hoto.hotoType) || "Unknown"} tone="default" />
+            <Typography variant="caption" sx={{ color: "text.secondary", minWidth: 56 }}>
+              {hoto.fields?.length || 0} {hoto.fields?.length === 1 ? "field" : "fields"}
+            </Typography>
+            <Typography variant="caption" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, color: "text.secondary", minWidth: 40 }}>
+              <PhotoLibraryIcon sx={{ fontSize: 16 }} />
+              {mediaCount}
+            </Typography>
+            <Typography variant="caption" sx={{ color: "text.secondary", minWidth: { md: 150 }, textAlign: { md: "right" } }}>
+              {formatMediaDate(hoto.createdAt) || "—"}
+            </Typography>
+          </Box>
+        </ButtonBase>
+        <Box sx={{ display: "flex", alignItems: { xs: "flex-start", md: "center" }, gap: 0.5, pr: 1.5, pt: { xs: 1.5, md: 0 } }}>
+          <Tooltip title="Edit HOTO">
+            <IconButton size="small" aria-label={`Edit ${getHotoTitle(hoto)}`} onClick={() => onEdit(hoto)}>
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete HOTO">
+            <IconButton
+              size="small"
+              aria-label={`Delete ${getHotoTitle(hoto)}`}
+              onClick={() => onDelete(hoto)}
+              sx={{ "&:hover": { color: "error.main" } }}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      </Box>
+
+      <Collapse in={expanded} unmountOnExit>
+        <Box id={panelId} sx={{ px: 2.5, pb: 2.5, pt: 0.5, pl: { md: 6.5 } }}>
+          <Grid container spacing={3}>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Typography variant="overline" component="h3" sx={{ color: "text.secondary", fontWeight: 600 }}>
+                Record
+              </Typography>
+              <Box>
+                <DetailRow label="Created">{formatMediaDate(hoto.createdAt)}</DetailRow>
+                <DetailRow label="Updated">{formatMediaDate(hoto.updatedAt)}</DetailRow>
+                <DetailRow label="Block">{[hoto.blockName, hoto.blockCode].filter(Boolean).join(" · ")}</DetailRow>
+                <DetailRow label="GP">{[hoto.gpName, hoto.gpCode].filter(Boolean).join(" · ")}</DetailRow>
+                <DetailRow label="OFC">{[hoto.ofcName, hoto.ofcCode].filter(Boolean).join(" · ")}</DetailRow>
+                <DetailRow label="Coordinates">
+                  {coordinates && (
+                    <>
+                      {coordinates.latitude}, {coordinates.longitude}
+                      <Link
+                        href={googleMapsUrl(coordinates.latitude, coordinates.longitude)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{ display: "block", fontWeight: 600 }}
+                      >
+                        Google Maps
+                      </Link>
+                    </>
+                  )}
+                </DetailRow>
+              </Box>
+
+              {(contact.name || contact.mobile || contact.email || contact.description) && (
+                <>
+                  <Typography variant="overline" component="h3" sx={{ color: "text.secondary", fontWeight: 600, display: "block", mt: 2 }}>
+                    Contact person
+                  </Typography>
+                  <Box>
+                    <DetailRow label="Name">{contact.name}</DetailRow>
+                    <DetailRow label="Mobile">{contact.mobile}</DetailRow>
+                    <DetailRow label="Email">{contact.email}</DetailRow>
+                    <DetailRow label="Notes">{contact.description}</DetailRow>
+                  </Box>
+                </>
+              )}
+
+              {hoto.remarks && (
+                <>
+                  <Typography variant="overline" component="h3" sx={{ color: "text.secondary", fontWeight: 600, display: "block", mt: 2 }}>
+                    Remarks
+                  </Typography>
+                  <Typography variant="body2">{hoto.remarks}</Typography>
+                </>
+              )}
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 8 }}>
+              <Typography variant="overline" component="h3" sx={{ color: "text.secondary", fontWeight: 600 }}>
+                Fields ({hoto.fields?.length || 0})
+              </Typography>
+              {hoto.fields?.length > 0 ? (
+                <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1.5, bgcolor: "background.paper" }}>
+                  {hoto.fields.map((field, fieldIndex) => (
+                    <Box
+                      key={field._id || fieldIndex}
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: "minmax(0, 2fr) minmax(0, 3fr)" },
+                        gap: { xs: 0.5, sm: 2 },
+                        px: 1.5,
+                        py: 1.25,
+                        "&:not(:last-of-type)": { borderBottom: 1, borderColor: "divider" },
+                      }}
+                    >
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          <Box component="span" sx={{ color: "text.secondary", fontVariantNumeric: "tabular-nums", mr: 1 }}>
+                            {field.sequence || fieldIndex + 1}
+                          </Box>
+                          {field.key}
+                        </Typography>
+                        <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap", mt: 0.5 }}>
+                          {field.confirmation !== undefined && (
+                            <StatusPill label={field.confirmation ? "Confirmed" : "Not confirmed"} tone={field.confirmation ? "success" : "warning"} />
+                          )}
+                          {field.status === 0 && <StatusPill label="Inactive" tone="default" />}
+                        </Box>
+                      </Box>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="body2" sx={{ color: field.value ? "text.primary" : "text.disabled", overflowWrap: "anywhere" }}>
+                          {field.value || "No value"}
+                        </Typography>
+                        {field.remarks && (
+                          <Typography variant="caption" component="p" sx={{ color: "text.secondary", mt: 0.25 }}>
+                            {field.remarks}
+                          </Typography>
+                        )}
+                        {field.mediaFiles?.length > 0 && (
+                          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 1 }}>
+                            {field.mediaFiles.map((media, mediaIndex) => (
+                              <MediaTile
+                                key={mediaIndex}
+                                media={media}
+                                size={64}
+                                label={media.description || `${field.key} ${mediaIndex + 1}`}
+                                onOpen={(item) => onOpenMedia(item, `Field: ${field.key}`)}
+                              />
+                            ))}
+                          </Box>
+                        )}
+                      </Box>
+                    </Box>
+                  ))}
+                </Box>
+              ) : (
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  No fields recorded for this HOTO.
+                </Typography>
+              )}
+            </Grid>
+          </Grid>
+        </Box>
+      </Collapse>
+    </Box>
+  );
+};
 
 const HotoDetailsPage = () => {
   const { locationId } = useParams();
   const navigate = useNavigate();
 
-  // State
   const [location, setLocation] = useState(null);
   const [hotos, setHotos] = useState([]);
-  const [filteredHotos, setFilteredHotos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [expandedHotos, setExpandedHotos] = useState({});
   const [selectedMedia, setSelectedMedia] = useState(null);
-  const [mediaDialogOpen, setMediaDialogOpen] = useState(false);
 
-  // Add HOTO Modal state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-
-  // Edit HOTO Modal state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedHotoForEdit, setSelectedHotoForEdit] = useState(null);
 
-  // Delete confirmation state
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [hotoToDelete, setHotoToDelete] = useState(null);
   const [deletingHoto, setDeletingHoto] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
@@ -127,127 +298,83 @@ const HotoDetailsPage = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(6);
 
+  // `quiet` refreshes after a save or delete without swapping the page for a skeleton
+  const fetchHotoData = useCallback(
+    async (quiet = false) => {
+      try {
+        if (!quiet) setLoading(true);
+        setError(null);
+        const [locationResponse, hotoResponse] = await Promise.all([
+          fetchLocationDetails(locationId),
+          fetchAllHotoList(locationId),
+        ]);
+
+        if (!locationResponse.success) {
+          throw new Error("This location couldn't be found. It may have been removed.");
+        }
+
+        setLocation(locationResponse.data);
+        setHotos([...hotoResponse.blockHotoInfo, ...hotoResponse.gpHotoInfo, ...hotoResponse.ofcHotoInfo]);
+      } catch (err) {
+        setError(err.message || "Failed to fetch HOTO data");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [locationId]
+  );
+
   useEffect(() => {
     fetchHotoData();
-  }, [locationId]);
+  }, [fetchHotoData]);
 
-  useEffect(() => {
-    applyFilters();
+  const filteredHotos = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    let since = null;
+    const now = new Date();
+    if (dateFilter === "today") since = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (dateFilter === "week") since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    if (dateFilter === "month") since = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    return hotos.filter((hoto) => {
+      if (
+        query &&
+        ![hoto.hotoType, hoto.blockName, hoto.gpName, hoto.ofcName, hoto.remarks].some((value) => (value || "").toLowerCase().includes(query)) &&
+        !(hoto.fields || []).some(
+          (field) => (field.key || "").toLowerCase().includes(query) || String(field.value ?? "").toLowerCase().includes(query)
+        )
+      ) {
+        return false;
+      }
+      if (typeFilter && hoto.hotoType !== typeFilter) return false;
+      if (hasMediaFilter && (countMedia(hoto) > 0) !== (hasMediaFilter === "yes")) return false;
+      if (since && new Date(hoto.createdAt) < since) return false;
+      return true;
+    });
   }, [hotos, searchTerm, typeFilter, hasMediaFilter, dateFilter]);
 
-  const fetchHotoData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Fetch location details and HOTO data
-      const [locationResponse, hotoResponse] = await Promise.all([
-        fetchLocationDetails(locationId),
-        fetchAllHotoList(locationId),
-      ]);
-
-      if (!locationResponse.success) {
-        throw new Error("Failed to fetch location details");
-      }
-
-      setLocation(locationResponse.data);
-
-      // Combine all HOTO types into a single array for the unified view
-      const allHotos = [
-        ...hotoResponse.blockHotoInfo,
-        ...hotoResponse.gpHotoInfo,
-        ...hotoResponse.ofcHotoInfo,
-      ];
-
-      setHotos(allHotos);
-    } catch (err) {
-      console.error("Error fetching HOTO data:", err);
-      setError(err.message || "Failed to fetch HOTO data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const applyFilters = () => {
-    let filtered = [...hotos];
-
-    // Search filter
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (hoto) =>
-          (hoto.hotoType || "")
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          (hoto.blockName || "")
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          (hoto.gpName || "")
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          (hoto.ofcName || "")
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          (hoto.remarks || "")
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          (hoto.fields || []).some(
-            (field) =>
-              (field.key || "")
-                .toLowerCase()
-                .includes(searchTerm.toLowerCase()) ||
-              (field.value || "")
-                .toLowerCase()
-                .includes(searchTerm.toLowerCase())
-          )
-      );
-    }
-
-    // Type filter
-    if (typeFilter) {
-      filtered = filtered.filter((hoto) => hoto.hotoType === typeFilter);
-    }
-
-    // Has media filter
-    if (hasMediaFilter) {
-      filtered = filtered.filter((hoto) => {
-        const hasMedia = (hoto.fields || []).some(
-          (field) => field.mediaFiles && field.mediaFiles.length > 0
-        );
-        return hasMediaFilter === "yes" ? hasMedia : !hasMedia;
-      });
-    }
-
-    // Date filter
-    if (dateFilter) {
-      const now = new Date();
-      let filterDate;
-      switch (dateFilter) {
-        case "today":
-          filterDate = new Date(
-            now.getFullYear(),
-            now.getMonth(),
-            now.getDate()
-          );
-          break;
-        case "week":
-          filterDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          break;
-        case "month":
-          filterDate = new Date(now.getFullYear(), now.getMonth(), 1);
-          break;
-        default:
-          filterDate = null;
-      }
-      if (filterDate) {
-        filtered = filtered.filter(
-          (hoto) => new Date(hoto.createdAt) >= filterDate
-        );
-      }
-    }
-
-    setFilteredHotos(filtered);
+  // Back to the first page whenever the filters change
+  useEffect(() => {
     setPage(0);
-  };
+  }, [searchTerm, typeFilter, hasMediaFilter, dateFilter]);
+
+  const currentPage = Math.min(page, Math.max(0, Math.ceil(filteredHotos.length / rowsPerPage) - 1));
+  const pageHotos = filteredHotos.slice(currentPage * rowsPerPage, currentPage * rowsPerPage + rowsPerPage);
+  const filtersActive = Boolean(searchTerm || typeFilter || hasMediaFilter || dateFilter);
+  const typeOptions = [...new Set(hotos.map((hoto) => hoto.hotoType).filter(Boolean))];
+
+  const stats = useMemo(() => {
+    const byType = ["block", "gp", "ofc"]
+      .map((type) => [type, hotos.filter((hoto) => hoto.hotoType === type).length])
+      .filter(([, count]) => count > 0)
+      .map(([type, count]) => `${getHotoTypeLabel(type)} ${count}`);
+    return {
+      byType: byType.join(" · "),
+      totalFields: hotos.reduce((total, hoto) => total + (hoto.fields?.length || 0), 0),
+      totalMedia: hotos.reduce((total, hoto) => total + countMedia(hoto), 0),
+      withMedia: hotos.filter((hoto) => countMedia(hoto) > 0).length,
+    };
+  }, [hotos]);
 
   const clearFilters = () => {
     setSearchTerm("");
@@ -256,122 +383,6 @@ const HotoDetailsPage = () => {
     setDateFilter("");
   };
 
-  const toggleHotoExpansion = (hotoId) => {
-    setExpandedHotos((prev) => ({
-      ...prev,
-      [hotoId]: !prev[hotoId],
-    }));
-  };
-
-  const getHotoTypeColor = (type) => {
-    switch (type?.toLowerCase()) {
-      case "block":
-        return "primary";
-      case "gp":
-        return "secondary";
-      case "ofc":
-        return "success";
-      default:
-        return "default";
-    }
-  };
-
-  const getFieldTypeIcon = (type) => {
-    switch (type?.toLowerCase()) {
-      case "text":
-        return <DescriptionIcon fontSize="small" />;
-      case "number":
-        return <NumbersIcon fontSize="small" />;
-      case "dropdown":
-        return <ListIcon fontSize="small" />;
-      case "media":
-        return <PhotoLibraryIcon fontSize="small" />;
-      default:
-        return <FolderIcon fontSize="small" />;
-    }
-  };
-
-  const getMediaIcon = (fileType) => {
-    const type = fileType?.toLowerCase();
-    if (
-      type === "image" ||
-      type === "jpg" ||
-      type === "jpeg" ||
-      type === "png" ||
-      type === "gif" ||
-      type === "bmp"
-    ) {
-      return <ImageIcon color="primary" />;
-    }
-    if (
-      type === "video" ||
-      type === "mp4" ||
-      type === "avi" ||
-      type === "mov" ||
-      type === "wmv" ||
-      type === "flv" ||
-      type === "webm"
-    ) {
-      return <VideoIcon color="secondary" />;
-    }
-    return <FileIcon color="action" />;
-  };
-
-  const formatCoordinate = (coordinate) => {
-    if (coordinate === null || coordinate === undefined || coordinate === '') return "N/A";
-    const num = typeof coordinate === "string" ? parseFloat(coordinate) : coordinate;
-    return isNaN(num) ? "N/A" : num.toFixed(6);
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return "N/A";
-    return new Date(dateString).toLocaleString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const getUniqueValues = (key) => {
-    const values = hotos.map((hoto) => hoto[key]).filter(Boolean);
-    return [...new Set(values)];
-  };
-
-  const getHotoStats = () => {
-    return {
-      totalHotos: hotos.length,
-      blockHotos: hotos.filter((h) => h.hotoType === "block").length,
-      gpHotos: hotos.filter((h) => h.hotoType === "gp").length,
-      ofcHotos: hotos.filter((h) => h.hotoType === "ofc").length,
-      totalFields: hotos.reduce((acc, h) => acc + (h.fields?.length || 0), 0),
-      totalMedia: hotos.reduce(
-        (acc, h) =>
-          acc +
-          (h.fields?.reduce(
-            (facc, f) => facc + (f.mediaFiles?.length || 0),
-            0
-          ) || 0),
-        0
-      ),
-    };
-  };
-
-  const handleBack = () => {
-    navigate(-1);
-  };
-
-  // Handle Add HOTO modal
-  const handleOpenAddModal = () => {
-    setIsAddModalOpen(true);
-  };
-
-  const handleCloseAddModal = () => {
-    setIsAddModalOpen(false);
-  };
-
-  // Handle Edit HOTO modal
   const handleOpenEditModal = (hoto) => {
     setSelectedHotoForEdit(hoto);
     setIsEditModalOpen(true);
@@ -382,1450 +393,243 @@ const HotoDetailsPage = () => {
     setSelectedHotoForEdit(null);
   };
 
-  // Handle Delete HOTO
-  const handleOpenDeleteConfirm = (hoto) => {
+  const askDelete = (hoto) => {
+    setDeleteError("");
     setHotoToDelete(hoto);
-    setDeleteConfirmOpen(true);
-  };
-
-  const handleCloseDeleteConfirm = () => {
-    setDeleteConfirmOpen(false);
-    setHotoToDelete(null);
   };
 
   const handleConfirmDelete = async () => {
     if (!hotoToDelete) return;
-
     try {
       setDeletingHoto(true);
+      setDeleteError("");
       await deleteHoto(hotoToDelete._id);
-      await fetchHotoData(); // Refresh the data
-      handleCloseDeleteConfirm();
-    } catch (error) {
-      console.error("Error deleting HOTO:", error);
+      setHotoToDelete(null);
+      await fetchHotoData(true);
+    } catch (err) {
+      setDeleteError(err.message || "Couldn't delete this HOTO. Please try again.");
     } finally {
       setDeletingHoto(false);
     }
   };
 
+  const locationTitle = [location?.block, location?.district].filter(Boolean).join(", ");
+
   if (loading) {
     return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Box
-          display="flex"
-          justifyContent="center"
-          alignItems="center"
-          minHeight="400px"
-        >
-          <CircularProgress size={60} />
-          <Typography variant="h6" sx={{ ml: 2 }}>
-            Loading HOTO details...
-          </Typography>
-        </Box>
-      </Container>
+      <Box>
+        <Skeleton variant="text" width={240} height={40} />
+        <Skeleton variant="text" width={320} sx={{ mb: 3 }} />
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          {Array.from({ length: 3 }, (_, index) => (
+            <Grid key={index} size={{ xs: 12, sm: 4 }}>
+              <Skeleton variant="rounded" height={112} />
+            </Grid>
+          ))}
+        </Grid>
+        <Skeleton variant="rounded" height={360} />
+      </Box>
     );
   }
 
-  if (error) {
+  if (error && !location) {
     return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={handleBack}
-          variant="contained"
-        >
-          Go Back
-        </Button>
-      </Container>
+      <Box>
+        <PageHeader
+          title="HOTO"
+          actions={
+            <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)}>
+              Back
+            </Button>
+          }
+        />
+        <Card sx={{ py: 6, px: 3, textAlign: "center" }}>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            {error}
+          </Typography>
+          <Box sx={{ display: "flex", justifyContent: "center", gap: 1.5, mt: 2.5 }}>
+            <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => fetchHotoData()}>
+              Try again
+            </Button>
+            <Button variant="contained" onClick={() => navigate("/map")}>
+              Go to Locations
+            </Button>
+          </Box>
+        </Card>
+      </Box>
     );
   }
-
-  const stats = getHotoStats();
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
-      {/* Header */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: 3,
-          mb: 3,
-          background: "linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%)",
-          color: "white",
-          borderRadius: 2,
-        }}
-      >
-        <Breadcrumbs
-          sx={{ mb: 2, "& .MuiBreadcrumbs-separator": { color: "white" } }}
-        >
-          <Link
-            underline="hover"
-            color="inherit"
-            onClick={() => navigate("/map")}
-            sx={{ cursor: "pointer" }}
-          >
-            Map View
-          </Link>
-          <Typography color="inherit">HOTO Information</Typography>
-        </Breadcrumbs>
-
-        <Box
-          display="flex"
-          alignItems="center"
-          justifyContent="space-between"
-          flexWrap="wrap"
-          gap={2}
-        >
-          <Box display="flex" alignItems="center" gap={2}>
-            <IconButton
-              onClick={handleBack}
-              sx={{ color: "white", bgcolor: "rgba(255,255,255,0.1)" }}
-            >
-              <ArrowBackIcon />
-            </IconButton>
-            <Box>
-              <Typography variant="h4" component="h1" fontWeight="bold">
-                🏢 HOTO Information
-              </Typography>
-              <Typography variant="h6" sx={{ opacity: 0.9 }}>
-                {location?.district}, {location?.block}
-              </Typography>
-            </Box>
-          </Box>
-
-          <Box display="flex" gap={2}>
-            <Button
-              variant="contained"
-              color="secondary"
-              startIcon={<AddIcon />}
-              onClick={handleOpenAddModal}
-              sx={{
-                borderRadius: "8px",
-                px: 3,
-                py: 1,
-                fontWeight: 600,
-                boxShadow: "0 4px 6px rgba(156, 39, 176, 0.2)",
-                bgcolor: "rgba(255,255,255,0.9)",
-                color: "secondary.main",
-                "&:hover": {
-                  bgcolor: "white",
-                  transform: "translateY(-1px)",
-                  boxShadow: "0 6px 12px rgba(156, 39, 176, 0.3)",
-                },
-              }}
-            >
+    <Box>
+      <PageHeader
+        title="HOTO"
+        subtitle={[locationTitle, "Handover and takeover records"].filter(Boolean).join(" · ")}
+        actions={
+          <>
+            <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)}>
+              Back
+            </Button>
+            <ExportButton hotos={hotos} />
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setIsAddModalOpen(true)}>
               Add HOTO
             </Button>
-            <Paper
-              sx={{
-                p: 1.5,
-                bgcolor: "rgba(255,255,255,0.1)",
-                backdropFilter: "blur(10px)",
-                minWidth: "100px",
-                width: "100px",
-                textAlign: "center",
-              }}
-            >
-              <Typography variant="caption" color="white" display="block">
-                Total HOTOs
-              </Typography>
-              <Typography variant="h6" color="white" fontWeight="bold">
-                {stats.totalHotos}
-              </Typography>
-            </Paper>
-            <Paper
-              sx={{
-                p: 1.5,
-                bgcolor: "rgba(255,255,255,0.1)",
-                backdropFilter: "blur(10px)",
-                minWidth: "100px",
-                width: "100px",
-                textAlign: "center",
-              }}
-            >
-              <Typography variant="caption" color="white" display="block">
-                Total Fields
-              </Typography>
-              <Typography variant="h6" color="white" fontWeight="bold">
-                {stats.totalFields}
-              </Typography>
-            </Paper>
-            <Paper
-              sx={{
-                p: 1.5,
-                bgcolor: "rgba(255,255,255,0.1)",
-                backdropFilter: "blur(10px)",
-                minWidth: "100px",
-                width: "100px",
-                textAlign: "center",
-              }}
-            >
-              <Typography variant="caption" color="white" display="block">
-                Media Files
-              </Typography>
-              <Typography variant="h6" color="white" fontWeight="bold">
-                {stats.totalMedia}
-              </Typography>
-            </Paper>
-          </Box>
-        </Box>
-      </Paper>
+          </>
+        }
+      />
 
-      {/* Main Content Card */}
-      <Card elevation={3} sx={{ borderRadius: 3, overflow: "hidden" }}>
-        {/* Location Info Header */}
-        <CardContent
-          sx={{
-            background: "linear-gradient(45deg, #f8f9fa 0%, #e9ecef 100%)",
-            borderBottom: "1px solid #dee2e6",
-          }}
-        >
-          <Grid
-            container
-            spacing={3}
-            alignItems="center"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <Grid
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <Grid xs={12} md={6}>
-                <Box display="flex" alignItems="center" gap={2}>
-                  <Avatar
-                    sx={{ bgcolor: "success.main", width: 56, height: 56 }}
-                  >
-                    <BusinessIcon fontSize="large" />
-                  </Avatar>
-                  <Box>
-                    <Typography
-                      variant="h6"
-                      fontWeight="bold"
-                      color="success.main"
-                    >
-                      {location?.district}, {location?.block}
-                    </Typography>
-                    <Stack direction="row" spacing={1} mt={1}>
-                      <Chip
-                        icon={<PublicIcon />}
-                        label={location?.district}
-                        size="small"
-                        variant="outlined"
-                        color="primary"
-                      />
-                      <Chip
-                        icon={<BusinessIcon />}
-                        label={location?.block}
-                        size="small"
-                        variant="outlined"
-                        color="secondary"
-                      />
-                    </Stack>
-                  </Box>
-                </Box>
-              </Grid>
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }} action={<Button color="inherit" size="small" onClick={() => fetchHotoData(true)}>Retry</Button>}>
+          {error}
+        </Alert>
+      )}
 
-              <Grid xs={12} md={6} ml={2}>
-                <Grid container spacing={2}>
-                  <Grid xs={6} sm={3}>
-                    <Paper
-                      elevation={1}
-                      sx={{
-                        p: 2,
-                        textAlign: "center",
-                        bgcolor: "primary.50",
-                        border: "1px solid",
-                        borderColor: "primary.200",
-                        minHeight: "80px",
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Typography
-                        variant="h5"
-                        color="primary.main"
-                        fontWeight="bold"
-                      >
-                        {stats.blockHotos}
-                      </Typography>
-                      <Typography variant="caption">Block</Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid xs={6} sm={3}>
-                    <Paper
-                      elevation={1}
-                      sx={{
-                        p: 2,
-                        textAlign: "center",
-                        bgcolor: "secondary.50",
-                        border: "1px solid",
-                        borderColor: "secondary.200",
-                        minHeight: "80px",
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Typography
-                        variant="h5"
-                        color="secondary.main"
-                        fontWeight="bold"
-                      >
-                        {stats.gpHotos}
-                      </Typography>
-                      <Typography variant="caption">GP</Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid xs={6} sm={3}>
-                    <Paper
-                      elevation={1}
-                      sx={{
-                        p: 2,
-                        textAlign: "center",
-                        bgcolor: "success.50",
-                        border: "1px solid",
-                        borderColor: "success.200",
-                        minHeight: "80px",
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Typography
-                        variant="h5"
-                        color="success.main"
-                        fontWeight="bold"
-                      >
-                        {stats.ofcHotos}
-                      </Typography>
-                      <Typography variant="caption">OFC</Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid xs={6} sm={3}>
-                    <Paper
-                      elevation={1}
-                      sx={{
-                        p: 2,
-                        textAlign: "center",
-                        bgcolor: "info.50",
-                        border: "1px solid",
-                        borderColor: "info.200",
-                        minHeight: "80px",
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Typography
-                        variant="h5"
-                        color="info.main"
-                        fontWeight="bold"
-                      >
-                        {stats.totalMedia}
-                      </Typography>
-                      <Typography variant="caption">Media</Typography>
-                    </Paper>
-                  </Grid>
-                </Grid>
-              </Grid>
-            </Grid>
-            <Grid
-              xs={12}
-              md={6}
-              style={{ display: "flex", justifyContent: "flex-end" }}
-            >
-              <ExportButton hotos={hotos} />
-            </Grid>
-          </Grid>
-        </CardContent>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <StatTile label="HOTO records" value={hotos.length} caption={stats.byType || "None recorded yet"} />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <StatTile
+            label="Fields recorded"
+            value={stats.totalFields}
+            caption={hotos.length ? `About ${Math.round(stats.totalFields / hotos.length)} per record` : "Across all records"}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <StatTile
+            label="Media files"
+            value={stats.totalMedia}
+            caption={hotos.length ? `${stats.withMedia} of ${hotos.length} records have photos or videos` : "Photos and videos"}
+          />
+        </Grid>
+      </Grid>
 
-        {/* Dynamic Filters */}
-        <CardContent
-          sx={{ bgcolor: "grey.50", borderBottom: "1px solid #dee2e6" }}
-        >
-          <Box
-            display="flex"
-            justifyContent="space-between"
-            alignItems="center"
-            mb={2}
-          >
-            <Typography
-              variant="h6"
-              sx={{ display: "flex", alignItems: "center", gap: 1 }}
-            >
-              <FilterListIcon color="primary" />
-              HOTO Filters
-            </Typography>
-            <Button
-              startIcon={<ClearIcon />}
-              onClick={clearFilters}
-              variant="outlined"
-              size="small"
-            >
-              Clear All
-            </Button>
-          </Box>
-
-          <Box display="flex" gap={2} flexWrap="wrap" alignItems="center">
-            <TextField
-              placeholder="Search HOTOs, fields, values..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
+      <Card>
+        {/* Filters */}
+        <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1.5, p: 2, borderBottom: 1, borderColor: "divider" }}>
+          <TextField
+            size="small"
+            placeholder="Search names, remarks, fields and values"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            sx={{ width: { xs: "100%", md: 320 } }}
+            slotProps={{
+              htmlInput: { "aria-label": "Search HOTO records" },
+              input: {
                 startAdornment: (
-                  <SearchIcon sx={{ mr: 1, color: "text.secondary" }} />
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" sx={{ color: "text.secondary" }} />
+                  </InputAdornment>
                 ),
-              }}
-              size="small"
-              sx={{ width: 280 }}
-            />
-            <FormControl size="small" sx={{ width: 140 }}>
-              <InputLabel>HOTO Type</InputLabel>
-              <Select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                label="HOTO Type"
-              >
-                <MenuItem value="">All Types</MenuItem>
-                {getUniqueValues("hotoType").map((type) => (
-                  <MenuItem key={type} value={type}>
-                    {type?.toUpperCase()}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ width: 120 }}>
-              <InputLabel>Has Media</InputLabel>
-              <Select
-                value={hasMediaFilter}
-                onChange={(e) => setHasMediaFilter(e.target.value)}
-                label="Has Media"
-              >
-                <MenuItem value="">All</MenuItem>
-                <MenuItem value="yes">With Media</MenuItem>
-                <MenuItem value="no">Without Media</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ width: 130 }}>
-              <InputLabel>Date Range</InputLabel>
-              <Select
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                label="Date Range"
-              >
-                <MenuItem value="">All Time</MenuItem>
-                <MenuItem value="today">Today</MenuItem>
-                <MenuItem value="week">This Week</MenuItem>
-                <MenuItem value="month">This Month</MenuItem>
-              </Select>
-            </FormControl>
-            <Button
-              startIcon={<RefreshIcon />}
-              onClick={fetchHotoData}
-              variant="outlined"
-              size="small"
-              sx={{ width: 100 }}
-            >
-              Refresh
+                endAdornment: searchTerm && (
+                  <InputAdornment position="end">
+                    <IconButton size="small" edge="end" aria-label="Clear search" onClick={() => setSearchTerm("")}>
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+          <TextField select size="small" label="Type" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} sx={{ minWidth: 130 }}>
+            <MenuItem value="">All types</MenuItem>
+            {typeOptions.map((type) => (
+              <MenuItem key={type} value={type}>
+                {getHotoTypeLabel(type)}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField select size="small" label="Media" value={hasMediaFilter} onChange={(event) => setHasMediaFilter(event.target.value)} sx={{ minWidth: 180 }}>
+            {MEDIA_FILTERS.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField select size="small" label="Created" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} sx={{ minWidth: 140 }}>
+            {DATE_FILTERS.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          {filtersActive && (
+            <Button size="small" startIcon={<FilterListOffIcon />} onClick={clearFilters}>
+              Clear filters
             </Button>
-          </Box>
-        </CardContent>
-
-        {/* HOTO Results */}
-        <CardContent>
-          {filteredHotos.length === 0 ? (
-            <Alert severity="info" sx={{ my: 3 }}>
-              {searchTerm || typeFilter || hasMediaFilter || dateFilter
-                ? "No HOTO entries match your current filters. Try adjusting your search criteria."
-                : "No HOTO entries found for this location."}
-            </Alert>
-          ) : (
-            <>
-              <Box
-                display="flex"
-                justifyContent="space-between"
-                alignItems="center"
-                mb={3}
-              >
-                <Typography variant="h6" color="primary">
-                  🏢 Showing{" "}
-                  {
-                    filteredHotos.slice(
-                      page * rowsPerPage,
-                      page * rowsPerPage + rowsPerPage
-                    ).length
-                  }{" "}
-                  of {filteredHotos.length} HOTO entries
-                </Typography>
-                {filteredHotos.length !== hotos.length && (
-                  <Chip
-                    label={`Filtered from ${hotos.length} total`}
-                    color="primary"
-                    variant="outlined"
-                    size="small"
-                  />
-                )}
-              </Box>
-
-              <Stack spacing={2}>
-                {filteredHotos
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((hoto) => (
-                    <Accordion
-                      key={hoto._id}
-                      expanded={expandedHotos[hoto._id] || false}
-                      onChange={() => toggleHotoExpansion(hoto._id)}
-                      sx={{
-                        border: "1px solid #e0e0e0",
-                        borderRadius: 2,
-                        "&:before": { display: "none" },
-                        boxShadow: expandedHotos[hoto._id] ? 3 : 1,
-                      }}
-                    >
-                      <AccordionSummary
-                        expandIcon={<ExpandMoreIcon />}
-                        sx={{
-                          bgcolor: expandedHotos[hoto._id]
-                            ? "primary.50"
-                            : "white",
-                          "&:hover": {
-                            bgcolor: expandedHotos[hoto._id]
-                              ? "primary.100"
-                              : "grey.50",
-                          },
-                          borderRadius: expandedHotos[hoto._id]
-                            ? "8px 8px 0 0"
-                            : 2,
-                          minHeight: "80px",
-                          "& .MuiAccordionSummary-content": {
-                            margin: "16px 0",
-                            alignItems: "center",
-                          },
-                        }}
-                      >
-                        <Box
-                          display="flex"
-                          justifyContent="space-between"
-                          alignItems="center"
-                          width="100%"
-                          py={1}
-                        >
-                          <Box display="flex" alignItems="center" gap={3}>
-                            <Avatar
-                              sx={{
-                                bgcolor:
-                                  hoto.hotoType === "block"
-                                    ? "primary.main"
-                                    : hoto.hotoType === "gp"
-                                    ? "secondary.main"
-                                    : "success.main",
-                                width: 48,
-                                height: 48,
-                              }}
-                            >
-                              <BusinessIcon />
-                            </Avatar>
-                            <Box>
-                              <Typography
-                                variant="h6"
-                                fontWeight="bold"
-                                color="text.primary"
-                                sx={{ mb: 0.5 }}
-                              >
-                                {(() => {
-                                  const type = hoto.hotoType?.toLowerCase();
-                                  if (type === 'block') {
-                                    return `Block - ${hoto.blockName || 'Unknown'}`;
-                                  } else if (type === 'gp') {
-                                    return `GP - ${hoto.gpName || 'Unknown'}`;
-                                  } else if (type === 'ofc') {
-                                    return `OFC - ${hoto.ofcName || 'Unknown'}`;
-                                  } else {
-                                    return `${hoto.hotoType?.toUpperCase() || 'UNKNOWN'} - ${hoto.blockName || hoto.gpName || hoto.ofcName || 'Unknown'}`;
-                                  }
-                                })()}
-                              </Typography>
-                              <Typography
-                                variant="body2"
-                                color="text.secondary"
-                                sx={{ fontSize: "0.875rem" }}
-                              >
-                                {hoto.remarks ||
-                                  (hoto.contactPerson?.name
-                                    ? `Contact: ${hoto.contactPerson.name}`
-                                    : "No additional details")}
-                              </Typography>
-                            </Box>
-                          </Box>
-
-                          <Box
-                            display="flex"
-                            alignItems="center"
-                            gap={1}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Chip
-                              label={hoto.hotoType?.toUpperCase() || "UNKNOWN"}
-                              color={
-                                hoto.hotoType === "block"
-                                  ? "primary"
-                                  : hoto.hotoType === "gp"
-                                  ? "secondary"
-                                  : "success"
-                              }
-                              size="small"
-                              sx={{
-                                fontWeight: 600,
-                                minWidth: "70px",
-                                height: "28px",
-                              }}
-                            />
-                            <Chip
-                              label={`${
-                                hoto.fields?.reduce(
-                                  (acc, f) => acc + (f.mediaFiles?.length || 0),
-                                  0
-                                ) || 0
-                              } Media`}
-                              size="small"
-                              variant="outlined"
-                              color="info"
-                              sx={{
-                                fontWeight: 500,
-                                minWidth: "80px",
-                                height: "28px",
-                              }}
-                            />
-                            <Chip
-                              label={`${hoto.fields?.length || 0} Fields`}
-                              size="small"
-                              variant="outlined"
-                              color="default"
-                              sx={{
-                                fontWeight: 500,
-                                minWidth: "70px",
-                                height: "28px",
-                              }}
-                            />
-
-                            {/* Action Buttons */}
-                            <Tooltip title="Edit HOTO">
-                              <IconButton
-                                component="span"
-                                size="small"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenEditModal(hoto);
-                                }}
-                                sx={{
-                                  ml: 1,
-                                  bgcolor: "warning.50",
-                                  color: "warning.main",
-                                  "&:hover": {
-                                    bgcolor: "warning.100",
-                                    transform: "scale(1.05)",
-                                  },
-                                }}
-                              >
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-
-                            <Tooltip title="Delete HOTO">
-                              <IconButton
-                                component="span"
-                                size="small"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenDeleteConfirm(hoto);
-                                }}
-                                sx={{
-                                  ml: 0.5,
-                                  bgcolor: "error.50",
-                                  color: "error.main",
-                                  "&:hover": {
-                                    bgcolor: "error.100",
-                                    transform: "scale(1.05)",
-                                  },
-                                }}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </Box>
-                        </Box>
-                      </AccordionSummary>
-
-                      <AccordionDetails sx={{ bgcolor: "white" }}>
-                        <Grid container spacing={3}>
-                          {/* HOTO Info */}
-                          <Grid xs={12} md={4}>
-                            <Paper
-                              elevation={1}
-                              sx={{ p: 2, bgcolor: "grey.50" }}
-                            >
-                              <Typography
-                                variant="subtitle2"
-                                color="primary"
-                                fontWeight="bold"
-                                gutterBottom
-                              >
-                                🏢 HOTO Information
-                              </Typography>
-                              <List dense>
-                                <ListItem sx={{ px: 0 }}>
-                                  <ListItemIcon>
-                                    <CalendarTodayIcon fontSize="small" />
-                                  </ListItemIcon>
-                                  <ListItemText
-                                    primary="Created"
-                                    secondary={formatDate(hoto.createdAt)}
-                                  />
-                                </ListItem>
-                                {hoto.contactPerson && (
-                                  <>
-                                    <ListItem sx={{ px: 0 }}>
-                                      <ListItemIcon>
-                                        <PersonIcon fontSize="small" />
-                                      </ListItemIcon>
-                                      <ListItemText
-                                        primary="Contact Person"
-                                        secondary={
-                                          hoto.contactPerson.name || "N/A"
-                                        }
-                                      />
-                                    </ListItem>
-                                    {hoto.contactPerson.email && (
-                                      <ListItem sx={{ px: 0 }}>
-                                        <ListItemIcon>
-                                          <EmailIcon fontSize="small" />
-                                        </ListItemIcon>
-                                        <ListItemText
-                                          primary="Email"
-                                          secondary={hoto.contactPerson.email}
-                                        />
-                                      </ListItem>
-                                    )}
-                                    {hoto.contactPerson.mobile && (
-                                      <ListItem sx={{ px: 0 }}>
-                                        <ListItemIcon>
-                                          <PhoneIcon fontSize="small" />
-                                        </ListItemIcon>
-                                        <ListItemText
-                                          primary="Mobile"
-                                          secondary={hoto.contactPerson.mobile}
-                                        />
-                                      </ListItem>
-                                    )}
-                                  </>
-                                )}
-                                {hoto.latitude && hoto.longitude && (
-                                  <ListItem sx={{ px: 0 }}>
-                                    <ListItemIcon>
-                                      <GPSIcon fontSize="small" />
-                                    </ListItemIcon>
-                                    <ListItemText
-                                      primary="Coordinates"
-                                      secondary={`${formatCoordinate(
-                                        hoto.latitude
-                                      )}, ${formatCoordinate(hoto.longitude)}`}
-                                    />
-                                  </ListItem>
-                                )}
-                              </List>
-                            </Paper>
-                          </Grid>
-
-                          {/* HOTO Fields */}
-                          <Grid xs={12} md={8}>
-                            <Typography
-                              variant="subtitle2"
-                              color="primary"
-                              fontWeight="bold"
-                              gutterBottom
-                            >
-                              📋 HOTO Fields ({hoto.fields?.length || 0})
-                            </Typography>
-
-                            {hoto.fields && hoto.fields.length > 0 ? (
-                              <Stack spacing={2}>
-                                {hoto.fields.map((field, fieldIndex) => (
-                                  <Paper
-                                    key={fieldIndex}
-                                    elevation={1}
-                                    sx={{ p: 2, border: "1px solid #e0e0e0" }}
-                                  >
-                                    <Box
-                                      display="flex"
-                                      justifyContent="space-between"
-                                      alignItems="flex-start"
-                                      mb={2}
-                                    >
-                                      <Box
-                                        display="flex"
-                                        alignItems="center"
-                                        gap={1}
-                                      >
-                                        {getFieldTypeIcon(field.fieldType)}
-                                        <Typography
-                                          variant="subtitle2"
-                                          fontWeight="bold"
-                                        >
-                                          {field.key}
-                                        </Typography>
-                                      </Box>
-                                      <Stack
-                                        direction="row"
-                                        spacing={1}
-                                        sx={{
-                                          minWidth: "280px",
-                                          justifyContent: "flex-end",
-                                        }}
-                                      >
-                                        <Chip
-                                          label={`#${
-                                            field.sequence || fieldIndex + 1
-                                          }`}
-                                          size="small"
-                                          variant="outlined"
-                                          sx={{
-                                            minWidth: "60px",
-                                            height: "28px",
-                                          }}
-                                        />
-                                        {field.confirmation !== undefined && (
-                                          <Chip
-                                            icon={
-                                              field.confirmation ? (
-                                                <CheckCircleIcon />
-                                              ) : (
-                                                <CancelIcon />
-                                              )
-                                            }
-                                            label={
-                                              field.confirmation
-                                                ? "Confirmed"
-                                                : "Not Confirmed"
-                                            }
-                                            size="small"
-                                            color={
-                                              field.confirmation
-                                                ? "success"
-                                                : "error"
-                                            }
-                                            variant="outlined"
-                                            sx={{
-                                              minWidth: "120px",
-                                              height: "28px",
-                                            }}
-                                          />
-                                        )}
-                                        {field.status !== undefined && (
-                                          <Chip
-                                            label={
-                                              field.status === 1
-                                                ? "Active"
-                                                : "Inactive"
-                                            }
-                                            size="small"
-                                            color={
-                                              field.status === 1
-                                                ? "success"
-                                                : "default"
-                                            }
-                                            variant="outlined"
-                                            sx={{
-                                              minWidth: "80px",
-                                              height: "28px",
-                                            }}
-                                          />
-                                        )}
-                                      </Stack>
-                                    </Box>
-
-                                    <Typography
-                                      variant="body2"
-                                      sx={{
-                                        mb: 2,
-                                        bgcolor: "grey.50",
-                                        p: 1,
-                                        borderRadius: 1,
-                                      }}
-                                    >
-                                      <strong>Value:</strong>{" "}
-                                      {field.value || "No value provided"}
-                                    </Typography>
-
-                                    {field.remarks && (
-                                      <Typography
-                                        variant="body2"
-                                        sx={{
-                                          mb: 2,
-                                          bgcolor: "info.50",
-                                          p: 1,
-                                          borderRadius: 1,
-                                        }}
-                                      >
-                                        <strong>Remarks:</strong>{" "}
-                                        {field.remarks}
-                                      </Typography>
-                                    )}
-
-                                    {field.mediaFiles &&
-                                      field.mediaFiles.length > 0 && (
-                                        <Box>
-                                          <Typography
-                                            variant="caption"
-                                            color="text.secondary"
-                                            gutterBottom
-                                            display="block"
-                                          >
-                                            📎 Field Media (
-                                            {field.mediaFiles.length}):
-                                          </Typography>
-                                          <Grid
-                                            container
-                                            spacing={1}
-                                            sx={{ mt: 1 }}
-                                          >
-                                            {field.mediaFiles.map(
-                                              (media, mediaIndex) => (
-                                                <Grid
-                                                  xs={6}
-                                                  sm={4}
-                                                  md={3}
-                                                  key={mediaIndex}
-                                                >
-                                                  <Paper
-                                                    elevation={2}
-                                                    sx={{
-                                                      p: 1,
-                                                      textAlign: "center",
-                                                      cursor: "pointer",
-                                                      transition:
-                                                        "all 0.2s ease",
-                                                      minHeight: "140px",
-                                                      maxHeight: "140px",
-                                                      minWidth: "120px",
-                                                      display: "flex",
-                                                      flexDirection: "column",
-                                                      justifyContent:
-                                                        "space-between",
-                                                      "&:hover": {
-                                                        boxShadow: 4,
-                                                        transform:
-                                                          "translateY(-2px)",
-                                                      },
-                                                    }}
-                                                    onClick={() => {
-                                                      setSelectedMedia(media);
-                                                      setMediaDialogOpen(true);
-                                                    }}
-                                                  >
-                                                    <Box
-                                                      sx={{
-                                                        flex: 1,
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        justifyContent:
-                                                          "center",
-                                                      }}
-                                                    >
-                                                      {media.url &&
-                                                      (media.fileType ===
-                                                        "IMAGE" ||
-                                                        media.fileType ===
-                                                          "image") ? (
-                                                        <CardMedia
-                                                          component="img"
-                                                          height="60"
-                                                          image={media.url}
-                                                          alt={
-                                                            media.description ||
-                                                            "Field media"
-                                                          }
-                                                          sx={{
-                                                            objectFit: "cover",
-                                                            borderRadius: 1,
-                                                            maxWidth: "100%",
-                                                          }}
-                                                        />
-                                                      ) : media.url &&
-                                                        (media.fileType ===
-                                                          "VIDEO" ||
-                                                          media.fileType ===
-                                                            "video" ||
-                                                          media.fileType ===
-                                                            "mp4" ||
-                                                          media.fileType ===
-                                                            "avi" ||
-                                                          media.fileType ===
-                                                            "mov") ? (
-                                                        <Box
-                                                          position="relative"
-                                                          sx={{ width: "100%" }}
-                                                        >
-                                                          <video
-                                                            width="100%"
-                                                            height="60"
-                                                            style={{
-                                                              objectFit:
-                                                                "cover",
-                                                              borderRadius: 4,
-                                                              maxWidth: "100%",
-                                                            }}
-                                                            muted
-                                                            preload="metadata"
-                                                          >
-                                                            <source
-                                                              src={`${media.url}#t=1`}
-                                                              type={`video/${media.fileType?.toLowerCase()}`}
-                                                            />
-                                                          </video>
-                                                          <Box
-                                                            position="absolute"
-                                                            top="50%"
-                                                            left="50%"
-                                                            sx={{
-                                                              transform:
-                                                                "translate(-50%, -50%)",
-                                                              bgcolor:
-                                                                "rgba(0,0,0,0.6)",
-                                                              borderRadius:
-                                                                "50%",
-                                                              p: 0.5,
-                                                            }}
-                                                          >
-                                                            <VideoIcon
-                                                              sx={{
-                                                                color: "white",
-                                                                fontSize: 16,
-                                                              }}
-                                                            />
-                                                          </Box>
-                                                        </Box>
-                                                      ) : (
-                                                        <Box
-                                                          sx={{
-                                                            height: 60,
-                                                            width: "100%",
-                                                            display: "flex",
-                                                            alignItems:
-                                                              "center",
-                                                            justifyContent:
-                                                              "center",
-                                                            bgcolor: "grey.100",
-                                                            borderRadius: 1,
-                                                          }}
-                                                        >
-                                                          {getMediaIcon(
-                                                            media.fileType
-                                                          )}
-                                                        </Box>
-                                                      )}
-                                                    </Box>
-
-                                                    <Box sx={{ mt: 1 }}>
-                                                      <Typography
-                                                        variant="caption"
-                                                        display="block"
-                                                        fontWeight="bold"
-                                                        sx={{
-                                                          overflow: "hidden",
-                                                          textOverflow:
-                                                            "ellipsis",
-                                                          whiteSpace: "nowrap",
-                                                        }}
-                                                      >
-                                                        {media.fileType ||
-                                                          "File"}
-                                                      </Typography>
-                                                      {media.description && (
-                                                        <Typography
-                                                          variant="caption"
-                                                          color="text.secondary"
-                                                          display="block"
-                                                          sx={{
-                                                            overflow: "hidden",
-                                                            textOverflow:
-                                                              "ellipsis",
-                                                            whiteSpace:
-                                                              "nowrap",
-                                                            fontSize: "0.65rem",
-                                                          }}
-                                                        >
-                                                          {media.description
-                                                            .length > 15
-                                                            ? `${media.description.substring(
-                                                                0,
-                                                                15
-                                                              )}...`
-                                                            : media.description}
-                                                        </Typography>
-                                                      )}
-                                                      {media.place && (
-                                                        <Typography
-                                                          variant="caption"
-                                                          color="info.main"
-                                                          display="block"
-                                                          sx={{
-                                                            overflow: "hidden",
-                                                            textOverflow:
-                                                              "ellipsis",
-                                                            whiteSpace:
-                                                              "nowrap",
-                                                            fontSize: "0.65rem",
-                                                          }}
-                                                        >
-                                                          📍{" "}
-                                                          {media.place.length >
-                                                          12
-                                                            ? `${media.place.substring(
-                                                                0,
-                                                                12
-                                                              )}...`
-                                                            : media.place}
-                                                        </Typography>
-                                                      )}
-                                                      <Tooltip title="Click to view details">
-                                                        <IconButton
-                                                          size="small"
-                                                          sx={{
-                                                            mt: 0.5,
-                                                            p: 0.5,
-                                                          }}
-                                                        >
-                                                          <VisibilityIcon fontSize="small" />
-                                                        </IconButton>
-                                                      </Tooltip>
-                                                    </Box>
-                                                  </Paper>
-                                                </Grid>
-                                              )
-                                            )}
-                                          </Grid>
-                                        </Box>
-                                      )}
-                                  </Paper>
-                                ))}
-                              </Stack>
-                            ) : (
-                              <Alert severity="info">
-                                No fields found for this HOTO entry.
-                              </Alert>
-                            )}
-                          </Grid>
-                        </Grid>
-                      </AccordionDetails>
-                    </Accordion>
-                  ))}
-              </Stack>
-
-              {/* Pagination */}
-              <Box display="flex" justifyContent="center" mt={3}>
-                <TablePagination
-                  component="div"
-                  count={filteredHotos.length}
-                  page={page}
-                  onPageChange={(e, newPage) => setPage(newPage)}
-                  rowsPerPage={rowsPerPage}
-                  onRowsPerPageChange={(e) => {
-                    setRowsPerPage(parseInt(e.target.value, 10));
-                    setPage(0);
-                  }}
-                  rowsPerPageOptions={[3, 6, 12, 24]}
-                  labelRowsPerPage="HOTOs per page:"
-                  sx={{
-                    "& .MuiTablePagination-toolbar": {
-                      bgcolor: "grey.50",
-                      borderRadius: 2,
-                    },
-                  }}
-                />
-              </Box>
-            </>
           )}
-        </CardContent>
+          <Box sx={{ flex: 1 }} />
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            {filtersActive ? `${filteredHotos.length} of ${hotos.length} records` : `${hotos.length} ${hotos.length === 1 ? "record" : "records"}`}
+          </Typography>
+          <Tooltip title="Refresh">
+            <IconButton size="small" onClick={() => fetchHotoData(true)} aria-label="Refresh HOTO records">
+              <RefreshIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+
+        {filteredHotos.length === 0 ? (
+          <Box sx={{ py: 6, px: 3, textAlign: "center" }}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {filtersActive ? "No HOTO records match these filters" : "No HOTO records for this location yet"}
+            </Typography>
+            <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
+              {filtersActive ? "Try a different search or clear the filters." : "Add the block, GP or OFC handover details to get started."}
+            </Typography>
+            {filtersActive ? (
+              <Button size="small" onClick={clearFilters} sx={{ mt: 1.5 }}>
+                Clear filters
+              </Button>
+            ) : (
+              <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setIsAddModalOpen(true)} sx={{ mt: 2 }}>
+                Add HOTO
+              </Button>
+            )}
+          </Box>
+        ) : (
+          <>
+            {pageHotos.map((hoto) => (
+              <HotoRow
+                key={hoto._id}
+                hoto={hoto}
+                expanded={Boolean(expandedHotos[hoto._id])}
+                onToggle={() => setExpandedHotos((previous) => ({ ...previous, [hoto._id]: !previous[hoto._id] }))}
+                onEdit={handleOpenEditModal}
+                onDelete={askDelete}
+                onOpenMedia={(media, subtitle) => setSelectedMedia({ media, subtitle })}
+              />
+            ))}
+            <TablePagination
+              component="div"
+              count={filteredHotos.length}
+              page={currentPage}
+              onPageChange={(event, newPage) => setPage(newPage)}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={(event) => {
+                setRowsPerPage(parseInt(event.target.value, 10));
+                setPage(0);
+              }}
+              rowsPerPageOptions={[6, 12, 24]}
+              labelRowsPerPage="Records per page:"
+            />
+          </>
+        )}
       </Card>
 
-      {/* Media Dialog */}
-      <Dialog
-        open={mediaDialogOpen}
-        onClose={() => setMediaDialogOpen(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <Typography variant="h6">
-            📷 Media Details & Geotagged Information
-          </Typography>
-          <IconButton onClick={() => setMediaDialogOpen(false)}>
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent>
-          {selectedMedia && (
-            <Grid container spacing={3}>
-              {/* Media Preview */}
-              <Grid xs={12} md={6}>
-                <Paper elevation={2} sx={{ p: 2, textAlign: "center" }}>
-                  {selectedMedia.url &&
-                  (selectedMedia.fileType === "IMAGE" ||
-                    selectedMedia.fileType === "image") ? (
-                    <CardMedia
-                      component="img"
-                      image={selectedMedia.url}
-                      alt={selectedMedia.description || "Media"}
-                      sx={{
-                        width: "100%",
-                        maxHeight: 400,
-                        objectFit: "contain",
-                        borderRadius: 2,
-                        mb: 2,
-                      }}
-                    />
-                  ) : selectedMedia.url &&
-                    (selectedMedia.fileType === "VIDEO" ||
-                      selectedMedia.fileType === "video" ||
-                      selectedMedia.fileType === "mp4" ||
-                      selectedMedia.fileType === "avi" ||
-                      selectedMedia.fileType === "mov") ? (
-                    <Box sx={{ mb: 2 }}>
-                      <Box position="relative" sx={{ mb: 2 }}>
-                        <video
-                          controls
-                          style={{
-                            width: "100%",
-                            height: "400px",
-                            borderRadius: 8,
-                            backgroundColor: "#f5f5f5",
-                          }}
-                        >
-                          <source
-                            src={selectedMedia.url}
-                            type={`video/${selectedMedia.fileType?.toLowerCase()}`}
-                          />
-                          Your browser does not support the video tag.
-                        </video>
-                        {/* GPS Overlay on Video */}
-                        {(selectedMedia.latitude && selectedMedia.longitude) && (
-                          <Box
-                            sx={{
-                              position: 'absolute',
-                              top: 12,
-                              right: 12,
-                              bgcolor: 'rgba(0,0,0,0.8)',
-                              borderRadius: 2,
-                              px: 2,
-                              py: 1,
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 1
-                            }}
-                          >
-                            <GPSIcon sx={{ color: '#4caf50', fontSize: 18 }} />
-                            <Typography variant="body2" sx={{ color: 'white', fontWeight: 'bold' }}>
-                              {formatCoordinate(selectedMedia.latitude)}, {formatCoordinate(selectedMedia.longitude)}
-                            </Typography>
-                          </Box>
-                        )}
-                      </Box>
-                      
-                      {/* Video Description */}
-                      <Typography variant="body1" sx={{ mb: 1, color: 'text.primary' }}>
-                        {selectedMedia.description || `video captured on ${formatDate(selectedMedia.createdOn || selectedMedia.created_on)}`}
-                      </Typography>
-                      
-                      {/* File Type Info */}
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        {selectedMedia.fileType?.toUpperCase() || 'VIDEO'} • {selectedMedia.deviceName || selectedMedia.source || 'N/A'}
-                      </Typography>
-                      
-                      {/* Action Buttons */}
-                      <Stack direction="row" spacing={2}>
-                        {selectedMedia.url && (
-                          <Button
-                            startIcon={<OpenInNewIcon />}
-                            onClick={() => window.open(selectedMedia.url, "_blank")}
-                            variant="outlined"
-                            sx={{ px: 3 }}
-                          >
-                            Open
-                          </Button>
-                        )}
-                        {(selectedMedia.latitude && selectedMedia.longitude) && (
-                          <Button
-                            startIcon={<LocationOnIcon />}
-                            variant="contained"
-                            color="success"
-                            onClick={() => {
-                              const lat = selectedMedia.latitude;
-                              const lng = selectedMedia.longitude;
-                              if (lat && lng) {
-                                window.open(`https://www.google.com/maps?q=${lat},${lng}`, "_blank");
-                              }
-                            }}
-                            sx={{ px: 3 }}
-                          >
-                            Maps
-                          </Button>
-                        )}
-                      </Stack>
-                    </Box>
-                  ) : (
-                    <Box>
-                      <Box
-                        sx={{
-                          height: 300,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          bgcolor: "grey.100",
-                          borderRadius: 2,
-                          mb: 2,
-                        }}
-                      >
-                        {getMediaIcon(selectedMedia.fileType)}
-                        <Typography variant="h6" sx={{ ml: 1 }}>
-                          {selectedMedia.fileType || "File"}
-                        </Typography>
-                      </Box>
+      {selectedMedia && (
+        <MediaViewerDialog media={selectedMedia.media} subtitle={selectedMedia.subtitle} onClose={() => setSelectedMedia(null)} />
+      )}
 
-                      {/* File info and actions */}
-                      <Typography variant="body1" sx={{ mb: 1 }}>
-                        {selectedMedia.description || 'No description'}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        {selectedMedia.fileType} • {formatDate(selectedMedia.createdOn || selectedMedia.created_on)}
-                      </Typography>
-                      
-                      <Stack direction="row" spacing={2}>
-                        {selectedMedia.url && (
-                          <Button
-                            startIcon={<OpenInNewIcon />}
-                            onClick={() => window.open(selectedMedia.url, "_blank")}
-                            variant="outlined"
-                          >
-                            Open
-                          </Button>
-                        )}
-                      </Stack>
-                    </Box>
-                  )}
-                </Paper>
-              </Grid>
-
-              {/* Compact Side Panel */}
-              <Grid xs={12} md={4}>
-                <Stack spacing={2}>
-                  {/* GPS Location Card */}
-                  {(selectedMedia.latitude && selectedMedia.longitude) && (
-                    <Paper 
-                      elevation={1} 
-                      sx={{ 
-                        p: 2, 
-                        bgcolor: 'white',
-                        border: '2px solid #4caf50',
-                        borderRadius: 3
-                      }}
-                    >
-                      <Box display="flex" alignItems="center" gap={1} mb={1}>
-                        <GPSIcon sx={{ color: '#4caf50', fontSize: 20 }} />
-                        <Typography variant="subtitle1" fontWeight="600" sx={{ color: '#4caf50' }}>
-                          GPS Location
-                        </Typography>
-                      </Box>
-                      <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>
-                        {formatCoordinate(selectedMedia.latitude)}, {formatCoordinate(selectedMedia.longitude)}
-                      </Typography>
-                      {selectedMedia.accuracy && (
-                        <Typography variant="body2" color="text.secondary">
-                          Accuracy: ±{selectedMedia.accuracy}m
-                        </Typography>
-                      )}
-                      {selectedMedia.place && (
-                        <Typography variant="body2" color="text.secondary">
-                          Location: {selectedMedia.place}
-                        </Typography>
-                      )}
-                    </Paper>
-                  )}
-
-                  {/* Capture Details Card */}
-                  <Paper elevation={1} sx={{ p: 2, bgcolor: 'white', borderRadius: 3 }}>
-                    <Box display="flex" alignItems="center" gap={1} mb={2}>
-                      <PhoneAndroidIcon sx={{ color: '#1976d2', fontSize: 20 }} />
-                      <Typography variant="subtitle1" fontWeight="600" color="primary">
-                        Capture Details
-                      </Typography>
-                    </Box>
-                    <Stack spacing={1.5}>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <FileIcon fontSize="small" color="action" />
-                        <Typography variant="body2">{selectedMedia.fileType?.toUpperCase() || 'Unknown'}</Typography>
-                      </Box>
-                      {selectedMedia.deviceName && (
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <PhoneAndroidIcon fontSize="small" color="action" />
-                          <Typography variant="body2">{selectedMedia.deviceName}</Typography>
-                        </Box>
-                      )}
-                      {selectedMedia.source && (
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <DescriptionIcon fontSize="small" color="action" />
-                          <Typography variant="body2">{selectedMedia.source}</Typography>
-                        </Box>
-                      )}
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <CalendarTodayIcon fontSize="small" color="action" />
-                        <Typography variant="body2">{formatDate(selectedMedia.createdOn || selectedMedia.created_on)}</Typography>
-                      </Box>
-                    </Stack>
-                  </Paper>
-
-                  {/* No GPS Alert */}
-                  {!(selectedMedia.latitude && selectedMedia.longitude) && (
-                    <Alert severity="info" sx={{ fontSize: '0.875rem' }}>
-                      <Typography variant="caption">
-                        No GPS coordinates available for this media file.
-                      </Typography>
-                    </Alert>
-                  )}
-                </Stack>
-              </Grid>
-            </Grid>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Add HOTO Modal */}
       <AddHotoModal
         open={isAddModalOpen}
-        onClose={handleCloseAddModal}
+        onClose={() => setIsAddModalOpen(false)}
         locationId={locationId}
         locationName={location?.block}
         locationDistrict={location?.district}
-        fetchAllHotoInfo={fetchHotoData}
+        fetchAllHotoInfo={() => fetchHotoData(true)}
       />
 
-      {/* Edit HOTO Modal */}
       <EditHotoModal
         open={isEditModalOpen}
         onClose={handleCloseEditModal}
@@ -1833,72 +637,26 @@ const HotoDetailsPage = () => {
         locationId={locationId}
         locationName={location?.block}
         locationDistrict={location?.district}
-        fetchAllHotoInfo={fetchHotoData}
+        fetchAllHotoInfo={() => fetchHotoData(true)}
       />
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={deleteConfirmOpen}
-        onClose={handleCloseDeleteConfirm}
-        maxWidth="sm"
-        fullWidth
+      <ConfirmDeleteDialog
+        open={Boolean(hotoToDelete)}
+        title="Delete HOTO record?"
+        error={deleteError}
+        deleting={deletingHoto}
+        onCancel={() => setHotoToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        confirmLabel="Delete HOTO"
       >
-        <DialogTitle sx={{ pb: 2 }}>
-          <Box display="flex" alignItems="center" gap={2}>
-            <DeleteIcon color="error" />
-            <Typography variant="h6">Delete HOTO Entry</Typography>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            This action cannot be undone!
-          </Alert>
-          <Typography variant="body1" gutterBottom>
-            Are you sure you want to delete this HOTO entry?
-          </Typography>
-          {hotoToDelete && (
-            <Box sx={{ mt: 2, p: 2, bgcolor: "grey.50", borderRadius: 1 }}>
-              <Typography variant="subtitle2" fontWeight="bold">
-                {hotoToDelete.hotoType?.toUpperCase()} -{" "}
-                {hotoToDelete.blockName ||
-                  hotoToDelete.gpName ||
-                  hotoToDelete.ofcName}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Created: {formatDate(hotoToDelete.createdAt)}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Fields: {hotoToDelete.fields?.length || 0} | Media:{" "}
-                {hotoToDelete.fields?.reduce(
-                  (acc, f) => acc + (f.mediaFiles?.length || 0),
-                  0
-                ) || 0}
-              </Typography>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
-          <Button
-            onClick={handleCloseDeleteConfirm}
-            variant="outlined"
-            disabled={deletingHoto}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleConfirmDelete}
-            variant="contained"
-            color="error"
-            disabled={deletingHoto}
-            startIcon={
-              deletingHoto ? <CircularProgress size={16} /> : <DeleteIcon />
-            }
-          >
-            {deletingHoto ? "Deleting..." : "Delete HOTO"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Container>
+        {hotoToDelete && (
+          <>
+            "{getHotoTitle(hotoToDelete)}", with its {hotoToDelete.fields?.length || 0} fields and {countMedia(hotoToDelete)} media
+            files, will be deleted. This can't be undone.
+          </>
+        )}
+      </ConfirmDeleteDialog>
+    </Box>
   );
 };
 

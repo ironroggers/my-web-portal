@@ -4,24 +4,60 @@ import {
   Typography,
   CircularProgress,
   Alert,
-  Paper,
-  useTheme,
-  IconButton,
-  Chip,
+  Button,
+  ButtonGroup,
   Tooltip,
-  Card
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
 import axios from 'axios';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
-import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
-import NavigateNextIcon from '@mui/icons-material/NavigateNext';
-import TodayIcon from '@mui/icons-material/Today';
-import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
-import PersonIcon from '@mui/icons-material/Person';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import {AUTH_URL, ATTENDANCE_URL} from "../API/api-keys.jsx";
+import { staffRoleColors } from '../theme/theme';
+
+const SERIES = [
+  { key: 'supervisors', label: 'Supervisors', color: staffRoleColors.SUPERVISOR },
+  { key: 'surveyors', label: 'Surveyors', color: staffRoleColors.SURVEYOR },
+];
+
+const SeriesDot = ({ color }) => (
+  <Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: color, flexShrink: 0 }} />
+);
+
+// Theme the react-big-calendar month grid to match the portal
+const calendarSx = (theme) => ({
+  height: 640,
+  '& .rbc-month-view': { border: 1, borderColor: 'divider', borderRadius: 1.5, overflow: 'hidden' },
+  '& .rbc-header': {
+    py: 1,
+    fontSize: '0.75rem',
+    fontWeight: 600,
+    color: 'text.secondary',
+    textTransform: 'uppercase',
+    letterSpacing: '0.04em',
+    bgcolor: '#f7f9fc',
+    borderColor: 'divider',
+  },
+  '& .rbc-header + .rbc-header, & .rbc-day-bg + .rbc-day-bg': { borderLeftColor: theme.palette.divider },
+  '& .rbc-month-row + .rbc-month-row': { borderTopColor: theme.palette.divider },
+  '& .rbc-date-cell': { px: 1, pt: 0.75, fontSize: '0.8125rem', fontWeight: 500, textAlign: 'left' },
+  '& .rbc-off-range': { color: 'text.disabled' },
+  '& .rbc-off-range-bg': { bgcolor: 'background.default' },
+  '& .rbc-today': { bgcolor: alpha(theme.palette.primary.main, 0.06) },
+  '& .rbc-now .rbc-button-link': { color: 'primary.main', fontWeight: 700 },
+  '& .rbc-event, & .rbc-event.rbc-selected': {
+    bgcolor: 'transparent',
+    p: 0,
+    border: 'none',
+    outline: 'none',
+    boxShadow: 'none',
+  },
+  '& .rbc-row-segment': { px: 0.75, py: 0.25 },
+  '& .rbc-show-more': { color: 'primary.main', fontSize: '0.75rem', bgcolor: 'transparent' },
+});
 
 // Create a localizer for the calendar
 const localizer = momentLocalizer(moment);
@@ -40,8 +76,8 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <Alert severity="error" sx={{ mt: 2, borderRadius: 2 }}>
-          <Typography variant="h6">Something went wrong</Typography>
+        <Alert severity="error">
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>Something went wrong</Typography>
           <Typography variant="body2">{this.state.error?.message}</Typography>
         </Alert>
       );
@@ -51,7 +87,6 @@ class ErrorBoundary extends React.Component {
 }
 
 const AttendanceCalendarView = ({ projectFilter = 'ALL' }) => {
-  const theme = useTheme();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [attendanceData, setAttendanceData] = useState([]);
@@ -179,49 +214,44 @@ const AttendanceCalendarView = ({ projectFilter = 'ALL' }) => {
     }));
   };
 
-  // Simplified event component to display attendance counts
-  const EventComponent = ({ event }) => {
-    return (
-      <Tooltip
-        title={`Total: ${event.total} (${event.supervisors} Supervisors, ${event.surveyors} Surveyors)`}
-        arrow
+  // Event component showing the day's attendance counts per role
+  const EventComponent = ({ event }) => (
+    <Tooltip
+      title={`Total: ${event.total} (${event.supervisors} Supervisors, ${event.surveyors} Surveyors)`}
+      arrow
+    >
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          px: 0.75,
+          py: 0.25,
+          borderRadius: 1,
+          border: 1,
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+          color: 'text.primary',
+          fontSize: '0.75rem',
+          fontWeight: 600,
+          fontVariantNumeric: 'tabular-nums',
+          lineHeight: 1.6,
+        }}
       >
-        <Card
-          sx={{
-            p: 1,
-            height: '100%',
-            minHeight: 40,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 1,
-            cursor: 'pointer',
-            '&:hover': {
-              boxShadow: 2,
-            }
-          }}
-        >
-          <Chip
-            icon={<SupervisorAccountIcon />}
-            label={event.supervisors}
-            size="small"
-            color="primary"
-            variant="filled"
-          />
-          <Chip
-            icon={<PersonIcon />}
-            label={event.surveyors}
-            size="small"
-            color="secondary"
-            variant="filled"
-          />
-        </Card>
-      </Tooltip>
-    );
-  };
+        {SERIES.map((series) => (
+          <Box key={series.key} component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+            <SeriesDot color={series.color} />
+            {event[series.key]}
+          </Box>
+        ))}
+      </Box>
+    </Tooltip>
+  );
 
-  // Simplified custom toolbar
+  // Toolbar: month title, legend and navigation (no future months)
   const CustomToolbar = (toolbar) => {
+    const isCurrentMonth = moment(toolbar.date).isSame(moment(), 'month');
+
     const goToBack = () => {
       toolbar.onNavigate('PREV');
     };
@@ -240,86 +270,56 @@ const AttendanceCalendarView = ({ projectFilter = 'ALL' }) => {
     };
 
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          mb: 2,
-          pb: 2,
-          borderBottom: 1,
-          borderColor: 'divider'
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <CalendarMonthIcon color="primary" />
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            {moment(toolbar.date).format('MMMM YYYY')}
-          </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+        <Typography variant="h6" component="h2" sx={{ minWidth: 160 }}>
+          {moment(toolbar.date).format('MMMM YYYY')}
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1 }}>
+          {SERIES.map((series) => (
+            <Box key={series.key} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <SeriesDot color={series.color} />
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>{series.label}</Typography>
+            </Box>
+          ))}
         </Box>
-        
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <IconButton onClick={goToBack} size="small">
-            <NavigateBeforeIcon />
-          </IconButton>
-          
-          <IconButton onClick={goToCurrent} size="small" color="primary">
-            <TodayIcon />
-          </IconButton>
-          
-          <IconButton onClick={goToNext} size="small">
-            <NavigateNextIcon />
-          </IconButton>
-        </Box>
+        <ButtonGroup size="small" variant="outlined" aria-label="Month navigation">
+          <Button onClick={goToBack} aria-label="Previous month">
+            <ChevronLeftIcon fontSize="small" />
+          </Button>
+          <Button onClick={goToCurrent} disabled={isCurrentMonth}>
+            This month
+          </Button>
+          <Button onClick={goToNext} disabled={isCurrentMonth} aria-label="Next month">
+            <ChevronRightIcon fontSize="small" />
+          </Button>
+        </ButtonGroup>
       </Box>
     );
   };
 
+  const hasData = attendanceData && users && attendanceData.length > 0 && users.length > 0;
+
   return (
     <ErrorBoundary>
-      <Box sx={{ p: 2 }}>
-        <Typography variant="h5" sx={{ mb: 1, fontWeight: 600 }}>
-          Attendance Calendar
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Daily attendance overview for supervisors and surveyors
-        </Typography>
-        
-        {/* Simple Legend */}
-        <Box sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'center' }}>
-          <Typography variant="caption" color="text.secondary">Legend:</Typography>
-          <Chip
-            icon={<SupervisorAccountIcon />}
-            label="Supervisors"
-            size="small"
-            color="primary"
-            variant="outlined"
-          />
-          <Chip
-            icon={<PersonIcon />}
-            label="Surveyors"
-            size="small"
-            color="secondary"
-            variant="outlined"
-          />
+      {loading ? (
+        <Box sx={{ display: 'grid', placeItems: 'center', py: 10 }}>
+          <CircularProgress size={28} />
         </Box>
-
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-            <CircularProgress />
-          </Box>
-        ) : error ? (
-          <Alert severity="error" sx={{ my: 2 }}>
-            {error}
-          </Alert>
-        ) : (!attendanceData || !users || attendanceData.length === 0 || users.length === 0) ? (
-          <Alert severity="info" sx={{ my: 2 }}>
-            No attendance data available for the selected period.
-          </Alert>
-        ) : (
-          <Paper sx={{ p: 2, height: 600 }}>
+      ) : error ? (
+        <Alert severity="error">
+          {error}
+        </Alert>
+      ) : (
+        <>
+          {!hasData && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              No attendance data available for {moment(currentDate).format('MMMM YYYY')}.
+            </Alert>
+          )}
+          <Box sx={calendarSx}>
             <Calendar
               localizer={localizer}
+              date={currentDate}
               events={getCalendarEvents()}
               startAccessor="start"
               endAccessor="end"
@@ -332,9 +332,9 @@ const AttendanceCalendarView = ({ projectFilter = 'ALL' }) => {
               }}
               tooltipAccessor={null}
             />
-          </Paper>
-        )}
-      </Box>
+          </Box>
+        </>
+      )}
     </ErrorBoundary>
   );
 };
