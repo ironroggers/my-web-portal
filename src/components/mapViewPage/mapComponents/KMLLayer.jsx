@@ -3,7 +3,15 @@ import { Polyline, Polygon, Marker, InfoWindow } from "@react-google-maps/api";
 import { Button } from "@mui/material";
 import { parseKMLContent, fetchKMLContentFromURL } from "../utils/kmlUtils";
 
-const KMLLayer = ({ loadedKMLs, map }) => {
+const DEFAULT_COLOR = "#00FF00";
+
+// `color` and `onLoad` are optional: the block profile map draws each file in its
+// own colour and reads the parsed features (with any files that failed) for bounds.
+const KMLLayer = ({ loadedKMLs, map, color = DEFAULT_COLOR, onLoad }) => {
+  const onLoadRef = useRef(onLoad);
+  useEffect(() => {
+    onLoadRef.current = onLoad;
+  });
   const [parsedFeatures, setParsedFeatures] = React.useState([]);
   const [selectedFeature, setSelectedFeature] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
@@ -20,6 +28,7 @@ const KMLLayer = ({ loadedKMLs, map }) => {
       setLoading(true);
       setError(null);
       const allFeatures = [];
+      const failed = [];
 
       try {
         // Process each KML
@@ -49,12 +58,14 @@ const KMLLayer = ({ loadedKMLs, map }) => {
 
             allFeatures.push(...features);
           } catch (kmlError) {
+            failed.push(kml.name);
             console.error(`Error processing KML ${kml.name}:`, kmlError);
             // Continue processing other KMLs even if one fails
           }
         }
 
         setParsedFeatures(allFeatures);
+        onLoadRef.current?.({ features: allFeatures, failed });
       } catch (generalError) {
         console.error("Error processing KMLs:", generalError);
         setError("Failed to load some KML files");
@@ -76,17 +87,17 @@ const KMLLayer = ({ loadedKMLs, map }) => {
 
   // Styling options for better visibility
   const polylineOptions = {
-    strokeColor: "#00FF00", // Green color for KML routes
+    strokeColor: color, // Green by default for KML routes
     strokeOpacity: 0.8,
     strokeWeight: 4,
     clickable: true,
   };
 
   const polygonOptions = {
-    strokeColor: "#00FF00",
+    strokeColor: color,
     strokeOpacity: 0.8,
     strokeWeight: 3,
-    fillColor: "#00FF00",
+    fillColor: color,
     fillOpacity: 0.2,
     clickable: true,
   };
@@ -97,7 +108,7 @@ const KMLLayer = ({ loadedKMLs, map }) => {
         "data:image/svg+xml;base64," +
         btoa(`
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="8" fill="#00FF00" stroke="#006600" stroke-width="2"/>
+          <circle cx="12" cy="12" r="8" fill="${color}" stroke="${color === DEFAULT_COLOR ? "#006600" : "#ffffff"}" stroke-width="2"/>
           <circle cx="12" cy="12" r="4" fill="#ffffff"/>
         </svg>
       `),

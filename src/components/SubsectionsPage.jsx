@@ -24,7 +24,7 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import AddIcon from "@mui/icons-material/Add";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
@@ -113,6 +113,8 @@ const SectionTitle = ({ children }) => (
 const SubsectionsPage = () => {
   const navigate = useNavigate();
   const { sectionId } = useParams();
+  // Set when the section was opened from a block profile; drives breadcrumbs and the sidebar
+  const { pathname, search, state: routeState } = useLocation();
   const theme = useTheme();
   const isPhone = useMediaQuery(theme.breakpoints.down("md"));
 
@@ -172,6 +174,16 @@ const SubsectionsPage = () => {
       .then(setSectionMeta)
       .catch(() => setSectionMeta(null));
   }, [sectionId]);
+
+  // Opened by URL or from the trenching page: recover the block from the section itself
+  const blockProfileId = sectionMeta?.blockProfile ? String(sectionMeta.blockProfile) : null;
+  useEffect(() => {
+    if (!blockProfileId || routeState?.blockProfileId === blockProfileId) return;
+    navigate(
+      { pathname, search },
+      { replace: true, state: { ...routeState, blockProfileId, blockProfileName: sectionMeta.block } }
+    );
+  }, [blockProfileId, routeState, sectionMeta, navigate, pathname, search]);
 
   // Search after a short pause in typing
   useEffect(() => {
@@ -284,13 +296,17 @@ const SubsectionsPage = () => {
     }
   };
 
-  const openSubsection = (sub) => navigate(`/subsections/${sub._id}/trenching`);
+  const openSubsection = (sub) => navigate(`/subsections/${sub._id}/trenching`, { state: routeState });
   const askDelete = (sub) => {
     setDeleteError("");
     setDeleteTarget(sub);
   };
-  // Go back to this section's location, not just the previous page
-  const backToSections = () => (sectionMeta?.location ? navigate(`/location/${sectionMeta.location}/sections`) : navigate(-1));
+  // Go back to this section's block or location, not just the previous page
+  const backToSections = () => {
+    if (blockProfileId) navigate(`/block-profiles/${blockProfileId}?tab=sections`);
+    else if (sectionMeta?.location) navigate(`/location/${sectionMeta.location}/sections`);
+    else navigate(-1);
+  };
 
   const sectionContext = sectionMeta
     ? [`Section: ${sectionMeta.name || "Untitled section"}`, [sectionMeta.block, sectionMeta.district].filter(Boolean).join(", ")]

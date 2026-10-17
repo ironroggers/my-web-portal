@@ -41,7 +41,6 @@ import { RoutePointForm, RoutePointTable } from "./RoutePointFields.jsx";
 import SurveySidebar from "./SurveySidebar.jsx";
 import MapComponent from "./MapComponent.jsx";
 import {
-  GOOGLE_MAPS_DIRECTIONS_API,
   LOCATION_URL,
   SURVEY_URL,
 } from "../../API/api-keys.jsx";
@@ -52,11 +51,8 @@ import { exportToKML } from "./utils/exportUtils.jsx";
 import InfoCardComponent from "./InfoCardComponent.jsx";
 import SymbolsComponent from "./SymbolsComponent.jsx";
 import handleDesktopToExcel from "../../utils/handleDesktopToExcel.jsx";
+import { GOOGLE_MAPS_LOADER_OPTIONS } from "./utils/googleMapsLoader";
 
-const GOOGLE_MAPS_API_KEY = GOOGLE_MAPS_DIRECTIONS_API;
-
-// Move libraries array outside component to prevent LoadScript reloading
-const GOOGLE_MAPS_LIBRARIES = ["places"];
 
 // The map sits inside a card, between the route toggles and the legend
 const containerStyle = {
@@ -155,10 +151,7 @@ const MapViewPage = () => {
   });
   const [addingPoint, setAddingPoint] = useState(false);
 
-  const { isLoaded } = useJsApiLoader({
-    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-    libraries: GOOGLE_MAPS_LIBRARIES,
-  });
+  const { isLoaded } = useJsApiLoader(GOOGLE_MAPS_LOADER_OPTIONS);
 
   // Add state for map reference
   const [map, setMap] = useState(null);

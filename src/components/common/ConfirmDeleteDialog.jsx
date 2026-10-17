@@ -13,7 +13,17 @@ import {
 /**
  * Confirmation before deleting a record. Errors from the delete show inside the dialog.
  */
-const ConfirmDeleteDialog = ({ open, title, children, error, deleting = false, onCancel, onConfirm, confirmLabel = "Delete" }) => (
+const ConfirmDeleteDialog = ({
+  open,
+  title,
+  children,
+  error,
+  deleting = false,
+  onCancel,
+  onConfirm,
+  confirmLabel = "Delete",
+  busyLabel = "Deleting…",
+}) => (
   <Dialog open={open} onClose={deleting ? undefined : onCancel} maxWidth="xs" fullWidth>
     <DialogTitle>{title}</DialogTitle>
     <DialogContent>
@@ -35,7 +45,7 @@ const ConfirmDeleteDialog = ({ open, title, children, error, deleting = false, o
         disabled={deleting}
         startIcon={deleting ? <CircularProgress size={16} color="inherit" /> : undefined}
       >
-        {deleting ? "Deleting…" : confirmLabel}
+        {deleting ? busyLabel : confirmLabel}
       </Button>
     </DialogActions>
   </Dialog>

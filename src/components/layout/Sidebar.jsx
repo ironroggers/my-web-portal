@@ -14,6 +14,7 @@ import KeyboardDoubleArrowLeftIcon from "@mui/icons-material/KeyboardDoubleArrow
 import KeyboardDoubleArrowRightIcon from "@mui/icons-material/KeyboardDoubleArrowRight";
 import LoginIcon from "@mui/icons-material/Login";
 import { useAuth } from "../../context/AuthContext";
+import { useBlockPermissions } from "../../hooks/useBlockPermissions";
 import { layout, sidebarColors } from "../../theme/theme";
 import { NAV_GROUPS, isNavItemActive } from "./navConfig";
 import BrandMark from "./BrandMark";
@@ -91,7 +92,8 @@ const NavItem = ({ item, collapsed, active, disabled, onNavigate }) => {
 
 const Sidebar = ({ collapsed, onToggleCollapse, isMobile, mobileOpen, onMobileClose }) => {
   const { user, isAuthenticated } = useAuth();
-  const { pathname } = useLocation();
+  const { pathname, state } = useLocation();
+  const { can: canBlockAction, loading: blockPermissionsLoading } = useBlockPermissions();
 
   // The mobile drawer is a temporary overlay, so it always shows labels.
   const isCollapsed = collapsed && !isMobile;
@@ -138,8 +140,11 @@ const Sidebar = ({ collapsed, onToggleCollapse, isMobile, mobileOpen, onMobileCl
                     key={item.to}
                     item={item}
                     collapsed={isCollapsed}
-                    active={isNavItemActive(item, pathname)}
-                    disabled={Boolean(user && item.disabledForRoles?.includes(user.role))}
+                    active={isNavItemActive(item, pathname, state)}
+                    disabled={Boolean(
+                      (user && item.disabledForRoles?.includes(user.role)) ||
+                        (item.permission && !blockPermissionsLoading && !canBlockAction(item.permission))
+                    )}
                     onNavigate={onMobileClose}
                   />
                 ))}

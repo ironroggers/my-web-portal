@@ -22,11 +22,13 @@ const sectionsService = {
     });
     return handle(res);
   },
-  async list({ locationId, page = 1, limit = 20, q = "" } = {}) {
+  async list({ locationId, blockProfileId, page = 1, limit = 20, q = "" } = {}) {
     const params = new URLSearchParams();
     if (page) params.set("page", String(page));
     if (limit) params.set("limit", String(limit));
     if (q) params.set("q", q);
+    // Block profile sections are filtered on the server
+    if (blockProfileId) params.set("blockProfile", blockProfileId);
     // Backend list supports generic filters via q; filter by location on client for now
     const res = await fetch(`${base}/api/sections?${params.toString()}`, {
       method: "GET",

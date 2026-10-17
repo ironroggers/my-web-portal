@@ -32,6 +32,9 @@ import LocationSectionsPage from "./components/LocationSectionsPage";
 import SubsectionsPage from "./components/SubsectionsPage";
 import TrenchingPage from "./components/TrenchingPage";
 import SummaryManager from "./components/summary/SummaryManager";
+import BlockProfilesPage from "./components/blockProfile/BlockProfilesPage";
+import BlockProfileFormPage from "./components/blockProfile/BlockProfileFormPage";
+import BlockProfileDetailPage from "./components/blockProfile/BlockProfileDetailPage";
 
 // Auth Provider
 import { AuthProvider } from "./context/AuthContext";
@@ -161,6 +164,38 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <LocationSectionsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/block-profiles"
+                element={
+                  <ProtectedRoute>
+                    <BlockProfilesPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/block-profiles/new"
+                element={
+                  <ProtectedRoute>
+                    <BlockProfileFormPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/block-profiles/:blockProfileId/edit"
+                element={
+                  <ProtectedRoute>
+                    <BlockProfileFormPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/block-profiles/:blockProfileId"
+                element={
+                  <ProtectedRoute>
+                    <BlockProfileDetailPage />
                   </ProtectedRoute>
                 }
               />

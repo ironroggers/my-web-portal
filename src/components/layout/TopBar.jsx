@@ -39,8 +39,8 @@ const ROLE_LABELS = {
 };
 
 const PageTrail = () => {
-  const { pathname } = useLocation();
-  const trail = getBreadcrumbTrail(pathname);
+  const { pathname, state } = useLocation();
+  const trail = getBreadcrumbTrail(pathname, state);
   if (trail.length === 0) return null;
 
   const current = trail[trail.length - 1];
