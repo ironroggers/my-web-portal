@@ -72,6 +72,8 @@ const executionService = {
     request("/api/block-profiles", { query: { q, status, district, page, limit } }),
   getDistricts: () => request("/api/block-profiles/districts"),
   getBlock: (blockId) => request(`/api/block-profiles/${id(blockId)}`),
+  // Everything of a block with a place on the map: infra, sections, subsections, geotagged media
+  getBlockMap: (blockId) => request(`/api/block-profiles/${id(blockId)}/map`),
 
   // ---- infra
   getBlockInfra: (blockId) => request(`/api/block-profiles/${id(blockId)}/infra`),
