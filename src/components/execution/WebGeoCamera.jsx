@@ -28,14 +28,15 @@ import { useJsApiLoader } from "@react-google-maps/api";
 import * as exifr from "exifr";
 import { GOOGLE_MAPS_LOADER_OPTIONS } from "../mapViewPage/utils/googleMapsLoader";
 import { useExecutionConfig } from "../../hooks/useExecutionConfig";
-import { fmtCoord, fmtDuration, fmtSize, fmtStampTime, isAboveLimit, parseLatLong } from "../../utils/executionFormat";
+import { fmtDuration, fmtSize, isAboveLimit, parseLatLong } from "../../utils/executionFormat";
 import { useGpsSampler } from "./useGpsSampler";
 import { showToast } from "./toast";
 import { registerGeoCamera } from "./geoCamera";
 
 // The geo camera used everywhere media is captured on the web (opened with
-// openGeoCamera from geoCamera.js). Photos get a burned-in stamp; videos aren't
-// stamped, their metadata is stored and a poster frame kept.
+// openGeoCamera from geoCamera.js). The location stamp (place, address, lat/long, IST
+// time, accuracy, device) is burned into every photo and video by the execution service
+// after upload, from the metadata captured here. Videos also keep a poster frame.
 
 const MAX_PHOTO_WIDTH = 1600;
 
@@ -61,48 +62,6 @@ const reverseGeocode = (lat, lng) =>
   });
 
 const canvasBlob = (canvas, type = "image/jpeg", quality = 0.82) => new Promise((resolve) => canvas.toBlob(resolve, type, quality));
-
-// Band at the bottom of the photo: a drawn mini map, place, lat/long, accuracy, IST time, device
-const drawStamp = (ctx, W, H, meta) => {
-  const band = Math.round(W * 0.17);
-  const pad = Math.round(band * 0.12);
-  const y = H - band;
-  ctx.fillStyle = "rgba(0,0,0,0.64)";
-  ctx.fillRect(0, y, W, band);
-  const ms = band - pad * 2;
-  ctx.fillStyle = "#EDE7DA";
-  ctx.fillRect(pad, y + pad, ms, ms);
-  ctx.strokeStyle = "#FFFFFF";
-  ctx.lineWidth = Math.max(3, ms / 20);
-  ctx.beginPath();
-  ctx.moveTo(pad, y + pad + ms * 0.62);
-  ctx.lineTo(pad + ms, y + pad + ms * 0.38);
-  ctx.moveTo(pad + ms * 0.35, y + pad);
-  ctx.lineTo(pad + ms * 0.55, y + pad + ms);
-  ctx.stroke();
-  ctx.fillStyle = "#E53935";
-  ctx.beginPath();
-  ctx.arc(pad + ms / 2, y + pad + ms / 2, ms / 9, 0, Math.PI * 2);
-  ctx.fill();
-  const tx = pad * 2 + ms;
-  const font = W / 36;
-  const fit = (text, width) => {
-    let s = text;
-    if (ctx.measureText(s).width <= width) return s;
-    while (s.length > 3 && ctx.measureText(`${s}…`).width > width) s = s.slice(0, -1);
-    return `${s}…`;
-  };
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = `bold ${font * 1.05}px Roboto, Arial, sans-serif`;
-  ctx.fillText(fit(meta.place || "Location", W - tx - pad), tx, y + pad + font);
-  ctx.font = `${font * 0.9}px Roboto, Arial, sans-serif`;
-  ctx.fillText(`Lat ${fmtCoord(meta.latitude)}   Long ${fmtCoord(meta.longitude)}`, tx, y + pad + font * 2.2);
-  ctx.fillText(`Accuracy ${meta.accuracy != null ? `±${Number(meta.accuracy).toFixed(1)} m` : "typed in"}`, tx, y + pad + font * 3.3);
-  ctx.fillText(fmtStampTime(meta.capturedAt), tx, y + pad + font * 4.4);
-  ctx.fillStyle = "rgba(255,255,255,0.75)";
-  ctx.font = `${font * 0.75}px Roboto, Arial, sans-serif`;
-  ctx.fillText(fit(`Locus · ${meta.deviceName}`, W - tx - pad), tx, y + pad + font * 5.4);
-};
 
 // A still frame from a video element as a JPEG blob
 const frameOf = async (video, maxWidth = 960) => {
@@ -194,7 +153,7 @@ export const GeoCameraHost = () => {
       locationSource = "MANUAL";
     }
     setPhase("busy");
-    setMessage("Adding the location stamp…");
+    setMessage("Reading the location…");
     const place = await reverseGeocode(fix.latitude, fix.longitude);
     return {
       latitude: fix.latitude,
@@ -256,15 +215,13 @@ export const GeoCameraHost = () => {
     setMessage("Getting the GPS fix…");
     const meta = await locationFor();
     if (!meta) return finish(null);
-    // The unstamped frame is kept for reading the HDD locator screen (the stamp covers its bottom)
-    const originalBlob = await canvasBlob(canvas);
-    drawStamp(ctx, canvas.width, canvas.height, meta);
+    // The server burns the stamp in after upload, so the file is the plain frame
     const blob = await canvasBlob(canvas);
     const file = new File([blob], `ofc-${Date.now()}.jpg`, { type: "image/jpeg" });
     setItem({
       ...meta,
       file,
-      originalFile: originalBlob ? new File([originalBlob], `original-${Date.now()}.jpg`, { type: "image/jpeg" }) : file,
+      originalFile: file,
       previewUrl: URL.createObjectURL(file),
       fileType: "IMAGE",
       contentType: "image/jpeg",
@@ -513,7 +470,7 @@ export const GeoCameraHost = () => {
               {item.fileType === "VIDEO" ? (
                 <video src={item.previewUrl} poster={item.posterPreviewUrl} controls style={{ maxWidth: "100%", maxHeight: "60vh" }} />
               ) : (
-                <img src={item.previewUrl} alt="Captured photo with location stamp" style={{ maxWidth: "100%", maxHeight: "60vh" }} />
+                <img src={item.previewUrl} alt="Captured photo" style={{ maxWidth: "100%", maxHeight: "60vh" }} />
               )}
             </Box>
             <Box sx={{ bgcolor: "background.paper", p: 2 }}>
@@ -526,9 +483,7 @@ export const GeoCameraHost = () => {
                 <br />
                 {above
                   ? "Retake for a better fix, or keep it. It will be marked as low accuracy."
-                  : item.fileType === "VIDEO"
-                    ? `Geo-tagged · ${fmtDuration(item.durationSec)}`
-                    : `Geo-stamped · ${fmtSize(item.sizeBytes)}`}
+                  : `${item.fileType === "VIDEO" ? fmtDuration(item.durationSec) : fmtSize(item.sizeBytes)} · the location stamp is added after upload`}
               </Alert>
               <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
                 {above ? (
@@ -567,7 +522,7 @@ export const GeoCameraHost = () => {
               )}
             </Box>
             <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.75)", textAlign: "center", px: 2, py: 1 }}>
-              {mode === "video" ? "Record a short clip of the area. Its location is saved with it." : "The photo is geo-stamped with its location and time."}
+              {mode === "video" ? "Record a short clip of the area. Its location is saved with it." : "The location stamp is added to the photo after upload."}
             </Typography>
             <Box sx={{ display: "flex", justifyContent: "center", pb: 3, pt: 1 }}>
               {mode === "photo" ? (

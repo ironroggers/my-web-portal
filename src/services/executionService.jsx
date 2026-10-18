@@ -1,4 +1,5 @@
 import { EXECUTION_URL } from "../API/api-keys.jsx";
+import { downloadName } from "../utils/executionFormat";
 
 // OFC execution API. Function names match Locus/src/services/executionApi.js one to one.
 //
@@ -130,6 +131,30 @@ const executionService = {
     const res = await fetch(`${base}/api/ai/extract-digits`, { method: "POST", headers, body: form });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
+  },
+
+  // ---- download: the stored file with its location stamp burned in (the server stamps it
+  // first if that hasn't happened yet). The browser saves it as an attachment.
+  mediaDownloadUrl: (media) =>
+    `${base}/api/media/download?url=${encodeURIComponent(media.url)}&name=${encodeURIComponent(downloadName(media))}`,
+  async downloadMedia(media) {
+    const res = await fetch(executionService.mediaDownloadUrl(media), { headers: executionHeaders() });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      throw new Error(data?.message || `Download failed: ${res.status}`);
+    }
+    const blob = await res.blob();
+    const disposition = res.headers.get("content-disposition") || "";
+    const name = disposition.match(/filename="([^"]+)"/)?.[1] || `${downloadName(media)}.${media.fileType === "VIDEO" ? "mp4" : "jpg"}`;
+    const href = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(href), 10000);
+    return name;
   },
 
   // ---- media: presign, then PUT the file to S3 (XHR for progress). Returns the fields a MediaFile needs.

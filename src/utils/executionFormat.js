@@ -46,6 +46,17 @@ export const fmtStampTime = (value) => {
   return p ? `${p.day} ${p.month} ${p.year} ${p.time}:${p.seconds} IST` : '—';
 };
 
+// Download file name for a stamped photo or video: "locus-photo-20260918-1305"
+// (IST capture time; the server adds .jpg / .mp4)
+export const downloadName = (media) => {
+  const kind = media?.fileType === 'VIDEO' ? 'video' : 'photo';
+  const value = media?.capturedAt || media?.uploadedAt;
+  const date = value ? new Date(new Date(value).getTime() + IST_OFFSET_MS) : null;
+  if (!date || Number.isNaN(date.getTime())) { return `locus-${kind}`; }
+  const ymd = `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}`;
+  return `locus-${kind}-${ymd}-${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}`;
+};
+
 const isNumber = (value) => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
 const trimNumber = (n, digits) => String(Math.round(n * 10 ** digits) / 10 ** digits);
 
