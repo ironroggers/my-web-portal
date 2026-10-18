@@ -119,6 +119,17 @@ const executionService = {
   listApprovals: (filters = {}) => request("/api/approvals", { query: filters }),
   getMyWork: () => request("/api/my-work"),
 
+  // ---- HDD autofill: server OCR of the locator screen photo -> { depth, temperature, angle }
+  async extractDigits(file) {
+    const form = new FormData();
+    form.append("image", file, file.name || "locator.jpg");
+    const headers = executionHeaders();
+    delete headers["Content-Type"];
+    const res = await fetch(`${base}/api/ai/extract-digits`, { method: "POST", headers, body: form });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  },
+
   // ---- media: presign, then PUT the file to S3 (XHR for progress). Returns the fields a MediaFile needs.
   async uploadMedia(file, { filename, contentType, onProgress } = {}) {
     const type = contentType || file.type || "application/octet-stream";

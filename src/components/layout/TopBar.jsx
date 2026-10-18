@@ -58,7 +58,7 @@ const PageTrail = () => {
         {trail.map((crumb, index) => {
           if (crumb === current) {
             return (
-              <Typography key={crumb.label} variant="body2" sx={{ color: "text.primary", fontWeight: 600 }}>
+              <Typography key={`${index}-${crumb.label}`} variant="body2" sx={{ color: "text.primary", fontWeight: 600 }}>
                 {crumb.label}
               </Typography>
             );
@@ -66,9 +66,10 @@ const PageTrail = () => {
           if (crumb.to) {
             return (
               <Link
-                key={crumb.label}
+                key={`${index}-${crumb.label}`}
                 component={RouterLink}
                 to={crumb.to}
+                state={crumb.state}
                 underline="hover"
                 variant="body2"
                 sx={{ color: "text.secondary" }}

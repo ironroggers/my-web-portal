@@ -29,9 +29,19 @@ import DetailRow from "../common/DetailRow";
 import ConfirmDeleteDialog from "../common/ConfirmDeleteDialog";
 import BlockSectionsPanel from "./BlockSectionsPanel";
 import BlockMapPanel from "./BlockMapPanel";
+import { BlockInfraPanel, GpInfraPanel } from "./InfraPanels";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import { SITE_TYPES, blockPlace, blockStatus, formatDate } from "./blockProfileConstants";
 
-const TABS = ["overview", "sections", "map"];
+const TABS = ["overview", "block", "gps", "sections", "map"];
+
+// Tab label with a ✓ once that part of the block is done
+const TabLabel = ({ label, done }) => (
+  <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+    {label}
+    {done && <CheckCircleIcon sx={{ fontSize: 16, color: "success.main" }} />}
+  </Box>
+);
 
 const withCode = (name, code) => [name, code ? `LGD ${code}` : ""].filter(Boolean).join(" · ");
 
@@ -247,6 +257,7 @@ const BlockProfileDetailPage = () => {
   const canEdit = profile && can("editBlockProfile", profile);
   const canDeactivate = profile && profile.status !== "INACTIVE" && can("deleteBlockProfile");
   const status = profile && blockStatus(profile.status);
+  const progress = profile?.progress || {};
 
   const header = (
     <PageHeader
@@ -331,11 +342,31 @@ const BlockProfileDetailPage = () => {
 
       <Tabs value={tab} onChange={selectTab} variant="scrollable" allowScrollButtonsMobile sx={{ mb: 3, borderBottom: 1, borderColor: "divider" }}>
         <Tab value="overview" label="Overview" />
-        <Tab value="sections" label={`Sections (${profile.sectionCount})`} />
+        <Tab value="block" label={<TabLabel label="Block infra" done={progress.infraDone} />} />
+        <Tab
+          value="gps"
+          label={
+            <TabLabel
+              label={`GPs ${progress.gpsCaptured || 0}/${progress.gpsTotal || 0}`}
+              done={progress.gpsTotal > 0 && progress.gpsCaptured === progress.gpsTotal}
+            />
+          }
+        />
+        <Tab
+          value="sections"
+          label={
+            <TabLabel
+              label={`Sections (${profile.sectionCount})`}
+              done={progress.sectionsTotal > 0 && progress.sectionsRestored === progress.sectionsTotal}
+            />
+          }
+        />
         <Tab value="map" label="Map" />
       </Tabs>
 
       {tab === "overview" && <Overview profile={profile} />}
+      {tab === "block" && <BlockInfraPanel blockProfile={profile} canCapture={can("captureInfra")} />}
+      {tab === "gps" && <GpInfraPanel blockProfile={profile} canCapture={can("captureInfra")} />}
       {tab === "sections" && <BlockSectionsPanel blockProfile={profile} canManage={can("createSection")} onChanged={loadProfile} />}
       {tab === "map" && (
         <BlockMapPanel blockProfile={profile} canManageKml={can("manageKml")} userId={userId} onProfileChange={setProfile} />

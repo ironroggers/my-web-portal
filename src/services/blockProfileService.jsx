@@ -30,12 +30,13 @@ const KML_CONTENT_TYPES = {
 };
 
 const blockProfileService = {
-  async list({ page = 1, limit = 20, q = "", status = "" } = {}) {
+  async list({ page = 1, limit = 20, q = "", status = "", district = "" } = {}) {
     const params = new URLSearchParams();
     if (page) params.set("page", String(page));
     if (limit) params.set("limit", String(limit));
     if (q) params.set("q", q);
     if (status) params.set("status", status);
+    if (district) params.set("district", district);
     const res = await fetch(`${base}/api/block-profiles?${params.toString()}`, { headers: headers() });
     return handle(res);
   },

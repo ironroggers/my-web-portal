@@ -7,11 +7,14 @@ import ViewModuleOutlinedIcon from "@mui/icons-material/ViewModuleOutlined";
 import GpsFixedOutlinedIcon from "@mui/icons-material/GpsFixedOutlined";
 import EventAvailableOutlinedIcon from "@mui/icons-material/EventAvailableOutlined";
 import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
+import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurnedInOutlined";
+import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
 
 /**
  * Sidebar structure. `match` lists every route pattern that should highlight
  * the item, so detail pages keep their parent module selected.
- * `permission` is a block profile action (useBlockPermissions); without it the item is disabled.
+ * `permission` is an action from the execution service's matrix (usePermissions); without it
+ * the item is disabled. `badge` names a count from useWorkBadges shown next to the label.
  */
 export const NAV_GROUPS = [
   {
@@ -52,6 +55,24 @@ export const NAV_GROUPS = [
         matchFromBlockProfile: true,
       },
       {
+        to: "/my-work",
+        label: "My work",
+        Icon: AssignmentTurnedInOutlinedIcon,
+        match: ["/my-work"],
+        permission: "viewExecution",
+        badge: "needsFix",
+        badgeColor: "error",
+      },
+      {
+        to: "/approvals",
+        label: "Approvals",
+        Icon: FactCheckOutlinedIcon,
+        match: ["/approvals", "/approvals/*"],
+        permission: "approveExecution",
+        badge: "approvals",
+        badgeColor: "warning",
+      },
+      {
         to: "/frt-tracking",
         label: "FRT Tracking",
         Icon: GpsFixedOutlinedIcon,
@@ -82,9 +103,18 @@ export const NAV_GROUPS = [
 const LOCATIONS = { label: "Locations", to: "/map" };
 const BLOCK_PROFILES = { label: "Block Profile", to: "/block-profiles" };
 
+const APPROVALS = { label: "Approvals", to: "/approvals" };
+
+// The block's page, on the given tab; named when the router state knows the block
+const blockCrumb = (params, state, tab) => ({
+  label: state?.blockProfileId === params.blockProfileId && state?.blockProfileName ? state.blockProfileName : "Block Details",
+  to: `/block-profiles/${params.blockProfileId}?tab=${tab}`,
+});
+
 /**
  * Breadcrumb trail per route. Order matters: the first matching pattern wins.
- * Crumbs without `to` render as plain text.
+ * Crumbs without `to` render as plain text. A trail can be a function of the route
+ * params and the router state.
  */
 const ROUTE_TRAILS = [
   { path: "/", trail: [{ label: "Overview" }, { label: "Dashboard" }] },
@@ -126,6 +156,28 @@ const ROUTE_TRAILS = [
     path: "/block-profiles/:blockProfileId",
     trail: [{ label: "Operations" }, BLOCK_PROFILES, { label: "Block Details" }],
   },
+  {
+    path: "/block-profiles/:blockProfileId/infra",
+    trail: (params, state) => [{ label: "Operations" }, BLOCK_PROFILES, blockCrumb(params, state, "block"), { label: "Block infra" }],
+  },
+  {
+    path: "/block-profiles/:blockProfileId/gps/:lgdCode/infra",
+    trail: (params, state) => [{ label: "Operations" }, BLOCK_PROFILES, blockCrumb(params, state, "gps"), { label: "GP infra" }],
+  },
+  { path: "/my-work", trail: [{ label: "Operations" }, { label: "My work" }] },
+  { path: "/approvals", trail: [{ label: "Operations" }, { label: "Approvals" }] },
+  {
+    path: "/approvals/subsections/:subSectionId",
+    trail: (params, state) => [
+      { label: "Operations" },
+      APPROVALS,
+      { label: state?.subSectionId === params.subSectionId && state?.subSectionName ? state.subSectionName : "Subsection" },
+    ],
+  },
+  {
+    path: "/approvals/restorations/:sectionId",
+    trail: [{ label: "Operations" }, APPROVALS, { label: "Restoration" }],
+  },
   { path: "/hoto", trail: [{ label: "Operations" }, { label: "HOTO" }] },
   { path: "/frt-tracking", trail: [{ label: "Operations" }, { label: "FRT Tracking" }] },
   { path: "/attendance", trail: [{ label: "Workforce" }, { label: "Attendance" }] },
@@ -139,14 +191,29 @@ const ROUTE_TRAILS = [
 export const FULL_SCREEN_ROUTES = ["/login", "/register"];
 
 // Section pages are shared. Opened from a block profile, the router state carries
-// blockProfileId and they belong to Block Profile; otherwise to Locations.
+// blockProfileId and they belong to Block Profile; otherwise to Locations. The OFC
+// execution pages (blockOnly) exist only for block sections, so they always belong to
+// Block Profile; the router state (useExecContext) adds the block, section and
+// subsection crumbs.
+//   section: add the section crumb; sub: add the subsection crumb; restoration: add Restoration
 const BLOCK_SECTION_TRAILS = [
   { path: "/sections/:sectionId/subsections", label: "Subsections" },
-  { path: "/subsections/:subSectionId/trenching", label: "Trenching" },
+  { path: "/subsections/:subSectionId/trenching", label: "Trenching", section: true },
+  { path: "/sections/:sectionId/subsections/new", label: "New subsection", section: true, blockOnly: true },
+  { path: "/subsections/:subSectionId", label: "Subsection", section: true, blockOnly: true, named: true },
+  { path: "/subsections/:subSectionId/start", label: "Start execution", section: true, sub: true, blockOnly: true },
+  { path: "/subsections/:subSectionId/end", label: "End execution", section: true, sub: true, blockOnly: true },
+  { path: "/sections/:sectionId/restoration", label: "Restoration", section: true, blockOnly: true },
+  { path: "/sections/:sectionId/restoration/:subSectionId", label: "Restoration item", section: true, restoration: true, blockOnly: true },
 ];
 
-const blockSectionTrail = (pathname, state) =>
-  state?.blockProfileId ? BLOCK_SECTION_TRAILS.find(({ path }) => matchPath({ path, end: true }, pathname)) : undefined;
+const blockSectionTrail = (pathname, state) => {
+  for (const entry of BLOCK_SECTION_TRAILS) {
+    const match = matchPath({ path: entry.path, end: true }, pathname);
+    if (match && (state?.blockProfileId || entry.blockOnly)) return { entry, params: match.params };
+  }
+  return undefined;
+};
 
 export const isNavItemActive = (item, pathname, state) => {
   if (blockSectionTrail(pathname, state)) return Boolean(item.matchFromBlockProfile);
@@ -156,12 +223,26 @@ export const isNavItemActive = (item, pathname, state) => {
 export const getBreadcrumbTrail = (pathname, state) => {
   const blockTrail = blockSectionTrail(pathname, state);
   if (blockTrail) {
-    return [
-      { label: "Operations" },
-      BLOCK_PROFILES,
-      { label: state.blockProfileName || "Block", to: `/block-profiles/${state.blockProfileId}?tab=sections` },
-      { label: blockTrail.label },
-    ];
+    const { entry, params } = blockTrail;
+    const trail = [{ label: "Operations" }, BLOCK_PROFILES];
+    if (state?.blockProfileId) {
+      trail.push({ label: state.blockProfileName || "Block", to: `/block-profiles/${state.blockProfileId}?tab=sections` });
+    }
+    const sectionId = params.sectionId || state?.sectionId;
+    if (entry.section && sectionId) {
+      trail.push({ label: state?.sectionName || "Section", to: `/sections/${sectionId}/subsections`, state });
+    }
+    if (entry.sub && state?.subSectionId === params.subSectionId) {
+      trail.push({ label: state.subSectionName || "Subsection", to: `/subsections/${params.subSectionId}`, state });
+    }
+    if (entry.restoration) trail.push({ label: "Restoration", to: `/sections/${params.sectionId}/restoration`, state });
+    const named = entry.named && state?.subSectionId === params.subSectionId && state?.subSectionName;
+    trail.push({ label: named || entry.label });
+    return trail;
   }
-  return ROUTE_TRAILS.find(({ path }) => matchPath({ path, end: true }, pathname))?.trail ?? [];
+  for (const { path, trail } of ROUTE_TRAILS) {
+    const match = matchPath({ path, end: true }, pathname);
+    if (match) return typeof trail === "function" ? trail(match.params, state) : trail;
+  }
+  return [];
 };

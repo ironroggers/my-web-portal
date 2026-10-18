@@ -33,6 +33,9 @@ import PageHeader from "../common/PageHeader";
 import StatusPill from "../common/StatusPill";
 import { formatNumber } from "../../utils/formatNumber";
 import { SITE_TYPES, blockStatus, formatLength } from "./blockProfileConstants";
+import ProgressMarks from "./ProgressMarks";
+import executionService from "../../services/executionService.jsx";
+import { titleCase } from "../execution/execConstants";
 
 // "" is the server default: everything except deactivated profiles
 const STATUS_FILTERS = [
@@ -69,14 +72,23 @@ const BlockProfilesPage = () => {
   const [searchInput, setSearchInput] = useState("");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
+  const [district, setDistrict] = useState("");
+  const [districts, setDistricts] = useState([]);
   const requestIdRef = useRef(0);
+
+  useEffect(() => {
+    executionService
+      .getDistricts()
+      .then((res) => setDistricts(res.items || []))
+      .catch(() => setDistricts([]));
+  }, []);
 
   const fetchProfiles = useCallback(async () => {
     // Only the latest request updates the list, so quick searches can't show stale results
     const requestId = ++requestIdRef.current;
     setError("");
     try {
-      const res = await blockProfileService.list({ page: page + 1, limit: rowsPerPage, q: query, status });
+      const res = await blockProfileService.list({ page: page + 1, limit: rowsPerPage, q: query, status, district });
       if (requestId !== requestIdRef.current) return;
       setItems(res.items || []);
       setTotal(res.total || 0);
@@ -85,7 +97,7 @@ const BlockProfilesPage = () => {
       setItems((previous) => previous ?? []);
       setError(e.message || "Failed to load block profiles");
     }
-  }, [page, rowsPerPage, query, status]);
+  }, [page, rowsPerPage, query, status, district]);
 
   useEffect(() => {
     fetchProfiles();
@@ -118,14 +130,14 @@ const BlockProfilesPage = () => {
   const emptyState = (
     <Box sx={{ py: 6, px: 3, textAlign: "center" }}>
       <Typography variant="body2" sx={{ fontWeight: 600 }}>
-        {query ? `No block profiles match "${query}"` : "No block profiles yet"}
+        {query || district ? "No blocks found" : "No block profiles yet"}
       </Typography>
       <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
-        {query
-          ? "Try a block name, district or LGD code."
+        {query || district
+          ? "Try another district or clear the search."
           : "A block profile holds the block's GPs, router, KML files and execution sections."}
       </Typography>
-      {!query && canCreate && (
+      {!query && !district && canCreate && (
         <Button variant="outlined" startIcon={<AddIcon />} onClick={() => navigate("/block-profiles/new")} sx={{ mt: 2 }}>
           New block profile
         </Button>
@@ -157,7 +169,7 @@ const BlockProfilesPage = () => {
         <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1.5, p: 2, borderBottom: 1, borderColor: "divider" }}>
           <TextField
             size="small"
-            placeholder="Search by block, district or LGD code"
+            placeholder="Search block, GP or LGD code"
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
             sx={{ width: { xs: "100%", sm: 340 } }}
@@ -179,6 +191,24 @@ const BlockProfilesPage = () => {
               },
             }}
           />
+          <TextField
+            select
+            size="small"
+            label="District"
+            value={district}
+            onChange={(event) => {
+              setDistrict(event.target.value);
+              setPage(0);
+            }}
+            sx={{ width: { xs: "100%", sm: 200 } }}
+          >
+            <MenuItem value="">All districts</MenuItem>
+            {districts.map((d) => (
+              <MenuItem key={d} value={d}>
+                {titleCase(d)}
+              </MenuItem>
+            ))}
+          </TextField>
           <TextField
             select
             size="small"
@@ -247,16 +277,20 @@ const BlockProfilesPage = () => {
                       {formatNumber(profile.sectionCount)} sections · {formatLength(profile.sectionLength)} · {profile.kmlFiles?.length || 0} KML
                     </Typography>
                   </Box>
+                  <Box sx={{ mt: 1 }}>
+                    <ProgressMarks progress={profile.progress} />
+                  </Box>
                 </Box>
               );
             })}
           </Box>
         ) : (
           <TableContainer>
-            <Table sx={{ minWidth: 1040 }}>
+            <Table sx={{ minWidth: 1240 }}>
               <TableHead>
                 <TableRow>
                   <TableCell>Block</TableCell>
+                  <TableCell>Progress</TableCell>
                   <TableCell>LGD code</TableCell>
                   <TableCell>District</TableCell>
                   <TableCell>Site type</TableCell>
@@ -286,6 +320,9 @@ const BlockProfilesPage = () => {
                             {profile.state}
                           </Typography>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <ProgressMarks progress={profile.progress} />
                       </TableCell>
                       <TableCell sx={{ fontVariantNumeric: "tabular-nums" }}>{profile.blockCode}</TableCell>
                       <TableCell sx={{ color: profile.district ? "text.primary" : "text.disabled" }}>{profile.district || "—"}</TableCell>

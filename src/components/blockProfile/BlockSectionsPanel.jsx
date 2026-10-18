@@ -35,6 +35,8 @@ import FormDialog from "../common/FormDialog";
 import ConfirmDeleteDialog from "../common/ConfirmDeleteDialog";
 import { formatNumber } from "../../utils/formatNumber";
 import { formatLength } from "./blockProfileConstants";
+import { RestorationLine, StackBar } from "../execution/execUi";
+import { countLabel } from "../../utils/executionFormat";
 
 const SECTION_STATUSES = {
   1: { label: "Draft", tone: "default" },
@@ -54,6 +56,18 @@ const EMPTY_FORM = {
 };
 
 const SEARCH_DEBOUNCE_MS = 400;
+
+// C5: subsections by status and the restoration state
+const SectionProgress = ({ section }) =>
+  section.restoration ? (
+    <Box sx={{ minWidth: 0 }}>
+      <Typography variant="caption" sx={{ color: "text.secondary" }}>
+        {countLabel(section.restoration.total || 0, "subsection")}
+      </Typography>
+      <StackBar counts={section.counts} />
+      <RestorationLine restoration={section.restoration} sx={{ mt: 0.75 }} />
+    </Box>
+  ) : null;
 
 // The block's BHQ and GPs: the points a section can start and end at
 const blockNodes = (profile) => [
@@ -410,13 +424,16 @@ const BlockSectionsPanel = ({ blockProfile, canManage = false, onChanged }) => {
                       {formatLength(section.sectionLength)}
                     </Typography>
                   </Box>
+                  <Box sx={{ mt: 1 }}>
+                    <SectionProgress section={section} />
+                  </Box>
                 </Box>
               );
             })}
           </Box>
         ) : (
           <TableContainer>
-            <Table sx={{ minWidth: 860 }}>
+            <Table sx={{ minWidth: 1100 }}>
               <TableHead>
                 <TableRow>
                   <TableCell>Section</TableCell>
@@ -424,6 +441,7 @@ const BlockSectionsPanel = ({ blockProfile, canManage = false, onChanged }) => {
                   <TableCell>To</TableCell>
                   <TableCell align="right">Length</TableCell>
                   <TableCell>Status</TableCell>
+                  <TableCell sx={{ width: 280 }}>Execution</TableCell>
                   {canManage && <TableCell align="right">Actions</TableCell>}
                   <TableCell padding="checkbox" />
                 </TableRow>
@@ -454,6 +472,9 @@ const BlockSectionsPanel = ({ blockProfile, canManage = false, onChanged }) => {
                       </TableCell>
                       <TableCell>
                         <StatusPill label={status.label} tone={status.tone} />
+                      </TableCell>
+                      <TableCell sx={{ maxWidth: 280 }}>
+                        <SectionProgress section={section} />
                       </TableCell>
                       {canManage && (
                         <TableCell align="right">

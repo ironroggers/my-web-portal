@@ -1,6 +1,7 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
+  Badge,
   Box,
   Drawer,
   List,
@@ -15,6 +16,7 @@ import KeyboardDoubleArrowRightIcon from "@mui/icons-material/KeyboardDoubleArro
 import LoginIcon from "@mui/icons-material/Login";
 import { useAuth } from "../../context/AuthContext";
 import { useBlockPermissions } from "../../hooks/useBlockPermissions";
+import { useWorkBadges } from "../execution/useWorkBadges";
 import { layout, sidebarColors } from "../../theme/theme";
 import { NAV_GROUPS, isNavItemActive } from "./navConfig";
 import BrandMark from "./BrandMark";
@@ -59,8 +61,9 @@ const itemSx = (collapsed) => ({
 
 const labelProps = { slotProps: { primary: { fontSize: "0.875rem", fontWeight: 500, noWrap: true } } };
 
-const NavItem = ({ item, collapsed, active, disabled, onNavigate }) => {
+const NavItem = ({ item, collapsed, active, disabled, onNavigate, count = 0 }) => {
   const { Icon } = item;
+  const showCount = count > 0 && !disabled;
   const button = (
     <ListItemButton
       component={disabled ? "div" : Link}
@@ -71,13 +74,28 @@ const NavItem = ({ item, collapsed, active, disabled, onNavigate }) => {
       sx={itemSx(collapsed)}
     >
       <ListItemIcon>
-        <Icon />
+        {/* Collapsed, the count sits on the icon */}
+        <Badge color={item.badgeColor || "error"} variant="dot" invisible={!(collapsed && showCount)}>
+          <Icon />
+        </Badge>
       </ListItemIcon>
       {!collapsed && <ListItemText primary={item.label} {...labelProps} />}
+      {!collapsed && showCount && (
+        <Badge
+          color={item.badgeColor || "error"}
+          badgeContent={count}
+          max={99}
+          sx={{ mr: 1.5, "& .MuiBadge-badge": { position: "static", transform: "none" } }}
+        />
+      )}
     </ListItemButton>
   );
 
-  const tooltip = disabled ? `${item.label} — not available for your role` : collapsed ? item.label : "";
+  const tooltip = disabled
+    ? `${item.label} — not available for your role`
+    : collapsed
+      ? `${item.label}${showCount ? ` · ${count}` : ""}`
+      : "";
   if (!tooltip) return button;
 
   return (
@@ -94,6 +112,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, isMobile, mobileOpen, onMobileCl
   const { user, isAuthenticated } = useAuth();
   const { pathname, state } = useLocation();
   const { can: canBlockAction, loading: blockPermissionsLoading } = useBlockPermissions();
+  const badges = useWorkBadges();
 
   // The mobile drawer is a temporary overlay, so it always shows labels.
   const isCollapsed = collapsed && !isMobile;
@@ -146,6 +165,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, isMobile, mobileOpen, onMobileCl
                         (item.permission && !blockPermissionsLoading && !canBlockAction(item.permission))
                     )}
                     onNavigate={onMobileClose}
+                    count={item.badge ? badges[item.badge] : 0}
                   />
                 ))}
               </List>

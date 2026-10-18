@@ -29,12 +29,23 @@ import SurveysPage from "./components/SurveysPage";
 import LocationDetailsPage from "./components/LocationDetailsPage";
 import HotoDetailsPage from "./components/HotoDetailsPage";
 import LocationSectionsPage from "./components/LocationSectionsPage";
-import SubsectionsPage from "./components/SubsectionsPage";
 import TrenchingPage from "./components/TrenchingPage";
 import SummaryManager from "./components/summary/SummaryManager";
 import BlockProfilesPage from "./components/blockProfile/BlockProfilesPage";
 import BlockProfileFormPage from "./components/blockProfile/BlockProfileFormPage";
 import BlockProfileDetailPage from "./components/blockProfile/BlockProfileDetailPage";
+// OFC execution
+import SectionSubsectionsRoute from "./components/execution/pages/SectionSubsectionsRoute";
+import InfraCapturePage from "./components/execution/pages/InfraCapturePage";
+import SubsectionCreatePage from "./components/execution/pages/SubsectionCreatePage";
+import SubsectionJobPage from "./components/execution/pages/SubsectionJobPage";
+import ExecutionPointPage from "./components/execution/pages/ExecutionPointPage";
+import RestorationPage from "./components/execution/pages/RestorationPage";
+import RestorationItemPage from "./components/execution/pages/RestorationItemPage";
+import MyWorkPage from "./components/execution/pages/MyWorkPage";
+import ApprovalsPage from "./components/execution/pages/ApprovalsPage";
+import { ToastHost } from "./components/execution/execUi";
+import { GeoCameraHost } from "./components/execution/WebGeoCamera";
 
 // Auth Provider
 import { AuthProvider } from "./context/AuthContext";
@@ -203,7 +214,7 @@ function App() {
                 path="/sections/:sectionId/subsections"
                 element={
                   <ProtectedRoute>
-                    <SubsectionsPage />
+                    <SectionSubsectionsRoute />
                   </ProtectedRoute>
                 }
               />
@@ -215,6 +226,102 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/block-profiles/:blockProfileId/infra"
+                element={
+                  <ProtectedRoute>
+                    <InfraCapturePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/block-profiles/:blockProfileId/gps/:lgdCode/infra"
+                element={
+                  <ProtectedRoute>
+                    <InfraCapturePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/sections/:sectionId/subsections/new"
+                element={
+                  <ProtectedRoute>
+                    <SubsectionCreatePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/subsections/:subSectionId"
+                element={
+                  <ProtectedRoute>
+                    <SubsectionJobPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/subsections/:subSectionId/start"
+                element={
+                  <ProtectedRoute>
+                    <ExecutionPointPage which="start" />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/subsections/:subSectionId/end"
+                element={
+                  <ProtectedRoute>
+                    <ExecutionPointPage which="end" />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/sections/:sectionId/restoration"
+                element={
+                  <ProtectedRoute>
+                    <RestorationPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/sections/:sectionId/restoration/:subSectionId"
+                element={
+                  <ProtectedRoute>
+                    <RestorationItemPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/my-work"
+                element={
+                  <ProtectedRoute>
+                    <MyWorkPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/approvals"
+                element={
+                  <ProtectedRoute>
+                    <ApprovalsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/approvals/subsections/:subSectionId"
+                element={
+                  <ProtectedRoute>
+                    <SubsectionJobPage approvalView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/approvals/restorations/:sectionId"
+                element={
+                  <ProtectedRoute>
+                    <RestorationPage approvalView />
+                  </ProtectedRoute>
+                }
+              />
               {/* Redirect any unknown routes to dashboard */}
               <Route
                 path="*"
@@ -222,6 +329,8 @@ function App() {
               />
             </Routes>
           </AppLayout>
+          <ToastHost />
+          <GeoCameraHost />
         </Router>
       </AuthProvider>
     </ThemeProvider>
