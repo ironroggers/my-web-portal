@@ -159,7 +159,7 @@ const Line2 = ({ children }) =>
     </Typography>
   ) : null;
 
-const MediaRow = ({ m, limit, onOpen }) => {
+export const MediaRow = ({ m, limit, onOpen }) => {
   const kind = MEDIA_KIND[m.kind];
   const flags = [
     m.accuracyAboveLimit || (m.locationSource === "GPS" && Number(m.accuracy) > limit) ? `±${Number(m.accuracy).toFixed(1)} m` : "",

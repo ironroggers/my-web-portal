@@ -30,10 +30,11 @@ import ConfirmDeleteDialog from "../common/ConfirmDeleteDialog";
 import BlockSectionsPanel from "./BlockSectionsPanel";
 import BlockMapPanel from "./BlockMapPanel";
 import { BlockInfraPanel, GpInfraPanel } from "./InfraPanels";
+import BlockDiagramsPanel from "./diagrams/BlockDiagramsPanel";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import { SITE_TYPES, blockPlace, blockStatus, formatDate } from "./blockProfileConstants";
 
-const TABS = ["overview", "block", "gps", "sections", "map"];
+const TABS = ["overview", "block", "gps", "sections", "map", "diagrams"];
 
 // Tab label with a ✓ once that part of the block is done
 const TabLabel = ({ label, done }) => (
@@ -362,12 +363,14 @@ const BlockProfileDetailPage = () => {
           }
         />
         <Tab value="map" label="Map" />
+        <Tab value="diagrams" label="Diagrams" />
       </Tabs>
 
       {tab === "overview" && <Overview profile={profile} />}
       {tab === "block" && <BlockInfraPanel blockProfile={profile} canCapture={can("captureInfra")} />}
       {tab === "gps" && <GpInfraPanel blockProfile={profile} canCapture={can("captureInfra")} />}
       {tab === "sections" && <BlockSectionsPanel blockProfile={profile} canManage={can("createSection")} onChanged={loadProfile} />}
+      {tab === "diagrams" && <BlockDiagramsPanel blockProfile={profile} />}
       {tab === "map" && (
         <BlockMapPanel blockProfile={profile} canManageKml={can("manageKml")} userId={userId} onProfileChange={setProfile} />
       )}
