@@ -1,27 +1,41 @@
-import React, { useCallback, useMemo, useState } from "react";
-import { Alert, Box, Button, Card, IconButton, MenuItem, Skeleton, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from "@mui/material";
+import React, { useCallback, useMemo, useRef, useState } from "react";
+import { Alert, Box, Button, Card, CircularProgress, IconButton, MenuItem, Skeleton, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from "@mui/material";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import TimelineIcon from "@mui/icons-material/Timeline";
 import HubOutlinedIcon from "@mui/icons-material/HubOutlined";
+import AccountTreeOutlinedIcon from "@mui/icons-material/AccountTreeOutlined";
+import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import executionService from "../../../services/executionService.jsx";
-import { fmtDistance } from "../../../utils/executionFormat";
+import { fmtDateTime, fmtDistance } from "../../../utils/executionFormat";
 import { useLoader } from "../../execution/useLoader";
 import { EmptyState } from "../../execution/execUi";
 import L14Diagram, { L14Legend } from "./L14Diagram";
-import TopologyDiagram, { TopologyLegend } from "./TopologyDiagram";
+import TopologyMap from "./TopologyMap";
+import L14Schematic from "./L14Schematic";
+import { allPoints, buildFeatures } from "./blockFeatures";
+import { makeProjection } from "./projection";
+import { exportA4Pdf, imageAsDataUrl } from "./exportPdf";
+import { showToast } from "../../execution/toast";
+import { titleCase } from "../../execution/execConstants";
 import { DetailPanel, L14Button, MediaList, NodeDetail, OpenButton, SectionDetail, SubsectionDetail } from "./DiagramDetails";
 import { nodeKey, nodeTitle } from "./diagramGeometry";
 
 /**
- * Diagrams tab: the L14 straight-line diagram of one section and the block topology.
- * Same data as the Map tab (GET /api/block-profiles/:id/map). Clicking anything opens
- * its details in a side panel. The view and section are kept in the URL.
+ * Diagrams tab: the block topology (plotted from captured lat/long, with or without a
+ * map behind it), the L-14 schematic of the whole block, and one section's chainage
+ * strip. Same data as the Map tab (GET /api/block-profiles/:id/map). Clicking anything
+ * opens its details in a side panel; topology and L-14 export as A4 PDFs. The view,
+ * map choice and section are kept in the URL.
  */
 const BlockDiagramsPanel = ({ blockProfile }) => {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const view = params.get("view") === "l14" ? "l14" : "topology";
+  const view = ["l14", "section"].includes(params.get("view")) ? params.get("view") : "topology";
+  const withMap = params.get("map") !== "0";
+  const svgRef = useRef(null);
+  const [layers, setLayers] = useState({ landmark: false });
+  const [exporting, setExporting] = useState(false);
   const [selected, setSelected] = useState(null);
   const blockProfileId = blockProfile._id;
 
@@ -29,6 +43,7 @@ const BlockDiagramsPanel = ({ blockProfile }) => {
   const { data, error, reload } = useLoader(load);
 
   const sections = useMemo(() => data?.sections || [], [data]);
+  const features = useMemo(() => buildFeatures(blockProfile, data), [blockProfile, data]);
   const sectionId = params.get("section") && sections.some((s) => s._id === params.get("section")) ? params.get("section") : sections[0]?._id;
   const section = sections.find((s) => s._id === sectionId);
 
@@ -89,7 +104,7 @@ const BlockDiagramsPanel = ({ blockProfile }) => {
             <L14Button
               onClick={() => {
                 setSelected(null);
-                setView("l14", { section: s._id });
+                setView("section", { section: s._id });
               }}
             />
             <OpenButton label="Open section" onClick={() => openSection(s)} />
@@ -99,15 +114,49 @@ const BlockDiagramsPanel = ({ blockProfile }) => {
     }
     if (selected.kind === "sub") {
       const sub = selected.sub;
+      const media = selected.media || (data?.media || []).filter((m) => m.subSectionId === sub._id);
       return {
         title: sub.name || "Subsection",
         subtitle: sub.sectionName,
-        body: <SubsectionDetail sub={sub} span={selected.span} media={selected.media} />,
+        body: <SubsectionDetail sub={sub} span={selected.span} media={media} />,
         actions: <OpenButton label={sub.legacy ? "Open trenching" : "Open job card"} onClick={() => openSub(sub)} />,
       };
     }
     return { title: selected.title, subtitle: section?.name, body: <MediaList items={selected.items} /> };
   })();
+
+  // The static map behind the topology (also used for the PDF)
+  const mapUrl = useMemo(() => {
+    if (view !== "topology" || !withMap || !data) return null;
+    return makeProjection(allPoints(features), { x: 16, y: 72, w: 1156, h: 744 }, { withMap: true }).map?.url || null;
+  }, [view, withMap, data, features]);
+
+  const exportPdf = async () => {
+    if (!svgRef.current) return;
+    try {
+      setExporting(true);
+      const block = titleCase(blockProfile.block).replace(/[^A-Za-z0-9]+/g, "-");
+      let mapIncluded = true;
+      // The map image has to be inline in the SVG to end up in the PDF
+      const image = svgRef.current.querySelector("image");
+      let original = null;
+      if (image && mapUrl) {
+        const dataUrl = await imageAsDataUrl(mapUrl);
+        if (dataUrl) {
+          original = image.getAttribute("href");
+          image.setAttribute("href", dataUrl);
+        } else mapIncluded = false;
+      }
+      const name = view === "l14" ? `L14-${block}.pdf` : `Topology-${block}${withMap && mapIncluded ? "" : "-no-map"}.pdf`;
+      await exportA4Pdf(svgRef.current, name, `${titleCase(blockProfile.block)} · LGD ${blockProfile.blockCode} · generated ${fmtDateTime(new Date())} IST · Locus`);
+      if (original) image.setAttribute("href", original);
+      showToast(view === "topology" && withMap && !mapIncluded ? "Exported without the map: the map image couldn't be included" : `Saved ${name}`, view === "topology" && withMap && !mapIncluded ? "warning" : "success");
+    } catch (e) {
+      showToast(e.message || "Export failed", "error");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // ---- render
   const toolbar = (
@@ -118,12 +167,16 @@ const BlockDiagramsPanel = ({ blockProfile }) => {
           Block topology
         </ToggleButton>
         <ToggleButton value="l14">
+          <AccountTreeOutlinedIcon fontSize="small" sx={{ mr: 0.75 }} />
+          L-14
+        </ToggleButton>
+        <ToggleButton value="section">
           <TimelineIcon fontSize="small" sx={{ mr: 0.75 }} />
-          L14 diagram
+          Section chainage
         </ToggleButton>
       </ToggleButtonGroup>
-      {view === "l14" && sections.length > 0 && (
-        <TextField select size="small" label="Section" value={sectionId || ""} onChange={(e) => setView("l14", { section: e.target.value })} sx={{ minWidth: { xs: "100%", sm: 280 } }}>
+      {view === "section" && sections.length > 0 && (
+        <TextField select size="small" label="Section" value={sectionId || ""} onChange={(e) => setView("section", { section: e.target.value })} sx={{ minWidth: { xs: "100%", sm: 280 } }}>
           {sections.map((s) => (
             <MenuItem key={s._id} value={s._id}>
               {s.name} · {fmtDistance(s.sectionLength)}
@@ -132,6 +185,22 @@ const BlockDiagramsPanel = ({ blockProfile }) => {
         </TextField>
       )}
       <Box sx={{ flex: 1 }} />
+      {view === "topology" && (
+        <Button variant="outlined" size="small" onClick={() => setView("topology", { map: withMap ? "0" : "1" })}>
+          {withMap ? "Without map" : "With map"}
+        </Button>
+      )}
+      {(view === "topology" || view === "l14") && data && (
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={exporting ? <CircularProgress size={14} color="inherit" /> : <PictureAsPdfOutlinedIcon />}
+          onClick={exportPdf}
+          disabled={exporting}
+        >
+          Export A4 PDF
+        </Button>
+      )}
       <Tooltip title="Reload">
         <IconButton onClick={reload} aria-label="Reload the diagram data">
           <RefreshIcon />
@@ -152,8 +221,37 @@ const BlockDiagramsPanel = ({ blockProfile }) => {
   } else if (view === "topology") {
     body = (
       <>
-        <TopologyDiagram blockProfile={blockProfile} sections={sections} infraFor={infraFor} onSelect={setSelected} />
-        <TopologyLegend />
+        <Box sx={{ overflowX: "auto", border: 1, borderColor: "divider", borderRadius: 1 }}>
+          <Box sx={{ minWidth: 820 }}>
+            <TopologyMap
+              ref={svgRef}
+              blockProfile={blockProfile}
+              features={features}
+              layers={layers}
+              onToggleLayer={(key) => setLayers((l) => ({ ...l, [key]: l[key] === false }))}
+              withMap={withMap}
+              mapImage={mapUrl}
+              onSelect={setSelected}
+            />
+          </Box>
+        </Box>
+        <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.75 }}>
+          Plotted from the captured lat/long of every layer. Click a legend row to show or hide that layer; click anything on the diagram for its details.
+          Routes follow the captured pits and entries of each section.{withMap ? " The map background is a Google static map (one request each time it's drawn)." : ""}
+        </Typography>
+      </>
+    );
+  } else if (view === "l14") {
+    body = (
+      <>
+        <Box sx={{ overflowX: "auto", border: 1, borderColor: "divider", borderRadius: 1 }}>
+          <Box sx={{ minWidth: 820 }}>
+            <L14Schematic ref={svgRef} blockProfile={blockProfile} features={features} onSelect={setSelected} />
+          </Box>
+        </Box>
+        <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.75 }}>
+          Joint closures aren&apos;t recorded on their own yet, so they are derived: a BJC where three or more routes meet, an SJC at each splicing point. Mark a section as an existing route in its edit dialog to draw it dashed.
+        </Typography>
       </>
     );
   } else if (!section) {

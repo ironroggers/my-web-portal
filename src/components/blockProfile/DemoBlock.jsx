@@ -13,9 +13,9 @@ import { fmtDateTime } from "../../utils/executionFormat";
 export const DemoChip = () => <Chip size="small" label="Demo" color="secondary" variant="outlined" sx={{ height: 20, fontSize: "0.6875rem", fontWeight: 700, ml: 1 }} />;
 
 const WHAT = [
-  "Block HQ, 6 GPs (one with no section, two without infra), router and a KML route",
+  "Block HQ, 6 GPs (two without infra), router and a KML route",
   "Block and GP infra with described photos",
-  "6 sections: one finished and restored, one waiting restoration approval, one with a rejection and flagged work, one ready for restoration, one in progress, one empty",
+  "7 sections: one finished and restored, one waiting restoration approval, one with a rejection and flagged work, one ready for restoration, one in progress, one empty and one existing route",
   "Every type of work with entries, pits and reference points, photos and videos with the location stamp",
 ];
 

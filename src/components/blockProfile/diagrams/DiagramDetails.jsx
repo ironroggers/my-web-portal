@@ -226,6 +226,6 @@ export const OpenButton = ({ label, onClick }) => (
 );
 export const L14Button = ({ onClick }) => (
   <Button variant="outlined" size="small" startIcon={<TimelineIcon fontSize="small" />} onClick={onClick}>
-    Show L14
+    Show chainage
   </Button>
 );

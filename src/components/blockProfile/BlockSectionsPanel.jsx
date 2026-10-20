@@ -53,7 +53,10 @@ const EMPTY_FORM = {
   toNode: "",
   sectionLength: "",
   status: 1,
+  routeType: "NEW",
 };
+
+const ROUTE_TYPES = { NEW: "New route", EXISTING: "Existing route" };
 
 const SEARCH_DEBOUNCE_MS = 400;
 
@@ -221,6 +224,7 @@ const BlockSectionsPanel = ({ blockProfile, canManage = false, onChanged }) => {
       toNode: knownNodeValue(section.toNode),
       sectionLength: section.sectionLength ?? "",
       status: section.status ?? 1,
+      routeType: section.routeType || "NEW",
     });
 
   const updateForm = (key) => (event) => {
@@ -261,6 +265,7 @@ const BlockSectionsPanel = ({ blockProfile, canManage = false, onChanged }) => {
         description: form.description,
         sectionLength: form.sectionLength === "" ? 0 : Number(form.sectionLength),
         status: Number(form.status),
+        routeType: form.routeType,
         // The server copies the block's names and LGD codes onto the section,
         // and the end coordinates from these nodes
         blockProfile: blockProfileId,
@@ -594,6 +599,20 @@ const BlockSectionsPanel = ({ blockProfile, canManage = false, onChanged }) => {
             size="small"
             slotProps={{ htmlInput: { min: 0 } }}
           />
+          <TextField
+            select
+            label="Route type"
+            value={form.routeType}
+            onChange={updateForm("routeType")}
+            size="small"
+            helperText="Existing routes are drawn dashed on the diagrams"
+          >
+            {Object.entries(ROUTE_TYPES).map(([value, label]) => (
+              <MenuItem key={value} value={value}>
+                {label}
+              </MenuItem>
+            ))}
+          </TextField>
           <TextField select label="Status" value={form.status} onChange={updateForm("status")} size="small">
             {Object.entries(SECTION_STATUSES).map(([value, status]) => (
               <MenuItem key={value} value={Number(value)}>
