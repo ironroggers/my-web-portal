@@ -89,12 +89,29 @@ const L14Diagram = ({ section, subsections, media, nodeInfo, onSelect }) => {
   const LINE_Y = 96;
   const CROSS_Y = LINE_Y + (rows - 1) * ROW_H + 30;
   const OTHER_Y = CROSS_Y + 40;
-  const AXIS_Y = OTHER_Y + 40;
-  const H = AXIS_Y + 34;
+  const AXIS_Y = OTHER_Y + 46;
+  // Small unlabelled ticks at round distances
   const step = tickStep(model.length);
   const ticks = [];
   for (let c = 0; c <= model.length + 0.001; c += step) ticks.push(c);
-  if (model.length - ticks[ticks.length - 1] > step * 0.3) ticks.push(model.length);
+
+  // Labelled marks where a subsection starts or ends (and the two ends of the section)
+  const boundaries = [0, model.length, ...routeSpans.flatMap((s) => [s.start, s.end])]
+    .map((c) => Math.min(Math.max(c, 0), model.length))
+    .sort((a, b) => a - b)
+    .filter((c, i, all) => i === 0 || c - all[i - 1] > 0.5);
+  // Labels too close to the previous one in a row move down a row
+  const LABEL_GAP = 50;
+  const rowEnds = [];
+  const marks = boundaries.map((c) => {
+    const px = LEFT + (c / model.length) * (VB_W - LEFT - RIGHT);
+    let row = rowEnds.findIndex((end) => px - end >= LABEL_GAP);
+    if (row === -1) row = rowEnds.length;
+    rowEnds[row] = px;
+    return { c, row };
+  });
+  const labelRows = Math.max(1, ...marks.map((m) => m.row + 1));
+  const H = AXIS_Y + 22 + labelRows * 12 + 8;
 
   const spanOf = (sub) => layout.spans.find((s) => s.sub._id === sub._id);
   const subMedia = (sub) => media.filter((m) => m.subSectionId === sub._id);
@@ -215,12 +232,28 @@ const L14Diagram = ({ section, subsections, media, nodeInfo, onSelect }) => {
             );
           })}
 
-          {/* chainage axis */}
+          {/* chainage axis: a mark at every change of subsection */}
           <line x1={x(0)} x2={x(model.length)} y1={AXIS_Y} y2={AXIS_Y} stroke="#475569" />
           {ticks.map((c) => (
-            <g key={c}>
-              <line x1={x(c)} x2={x(c)} y1={AXIS_Y} y2={AXIS_Y + 5} stroke="#475569" />
-              <text x={x(c)} y={AXIS_Y + 17} textAnchor="middle" fontSize={9.5} fill="#334155">
+            <line key={`t${c}`} x1={x(c)} x2={x(c)} y1={AXIS_Y} y2={AXIS_Y + 3} stroke="#94a3b8" />
+          ))}
+          {marks.map(({ c }) => (
+            <line key={`g${c}`} x1={x(c)} x2={x(c)} y1={LINE_Y + BAR_H / 2} y2={AXIS_Y} stroke="#cbd5e1" strokeDasharray="2 3" />
+          ))}
+          {marks.slice(1).map(({ c }, i) => {
+            const prev = marks[i].c;
+            const w = x(c) - x(prev);
+            const len = c - prev;
+            return w > 34 ? (
+              <text key={`len${c}`} x={(x(prev) + x(c)) / 2} y={AXIS_Y - 5} textAnchor="middle" fontSize={9} fill="#64748b">
+                {len >= 1000 ? `${(len / 1000).toFixed(2)} km` : `${Math.round(len)} m`}
+              </text>
+            ) : null;
+          })}
+          {marks.map(({ c, row }) => (
+            <g key={`m${c}`}>
+              <line x1={x(c)} x2={x(c)} y1={AXIS_Y - 4} y2={AXIS_Y + 6 + row * 12} stroke="#334155" strokeWidth={1.2} />
+              <text x={x(c)} y={AXIS_Y + 17 + row * 12} textAnchor="middle" fontSize={9.5} fontWeight={600} fill="#1e293b">
                 {fmtChainage(c)}
               </text>
             </g>
