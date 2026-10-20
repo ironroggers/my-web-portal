@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Box, Stack, Typography } from "@mui/material";
+import { Box, Card, Stack, Typography } from "@mui/material";
 import { useExecutionConfig } from "../../../hooks/useExecutionConfig";
 import { fmtDistance } from "../../../utils/executionFormat";
 import { MEDIA_KIND, STATUS_COLORS } from "../blockMapLayers";
@@ -120,7 +120,7 @@ const L14Diagram = ({ section, subsections, media, nodeInfo, onSelect }) => {
 
   return (
     <Box>
-      <Box sx={{ overflowX: "auto", border: 1, borderColor: "divider", borderRadius: 1, bgcolor: "background.paper" }}>
+      <Card sx={{ overflowX: "auto" }}>
         <Box component="svg" viewBox={`0 0 ${VB_W} ${H}`} sx={{ display: "block", width: "100%", minWidth: 880, fontFamily: "inherit" }} role="img" aria-label={`L14 diagram of ${section.name}`}>
           {/* lane labels */}
           {[
@@ -267,7 +267,7 @@ const L14Diagram = ({ section, subsections, media, nodeInfo, onSelect }) => {
             <NodeBox x={x(model.length)} y={LINE_Y} align="right" node={section.toNode} infra={nodeInfo(section.toNode)?.infra} onClick={() => onSelect({ kind: "node", node: section.toNode })} />
           )}
         </Box>
-      </Box>
+      </Card>
       <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.75 }}>
         {fmtDistance(model.length)} · chainage in km+m from {section.fromName || "the start"}
         {model.geo ? ", placed by projecting GPS positions onto the straight line between the two ends." : ". The ends have no coordinates, so subsections are laid end to end in their order."}

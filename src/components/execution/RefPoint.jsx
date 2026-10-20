@@ -25,6 +25,7 @@ import ChipGroup from "./ChipGroup";
 import GpsField from "./GpsField";
 import { refDone, refMissing, validateRef } from "./executionLogic";
 import { showToast } from "./toast";
+import { tint } from "./execSx";
 
 // "GPS distance ≈ 5.4 m", warning when the tape value is far off
 export const GpsHint = ({ pit, refPoint }) => {
@@ -92,7 +93,7 @@ export const RefRow = ({ refPoint, index, onClick, bad }) => {
     </Box>
   );
   return onClick ? (
-    <ButtonBase onClick={onClick} sx={{ width: "100%", borderTop: 1, borderColor: "divider", bgcolor: bad ? "rgba(185,28,28,0.04)" : "transparent" }}>
+    <ButtonBase onClick={onClick} sx={{ width: "100%", borderTop: 1, borderColor: "divider", bgcolor: bad ? tint("error", 0.04) : "transparent" }}>
       {content}
     </ButtonBase>
   ) : (

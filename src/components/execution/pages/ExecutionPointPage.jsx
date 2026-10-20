@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Box, Button, Card, CircularProgress, Step, StepLabel, Stepper, TextField, Typography } from "@mui/material";
+import { Alert, AlertTitle, Box, Button, CircularProgress, Step, StepLabel, Stepper, TextField, Typography } from "@mui/material";
 import { useParams } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
@@ -11,6 +11,8 @@ import ScheduleIcon from "@mui/icons-material/Schedule";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import PageHeader from "../../common/PageHeader";
+import SectionCard from "../../common/SectionCard";
+import StatusPill from "../../common/StatusPill";
 import executionService from "../../../services/executionService.jsx";
 import { usePermissions } from "../../../hooks/usePermissions";
 import { useExecutionConfig } from "../../../hooks/useExecutionConfig";
@@ -24,21 +26,6 @@ import { anyPending, toDraftMedia, toMediaFile } from "../mediaItems";
 import { PageState, StepLine, StickyActionBar } from "../execUi";
 import { attentionMessage, reportError, showToast } from "../toast";
 import { contextOfSub, useExecContext } from "../useExecContext";
-
-const CardHead = ({ icon, title, text, right }) => (
-  <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, mb: 1.5 }}>
-    <Box sx={{ color: "primary.main", display: "flex" }}>{icon}</Box>
-    <Box sx={{ flex: 1, minWidth: 0 }}>
-      <Typography variant="body1" sx={{ fontWeight: 700 }}>
-        {title}
-      </Typography>
-      <Typography variant="caption" sx={{ color: "text.secondary" }}>
-        {text}
-      </Typography>
-    </Box>
-    {right}
-  </Box>
-);
 
 // Drafts keep uploaded media only (localStorage can't hold files)
 const toStoredDraft = (d) => ({ ...d, photos: d.photos.map(toDraftMedia).filter(Boolean), video: toDraftMedia(d.video) });
@@ -253,7 +240,7 @@ const ExecutionPointPage = ({ which = "start" }) => {
   const off = !isStart && ducting && Math.abs(doneM - sub.subSectionLength) > (sub.subSectionLength * (config?.planDeviationPct ?? 10)) / 100;
 
   return (
-    <Box sx={{ maxWidth: 760 }}>
+    <Box>
       {header}
       <Box sx={{ display: { xs: "block", sm: "none" } }}>
         <StepLine labels={labels} index={index} />
@@ -270,19 +257,13 @@ const ExecutionPointPage = ({ which = "start" }) => {
 
       {step === "pit" && (
         <>
-          <Card sx={{ p: 2.5, mb: 2 }}>
-            <CardHead
-              icon={<PlaceIcon />}
-              title={pitLabel}
-              text="Stand on the pit and capture its GPS"
-              right={
-                pointOf(d.pit) && (
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: "success.dark" }}>
-                    Done
-                  </Typography>
-                )
-              }
-            />
+          <SectionCard
+            title={pitLabel}
+            subtitle="Stand on the pit and capture its GPS"
+            icon={<PlaceIcon />}
+            action={pointOf(d.pit) && <StatusPill label="Done" tone="success" />}
+            sx={{ mb: 3 }}
+          >
             <GpsField
               value={pointOf(d.pit) ? d.pit : null}
               onChange={(fix) => {
@@ -293,28 +274,27 @@ const ExecutionPointPage = ({ which = "start" }) => {
               error={errors["pit.location"]}
             />
             {d.pit.copiedFrom && (
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1, bgcolor: "rgba(29,78,216,0.08)", borderRadius: 1, p: 1 }}>
-                <AutoAwesomeIcon sx={{ fontSize: 16, color: "primary.dark" }} />
-                <Typography variant="body2" sx={{ flex: 1, color: "primary.dark" }}>
-                  Copied from the end pit of {d.pit.copiedFromName}. Check it on site.
-                </Typography>
-                <Button size="small" onClick={() => update({ pit: emptyPit() })}>
-                  Clear
-                </Button>
-              </Box>
+              <Alert
+                severity="info"
+                icon={<AutoAwesomeIcon fontSize="inherit" />}
+                action={
+                  <Button color="inherit" size="small" onClick={() => update({ pit: emptyPit() })}>
+                    Clear
+                  </Button>
+                }
+              >
+                Copied from the end pit of {d.pit.copiedFromName}. Check it on site.
+              </Alert>
             )}
-          </Card>
-          <Card sx={{ p: 2.5, mb: 2 }}>
-            <CardHead
-              icon={<StraightenIcon />}
-              title="Reference points"
-              text="3 fixed objects near the pit, with the tape distance to each"
-              right={
-                <Typography variant="caption" sx={{ fontWeight: 700, color: doneN === 3 ? "success.dark" : "text.secondary" }}>
-                  {doneN} of 3
-                </Typography>
-              }
-            />
+          </SectionCard>
+          <SectionCard
+            title="Reference points"
+            subtitle="3 fixed objects near the pit, with the tape distance to each"
+            icon={<StraightenIcon />}
+            action={<StatusPill label={`${doneN} of 3`} tone={doneN === 3 ? "success" : "default"} />}
+            contentSx={{ py: 0 }}
+            sx={{ mb: 3 }}
+          >
             {d.pit.refs.map((r, i) => (
               <RefRow
                 key={i}
@@ -324,7 +304,7 @@ const ExecutionPointPage = ({ which = "start" }) => {
                 onClick={() => update({ sheet: { index: i, value: { ...r } } })}
               />
             ))}
-          </Card>
+          </SectionCard>
           {autoStamp}
         </>
       )}
@@ -333,23 +313,21 @@ const ExecutionPointPage = ({ which = "start" }) => {
         <>
           {!ducting && autoStamp}
           {!isStart && ducting && (
-            <Box sx={{ display: "flex", gap: 1.25, p: 1.5, borderRadius: 1, mb: 2, bgcolor: off ? "rgba(180,83,9,0.1)" : "action.hover" }}>
-              {off ? <WarningAmberIcon sx={{ color: "warning.dark" }} /> : <StraightenIcon sx={{ color: "text.secondary" }} />}
-              <Box>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                  Executed {fmtDistance(doneM)} of {fmtDistance(sub.subSectionLength)}
-                </Typography>
-                {/* TODO(confirm): whether the note becomes required when more than 10% off */}
-                <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                  {off ? "More than 10% off the plan. Explain it in the note." : "Matches the planned length."}
-                </Typography>
-              </Box>
-            </Box>
+            <Alert
+              severity={off ? "warning" : "info"}
+              icon={off ? <WarningAmberIcon fontSize="inherit" /> : <StraightenIcon fontSize="inherit" />}
+              sx={{ mb: 3 }}
+            >
+              <AlertTitle sx={{ fontWeight: 600 }}>
+                Executed {fmtDistance(doneM)} of {fmtDistance(sub.subSectionLength)}
+              </AlertTitle>
+              {/* TODO(confirm): whether the note becomes required when more than 10% off */}
+              {off ? "More than 10% off the plan. Explain it in the note." : "Matches the planned length."}
+            </Alert>
           )}
           {!ducting && (
-            <Card sx={{ p: 2.5, mb: 2 }}>
+            <SectionCard title={isStart ? "Start location" : "End location"} subtitle="Stand at the spot and capture GPS" icon={<PlaceIcon />} sx={{ mb: 3 }}>
               <GpsField
-                label={isStart ? "Start location" : "End location"}
                 value={d.location}
                 onChange={(fix) => {
                   update({ location: fix });
@@ -357,9 +335,9 @@ const ExecutionPointPage = ({ which = "start" }) => {
                 }}
                 error={errors.location}
               />
-            </Card>
+            </SectionCard>
           )}
-          <Card sx={{ p: 2.5 }}>
+          <SectionCard title={config?.stepLabels?.media || "Photos & video"} subtitle="At least one photo and a video, then an optional note">
             <MediaPicker
               rule={config?.mediaRules?.[which] || { minPhotos: 1, maxPhotos: 4, video: "required" }}
               value={{ photos: d.photos, video: d.video }}
@@ -382,7 +360,7 @@ const ExecutionPointPage = ({ which = "start" }) => {
               placeholder={isStart ? "e.g. Pit opened, machine positioned" : "e.g. Pit closed after duct exit, end cap fixed"}
               sx={{ mt: 2.5 }}
             />
-          </Card>
+          </SectionCard>
         </>
       )}
 
@@ -420,7 +398,12 @@ const ExecutionPointPage = ({ which = "start" }) => {
         onSave={(value) => {
           const i = d.sheet.index;
           update((p) => ({ ...p, sheet: null, pit: { ...p.pit, refs: p.pit.refs.map((r, j) => (j === i ? value : r)) } }));
-          setErrors((e) => ({ ...e, [`pit.refs.${i}.description`]: undefined, [`pit.refs.${i}.location`]: undefined, [`pit.refs.${i}.tapeDistanceM`]: undefined }));
+          setErrors((e) => ({
+            ...e,
+            [`pit.refs.${i}.description`]: undefined,
+            [`pit.refs.${i}.location`]: undefined,
+            [`pit.refs.${i}.tapeDistanceM`]: undefined,
+          }));
         }}
       />
     </Box>

@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Box, Button, ButtonBase, Card, CircularProgress, Stack, TextField, Typography } from "@mui/material";
+import { Box, Button, ButtonBase, CircularProgress, Grid, Stack, TextField, Typography } from "@mui/material";
 import { useNavigate, useParams } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import AddAPhotoOutlinedIcon from "@mui/icons-material/AddAPhotoOutlined";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import CheckIcon from "@mui/icons-material/Check";
 import PageHeader from "../../common/PageHeader";
+import SectionCard from "../../common/SectionCard";
+import StatusPill from "../../common/StatusPill";
 import executionService from "../../../services/executionService.jsx";
 import { usePermissions } from "../../../hooks/usePermissions";
 import { useExecutionConfig } from "../../../hooks/useExecutionConfig";
@@ -131,96 +133,95 @@ const InfraCapturePage = () => {
 
   const n = photos.length;
   return (
-    <Box sx={{ maxWidth: 760 }}>
+    <Box>
       {header}
-      <Card sx={{ p: 2.5, mb: 2 }}>
-        {editable ? (
-          <GpsField
-            label="Location"
-            value={location}
-            onChange={(fix) => {
-              setLocation(fix);
-              setErrors((x) => ({ ...x, location: undefined }));
-            }}
-            error={errors.location}
-          />
-        ) : (
-          <Box>
-            <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
-              Location
-            </Typography>
-            <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
-              {location ? fmtLatLong(location.latitude, location.longitude) : "Not captured yet"}
-            </Typography>
-            {location && (
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                {fmtAccuracy(location.accuracy, config?.accuracyLimitM)}
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, lg: 5 }}>
+          <SectionCard title="Location" subtitle={target ? `${titleCase(target.name)} · ${target.code || lgdCode}` : undefined} sx={{ height: "100%" }}>
+            {editable ? (
+              <GpsField
+                value={location}
+                onChange={(fix) => {
+                  setLocation(fix);
+                  setErrors((x) => ({ ...x, location: undefined }));
+                }}
+                error={errors.location}
+              />
+            ) : (
+              <Box>
+                <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
+                  {location ? fmtLatLong(location.latitude, location.longitude) : "Not captured yet"}
+                </Typography>
+                {location && (
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                    {fmtAccuracy(location.accuracy, config?.accuracyLimitM)}
+                  </Typography>
+                )}
+              </Box>
+            )}
+          </SectionCard>
+        </Grid>
+        <Grid size={{ xs: 12, lg: 7 }}>
+          <SectionCard
+            title="Photos with description"
+            subtitle="Geo-stamped; the description says what each one shows"
+            action={<StatusPill label={n ? `${n} of ${maxPhotos}` : `At least 1 · up to ${maxPhotos}`} tone={n ? "success" : "default"} />}
+            sx={{ height: "100%" }}
+          >
+            {photos.map((p, i) => (
+              <Box key={p.item.key} sx={{ display: "flex", gap: 1.5, mt: 2 }}>
+                <MediaThumb
+                  media={p.item}
+                  onClick={() => (p.item.uploadStatus === "failed" ? uploadItem(p.item, (c) => patchItem(p.item.key, c)) : setViewing(p.item))}
+                />
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Description (optional)"
+                  placeholder={PLACEHOLDERS[i]}
+                  value={p.description}
+                  onChange={(e) => setPhotos((list) => list.map((x, j) => (j === i ? { ...x, description: e.target.value } : x)))}
+                  multiline
+                  minRows={2}
+                  disabled={!editable}
+                />
+              </Box>
+            ))}
+            {editable && n < maxPhotos && (
+              <Stack direction="row" spacing={2} sx={{ alignItems: "center", mt: 2 }}>
+                <ButtonBase
+                  onClick={() => add("camera")}
+                  sx={{
+                    width: 88,
+                    height: 88,
+                    borderRadius: 1,
+                    border: "1px dashed",
+                    borderColor: errors.photos ? "error.main" : "primary.main",
+                    color: errors.photos ? "error.main" : "primary.main",
+                    flexDirection: "column",
+                    gap: 0.5,
+                    fontSize: 12,
+                    fontWeight: 600,
+                  }}
+                >
+                  <AddAPhotoOutlinedIcon />
+                  {n ? "Add photo" : "Take photo"}
+                </ButtonBase>
+                {config?.allowMediaUpload !== false && (
+                  <Button size="small" startIcon={<UploadFileIcon />} onClick={() => add("library")}>
+                    Upload photo
+                  </Button>
+                )}
+              </Stack>
+            )}
+            {errors.photos && (
+              <Typography variant="caption" sx={{ color: "error.main", display: "block", mt: 0.5 }}>
+                {errors.photos}
               </Typography>
             )}
-          </Box>
-        )}
-      </Card>
-      <Card sx={{ p: 2.5 }}>
-        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1 }}>
-          <Typography variant="body2" sx={{ fontWeight: 700 }}>
-            Photos with description
-          </Typography>
-          <Typography variant="caption" sx={{ color: n ? "success.dark" : "text.secondary", fontWeight: n ? 600 : 400 }}>
-            {n ? `${n} of ${maxPhotos}` : `At least 1 · up to ${maxPhotos}`}
-          </Typography>
-        </Box>
-        {photos.map((p, i) => (
-          <Box key={p.item.key} sx={{ display: "flex", gap: 1.5, mt: 2 }}>
-            <MediaThumb
-              media={p.item}
-              onClick={() => (p.item.uploadStatus === "failed" ? uploadItem(p.item, (c) => patchItem(p.item.key, c)) : setViewing(p.item))}
-            />
-            <TextField
-              fullWidth
-              size="small"
-              label="Description (optional)"
-              placeholder={PLACEHOLDERS[i]}
-              value={p.description}
-              onChange={(e) => setPhotos((list) => list.map((x, j) => (j === i ? { ...x, description: e.target.value } : x)))}
-              multiline
-              minRows={2}
-              disabled={!editable}
-            />
-          </Box>
-        ))}
-        {editable && n < maxPhotos && (
-          <Stack direction="row" spacing={2} sx={{ alignItems: "center", mt: 2 }}>
-            <ButtonBase
-              onClick={() => add("camera")}
-              sx={{
-                width: 88,
-                height: 88,
-                borderRadius: 1,
-                border: "1px dashed",
-                borderColor: errors.photos ? "error.main" : "primary.main",
-                color: errors.photos ? "error.main" : "primary.main",
-                flexDirection: "column",
-                gap: 0.5,
-                fontSize: 12,
-                fontWeight: 600,
-              }}
-            >
-              <AddAPhotoOutlinedIcon />
-              {n ? "Add photo" : "Take photo"}
-            </ButtonBase>
-            {config?.allowMediaUpload !== false && (
-              <Button size="small" startIcon={<UploadFileIcon />} onClick={() => add("library")}>
-                Upload photo
-              </Button>
-            )}
-          </Stack>
-        )}
-        {errors.photos && (
-          <Typography variant="caption" sx={{ color: "error.main", display: "block", mt: 0.5 }}>
-            {errors.photos}
-          </Typography>
-        )}
-      </Card>
+          </SectionCard>
+        </Grid>
+      </Grid>
       {editable && (
         <StickyActionBar>
           <Button variant="contained" startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <CheckIcon />} onClick={save} disabled={saving}>

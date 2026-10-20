@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Box, Button, Card, CircularProgress, TextField, Typography } from "@mui/material";
+import { Box, Button, CircularProgress, Grid, TextField, Typography } from "@mui/material";
 import { useParams } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CheckIcon from "@mui/icons-material/Check";
 import PageHeader from "../../common/PageHeader";
+import SectionCard from "../../common/SectionCard";
 import executionService from "../../../services/executionService.jsx";
 import { usePermissions } from "../../../hooks/usePermissions";
 import { useExecutionConfig } from "../../../hooks/useExecutionConfig";
@@ -115,45 +116,62 @@ const RestorationItemPage = () => {
   };
 
   return (
-    <Box sx={{ maxWidth: 760 }}>
+    <Box>
       {header}
-      <Card sx={{ p: 2, mb: 2, display: "flex", gap: 2 }}>
-        <Column caption="Before">
-          {before ? (
-            <MediaThumb media={before} size={150} onClick={() => setViewing(before)} />
-          ) : (
-            <Typography variant="body2" sx={{ color: "text.secondary" }}>
-              No before photo
-            </Typography>
-          )}
-        </Column>
-        <Column caption="After">
-          {media.photos[0] ? (
-            <MediaThumb media={media.photos[0]} size={150} onClick={() => setViewing(media.photos[0])} />
-          ) : (
-            <Typography variant="body2" sx={{ color: errors.photos ? "error.main" : "text.secondary" }}>
-              Take the after photo below
-            </Typography>
-          )}
-        </Column>
-      </Card>
-      <Card sx={{ p: 2.5 }}>
-        {editable ? (
-          <MediaPicker title="After photos" rule={rule} value={media} onUpdate={(fn) => setMedia((prev) => fn(prev))} errors={{ photos: errors.photos, video: errors.video }} />
-        ) : (
-          <MediaStrip media={media} />
-        )}
-        <TextField
-          fullWidth
-          size="small"
-          label="Note (optional)"
-          value={remarks}
-          onChange={(e) => setRemarks(e.target.value)}
-          placeholder="e.g. Trench backfilled, surface restored"
-          disabled={!editable}
-          sx={{ mt: 2.5 }}
-        />
-      </Card>
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, lg: 5 }}>
+          <SectionCard
+            title="Before and after"
+            subtitle="The site condition photo next to the after photo"
+            sx={{ height: "100%" }}
+            contentSx={{ display: "flex", gap: 2 }}
+          >
+            <Column caption="Before">
+              {before ? (
+                <MediaThumb media={before} size={150} onClick={() => setViewing(before)} />
+              ) : (
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  No before photo
+                </Typography>
+              )}
+            </Column>
+            <Column caption="After">
+              {media.photos[0] ? (
+                <MediaThumb media={media.photos[0]} size={150} onClick={() => setViewing(media.photos[0])} />
+              ) : (
+                <Typography variant="body2" sx={{ color: errors.photos ? "error.main" : "text.secondary" }}>
+                  Take the after photo below
+                </Typography>
+              )}
+            </Column>
+          </SectionCard>
+        </Grid>
+        <Grid size={{ xs: 12, lg: 7 }}>
+          <SectionCard title="After photos and video" subtitle="At least one after photo and a short video" sx={{ height: "100%" }}>
+            {editable ? (
+              <MediaPicker
+                title="After photos"
+                rule={rule}
+                value={media}
+                onUpdate={(fn) => setMedia((prev) => fn(prev))}
+                errors={{ photos: errors.photos, video: errors.video }}
+              />
+            ) : (
+              <MediaStrip media={media} />
+            )}
+            <TextField
+              fullWidth
+              size="small"
+              label="Note (optional)"
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+              placeholder="e.g. Trench backfilled, surface restored"
+              disabled={!editable}
+              sx={{ mt: 2.5 }}
+            />
+          </SectionCard>
+        </Grid>
+      </Grid>
       {editable && (
         <StickyActionBar>
           <Button variant="contained" startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <CheckIcon />} onClick={save} disabled={saving}>

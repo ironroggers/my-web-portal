@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect } from "react";
-import { Box, ButtonBase, Card, IconButton, Tooltip, Typography } from "@mui/material";
+import { Box, ButtonBase, IconButton, Tooltip, Typography } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import PageHeader from "../../common/PageHeader";
 import executionService from "../../../services/executionService.jsx";
 import SubRow from "../SubRow";
-import { PageState, RestorationPill } from "../execUi";
+import { ListCard, PageState, RestorationPill } from "../execUi";
 import { titleCase } from "../execConstants";
 import { setWorkBadges } from "../workBadges";
 import { useExecContext } from "../useExecContext";
@@ -58,7 +58,17 @@ const MyWorkPage = () => {
       <ButtonBase
         key={`r${item.section?._id}${i}`}
         onClick={() => go(`/sections/${item.section?._id}/restoration`, stateOf(item))}
-        sx={{ display: "block", width: "100%", textAlign: "left", px: 2, py: 1.5, borderBottom: 1, borderColor: "divider", "&:last-of-type": { borderBottom: 0 }, "&:hover": { bgcolor: "action.hover" } }}
+        sx={{
+          display: "block",
+          width: "100%",
+          textAlign: "left",
+          px: 2,
+          py: 1.5,
+          borderBottom: 1,
+          borderColor: "divider",
+          "&:last-of-type": { borderBottom: 0 },
+          "&:hover": { bgcolor: "action.hover" },
+        }}
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Typography variant="body2" sx={{ fontWeight: 700, flex: 1 }}>
@@ -85,27 +95,13 @@ const MyWorkPage = () => {
     );
 
   const group = (title, items, empty) => (
-    <Card key={title} sx={{ mb: 2 }}>
-      <Box sx={{ display: "flex", alignItems: "baseline", gap: 1, px: 2, py: 1.25, borderBottom: 1, borderColor: "divider" }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-          {title}
-        </Typography>
-        <Typography variant="caption" sx={{ color: "text.disabled" }}>
-          {items.length}
-        </Typography>
-      </Box>
-      {items.length ? (
-        items.map(card)
-      ) : (
-        <Typography variant="body2" sx={{ color: "text.secondary", px: 2, py: 1.5 }}>
-          {empty}
-        </Typography>
-      )}
-    </Card>
+    <ListCard key={title} title={title} count={items.length} empty={empty}>
+      {items.map(card)}
+    </ListCard>
   );
 
   return (
-    <Box sx={{ maxWidth: 960 }}>
+    <Box>
       {header}
       {group("Needs fix", work.needsFix, "Nothing to fix.")}
       {group("In progress", work.inProgress, "No execution running.")}

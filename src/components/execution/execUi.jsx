@@ -4,6 +4,8 @@ import StatusPill from "../common/StatusPill";
 import { useExecutionConfig, toneColor } from "../../hooks/useExecutionConfig";
 import { BAR_ORDER, RESTORATION_ICONS, restorationLine, toneSx } from "./execConstants";
 import { subscribeToasts } from "./toast";
+import { tint } from "./execSx";
+import SectionCard from "../common/SectionCard";
 
 // Small shared pieces for the OFC execution pages
 
@@ -19,7 +21,8 @@ export const RestorationPill = ({ status }) => {
   return <StatusPill label={s.label} tone={toneColor(s.tone)} />;
 };
 
-// Type code tag, e.g. "HDD"; ducting and other work look different
+// Type code tag, e.g. "HDD"; ducting (info) and other work (secondary) look different.
+// Soft tint like the portal's StatusPill.
 export const TypeTag = ({ type }) =>
   type ? (
     <Chip
@@ -29,12 +32,24 @@ export const TypeTag = ({ type }) =>
         height: 20,
         fontSize: "0.6875rem",
         fontWeight: 700,
-        borderRadius: 1,
-        bgcolor: type.kind === "ducting" ? "info.light" : "secondary.light",
-        color: "#fff",
+        bgcolor: tint(type.kind === "ducting" ? "info" : "secondary", 0.1),
+        color: type.kind === "ducting" ? "info.dark" : "secondary.dark",
       }}
     />
   ) : null;
+
+// A card of rows (subsections, restorations…) with a title and count, as on the portal's lists
+export const ListCard = ({ title, count, children, empty, sx }) => (
+  <SectionCard title={title} subtitle={count !== undefined ? `${count}` : undefined} contentSx={{ p: 0 }} sx={{ mb: 2, ...sx }}>
+    {React.Children.count(children) ? (
+      children
+    ) : (
+      <Typography variant="body2" sx={{ color: "text.secondary", px: 2.5, py: 2 }}>
+        {empty}
+      </Typography>
+    )}
+  </SectionCard>
+);
 
 // Status split of a section's subsections, with an optional legend
 export const StackBar = ({ counts = {}, legend = false }) => {

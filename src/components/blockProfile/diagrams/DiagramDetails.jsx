@@ -21,6 +21,7 @@ import TimelineIcon from "@mui/icons-material/Timeline";
 import { useExecutionConfig } from "../../../hooks/useExecutionConfig";
 import { fmtDateTime, fmtDistance, fmtLatLong } from "../../../utils/executionFormat";
 import ExecMediaViewer from "../../execution/ExecMediaViewer";
+import DetailRow from "../../common/DetailRow";
 import { ExecStatusPill, RestorationPill, StackBar, TypeTag } from "../../execution/execUi";
 import { MediaRow } from "../BlockMapPanel";
 import { fmtChainage } from "./diagramGeometry";
@@ -67,20 +68,11 @@ export const DetailPanel = ({ open, title, subtitle, onClose, actions, children 
   );
 };
 
-const Row = ({ label, children }) =>
-  children === undefined || children === null || children === "" ? null : (
-    <Box sx={{ display: "flex", gap: 2, py: 0.5 }}>
-      <Typography variant="body2" sx={{ color: "text.secondary", width: 110, flexShrink: 0 }}>
-        {label}
-      </Typography>
-      <Typography component="div" variant="body2" sx={{ flex: 1, minWidth: 0, overflowWrap: "anywhere" }}>
-        {children}
-      </Typography>
-    </Box>
-  );
+// Label / value rows: the portal's DetailRow
+const Row = DetailRow;
 
 const Heading = ({ children }) => (
-  <Typography variant="subtitle2" sx={{ fontWeight: 700, mt: 2, mb: 0.5 }}>
+  <Typography variant="overline" component="h3" sx={{ display: "block", color: "text.secondary", mt: 2.5, mb: 0.5 }}>
     {children}
   </Typography>
 );

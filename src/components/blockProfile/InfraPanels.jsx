@@ -26,6 +26,8 @@ import executionService from "../../services/executionService.jsx";
 import { useExecutionConfig } from "../../hooks/useExecutionConfig";
 import { countLabel, fmtAccuracy, fmtDateTime, fmtDistance, fmtLatLong } from "../../utils/executionFormat";
 import StatusPill from "../common/StatusPill";
+import SectionCard from "../common/SectionCard";
+import DetailRow from "../common/DetailRow";
 import ChipGroup from "../execution/ChipGroup";
 import ExecMediaViewer from "../execution/ExecMediaViewer";
 import { EmptyState } from "../execution/execUi";
@@ -79,22 +81,14 @@ export const BlockInfraPanel = ({ blockProfile, canCapture }) => {
   }
 
   return (
-    <Card sx={{ p: 2.5 }}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 700, flex: 1 }}>
-          {titleCase(data.target?.name) || "Block HQ"}
-        </Typography>
-        <StatusPill label="Captured" tone="success" />
-      </Box>
-      <Typography variant="caption" sx={{ color: "text.secondary" }}>
-        Saved {fmtDateTime(capture.updatedAt)}
-      </Typography>
-      <Typography variant="body2" sx={{ fontFamily: "monospace", mt: 1 }}>
-        {fmtLatLong(capture.latitude, capture.longitude)}{" "}
-        <Box component="span" sx={{ fontFamily: "inherit", color: "text.secondary", fontSize: "0.75rem" }}>
-          {fmtAccuracy(capture.accuracy, config?.accuracyLimitM)}
-        </Box>
-      </Typography>
+    <SectionCard
+      title={titleCase(data.target?.name) || "Block HQ"}
+      subtitle={`Block infra · saved ${fmtDateTime(capture.updatedAt)}`}
+      action={<StatusPill label="Captured" tone="success" />}
+    >
+      <DetailRow label="Location">{fmtLatLong(capture.latitude, capture.longitude)}</DetailRow>
+      <DetailRow label="Accuracy">{fmtAccuracy(capture.accuracy, config?.accuracyLimitM)}</DetailRow>
+      <DetailRow label="Photos">{String(capture.photos.length)}</DetailRow>
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" }, gap: 1.5, my: 2 }}>
         {capture.photos.map((ph, i) => (
           <ButtonBase key={ph.media?.url || i} onClick={() => setViewing(ph.media)} sx={{ display: "block", textAlign: "left", borderRadius: 1 }}>
@@ -111,7 +105,7 @@ export const BlockInfraPanel = ({ blockProfile, canCapture }) => {
         </Button>
       )}
       {viewing && <ExecMediaViewer media={viewing} onClose={() => setViewing(null)} />}
-    </Card>
+    </SectionCard>
   );
 };
 
@@ -137,8 +131,12 @@ export const GpInfraPanel = ({ blockProfile, canCapture }) => {
     [g.distanceFromBhqM != null ? `${fmtDistance(g.distanceFromBhqM)} from BHQ` : "", g.captured ? countLabel(g.photoCount, "photo") : ""].filter(Boolean).join(" · ");
 
   return (
-    <Card>
-      <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
+    <SectionCard
+      title="Gram Panchayats"
+      subtitle={`${data.captured} of ${all.length} captured · nearest to the BHQ first`}
+      contentSx={{ p: 0 }}
+    >
+      <Box sx={{ px: 2.5, py: 1.5, borderBottom: 1, borderColor: "divider" }}>
         <ChipGroup
           nowrap
           value={filter}
@@ -208,6 +206,6 @@ export const GpInfraPanel = ({ blockProfile, canCapture }) => {
           </Table>
         </TableContainer>
       )}
-    </Card>
+    </SectionCard>
   );
 };

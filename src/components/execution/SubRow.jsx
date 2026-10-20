@@ -1,9 +1,11 @@
 import React from "react";
-import { Box, ButtonBase, LinearProgress, Typography } from "@mui/material";
+import { Box, ButtonBase, Typography } from "@mui/material";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import { useExecutionConfig } from "../../hooks/useExecutionConfig";
 import { countLabel, fmtDistance } from "../../utils/executionFormat";
 import { ExecStatusPill, TypeTag } from "./execUi";
+import { tint } from "./execSx";
+import Meter from "../common/Meter";
 
 /** One subsection: name + status, type and progress, the fix note when sent back */
 const SubRow = ({ sub, onClick, context, right }) => {
@@ -25,7 +27,7 @@ const SubRow = ({ sub, onClick, context, right }) => {
         borderBottom: 1,
         borderColor: "divider",
         "&:last-of-type": { borderBottom: 0 },
-        "&:hover": { bgcolor: "action.hover" },
+        "&:hover": { bgcolor: tint("primary", 0.035) },
       }}
     >
       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -42,11 +44,11 @@ const SubRow = ({ sub, onClick, context, right }) => {
         </Typography>
       </Box>
       {duct && sub.executionStatus !== "NOT_STARTED" && (
-        <LinearProgress
-          variant="determinate"
-          value={Math.min(100, Math.round((done / (sub.subSectionLength || 1)) * 100))}
+        <Meter
+          value={Math.round((done / (sub.subSectionLength || 1)) * 100)}
           color={sub.executionStatus === "APPROVED" ? "success" : "primary"}
-          sx={{ mt: 1, height: 6, borderRadius: 3 }}
+          sx={{ mt: 1 }}
+          aria-label={`${sub.name}: ${progress}`}
         />
       )}
       {context && (
@@ -55,7 +57,7 @@ const SubRow = ({ sub, onClick, context, right }) => {
         </Typography>
       )}
       {sub.executionStatus === "REJECTED" && remark && (
-        <Box sx={{ display: "flex", gap: 0.75, mt: 1, p: 1, borderRadius: 1, bgcolor: "rgba(185,28,28,0.06)", color: "error.dark" }}>
+        <Box sx={{ display: "flex", gap: 0.75, mt: 1, p: 1, borderRadius: 1, bgcolor: tint("error", 0.06), color: "error.dark" }}>
           <ErrorOutlineIcon sx={{ fontSize: 16, mt: "2px" }} />
           <Typography variant="body2" sx={{ color: "inherit" }}>
             {remark}

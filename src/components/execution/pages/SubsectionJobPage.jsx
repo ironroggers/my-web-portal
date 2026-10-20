@@ -2,14 +2,13 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   Box,
   Button,
-  Card,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  Grid,
   IconButton,
-  LinearProgress,
   Link,
   Tooltip,
   Typography,
@@ -25,8 +24,10 @@ import AddIcon from "@mui/icons-material/Add";
 import BuildOutlinedIcon from "@mui/icons-material/BuildOutlined";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
-import TimelineIcon from "@mui/icons-material/Timeline";
 import PageHeader from "../../common/PageHeader";
+import SectionCard from "../../common/SectionCard";
+import StatTile from "../../common/StatTile";
+import DetailRow from "../../common/DetailRow";
 import executionService from "../../../services/executionService.jsx";
 import { usePermissions } from "../../../hooks/usePermissions";
 import { useExecutionConfig } from "../../../hooks/useExecutionConfig";
@@ -39,7 +40,7 @@ import ApprovalActions from "../ApprovalActions";
 import ApprovalMap from "../ApprovalMap";
 import { FlagList } from "../Flags";
 import { MediaStrip } from "../MediaPicker";
-import { FixBox, HistoryList, KV, PointView } from "../JobParts";
+import { FixBox, HistoryCard, KV, PointView } from "../JobParts";
 import { ExecStatusPill, PageState, StickyActionBar, TypeTag } from "../execUi";
 import { carryOver, draftFromPoint, emptyEntry, entryBody, validateEntry } from "../executionLogic";
 import { anyPending, toDraftMedia, toMediaFile } from "../mediaItems";
@@ -47,15 +48,6 @@ import { attentionMessage, reportError, showToast } from "../toast";
 import { contextOfSub, useExecContext } from "../useExecContext";
 
 const mediaCount = (holder) => `${countLabel(holder?.photos?.length || 0, "photo")}${holder?.video ? " · video" : ""}`;
-
-const Kpi = ({ value, label }) => (
-  <Box sx={{ flex: 1, minWidth: 0 }}>
-    <Typography sx={{ fontSize: 20, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{value}</Typography>
-    <Typography variant="caption" sx={{ color: "text.secondary" }}>
-      {label}
-    </Typography>
-  </Box>
-);
 
 /**
  * C8–C12: the job card. Summary, the track Site condition → Start → Entries → End →
@@ -68,7 +60,7 @@ const SubsectionJobPage = ({ approvalView = false }) => {
   const theme = useTheme();
   const isPhone = useMediaQuery(theme.breakpoints.down("sm"));
   const { can } = usePermissions();
-  const { config, typeOf, isDucting } = useExecutionConfig();
+  const { config, typeOf, isDucting, statusOf } = useExecutionConfig();
   const [sub, setSub] = useState(null);
   const [loadError, setLoadError] = useState("");
   const [sheet, setSheet] = useState(null); // { form, errors }
@@ -268,7 +260,9 @@ const SubsectionJobPage = ({ approvalView = false }) => {
       key: "start",
       title: duct ? type?.pitA : "Start",
       state: sub.start ? "done" : status === "NOT_STARTED" ? "current" : "todo",
-      meta: sub.start ? `${fmtDateTime(sub.start.at)} · ${duct ? "3 reference points" : "location"} · ${mediaCount(sub.start)}` : "Up next · tap Start execution",
+      meta: sub.start
+        ? `${fmtDateTime(sub.start.at)} · ${duct ? "3 reference points" : "location"} · ${mediaCount(sub.start)}`
+        : "Up next · tap Start execution",
       content: sub.start ? <PointView point={sub.start} /> : null,
     },
     {
@@ -306,7 +300,8 @@ const SubsectionJobPage = ({ approvalView = false }) => {
             : status === "REJECTED"
               ? `Sent back ${fmtDateTime(sub.approval?.at)}`
               : "The admin approves once the end is sent",
-      content: status === "REJECTED" ? <FixBox remark={sub.approval?.remark} text="Fix and resubmit reopens the execution. Your end details are kept." /> : null,
+      content:
+        status === "REJECTED" ? <FixBox remark={sub.approval?.remark} text="Fix and resubmit reopens the execution. Your end details are kept." /> : null,
     },
   ];
 
@@ -330,7 +325,13 @@ const SubsectionJobPage = ({ approvalView = false }) => {
   }
   if (canExecute && status === "REJECTED") {
     actions.push(
-      <Button key="fix" variant="contained" startIcon={busy ? <CircularProgress size={16} color="inherit" /> : <BuildOutlinedIcon />} onClick={reopen} disabled={busy}>
+      <Button
+        key="fix"
+        variant="contained"
+        startIcon={busy ? <CircularProgress size={16} color="inherit" /> : <BuildOutlinedIcon />}
+        onClick={reopen}
+        disabled={busy}
+      >
         Fix and resubmit
       </Button>
     );
@@ -339,62 +340,67 @@ const SubsectionJobPage = ({ approvalView = false }) => {
     actions.push(<ApprovalActions key="approval" kind="subsection" name={sub.name} onApprove={approve} onReject={reject} />);
   }
 
+  const pct = Math.min(100, Math.round((done / (sub.subSectionLength || 1)) * 100));
   return (
-    <Box sx={{ maxWidth: 960 }}>
+    <Box>
       {header}
 
-      <Card sx={{ p: 2.5, mb: 2 }}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-          <TypeTag type={type} />
-          <Box sx={{ flex: 1 }} />
-          <ExecStatusPill status={status} />
-        </Box>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mt: 1, color: "text.secondary", minWidth: 0 }}>
-          <TimelineIcon sx={{ fontSize: 16 }} />
-          <Typography variant="body2" noWrap sx={{ color: "inherit", minWidth: 0 }}>
-            {[sub.sectionInfo?.block?.name, sub.sectionInfo?.section?.name].filter(Boolean).join(" › ")}
-          </Typography>
-        </Box>
-        <Box sx={{ display: "flex", gap: 2, mt: 2 }}>
-          <Kpi value={fmtDistance(sub.subSectionLength)} label="Planned" />
-          {duct && <Kpi value={fmtDistance(done)} label="Done" />}
-          <Kpi value={entries.length} label={entries.length === 1 ? "Entry" : "Entries"} />
-        </Box>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <StatTile label="Planned" value={Math.round(sub.subSectionLength || 0)} suffix=" m" caption={sub.roadName} />
+        </Grid>
         {duct && (
-          <LinearProgress
-            variant="determinate"
-            value={Math.min(100, Math.round((done / (sub.subSectionLength || 1)) * 100))}
-            color={status === "APPROVED" ? "success" : "primary"}
-            sx={{ mt: 1.5, height: 6, borderRadius: 3 }}
-          />
+          <Grid size={{ xs: 6, md: 3 }}>
+            <StatTile label="Done" value={Math.round(done)} suffix=" m" meterValue={pct} caption={`${pct}% of planned`} />
+          </Grid>
         )}
-        <Link component="button" variant="body2" onClick={() => go(`/subsections/${subSectionId}/trenching`)} sx={{ mt: 1.5 }}>
-          Open the entries on the trenching page
-        </Link>
-      </Card>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <StatTile
+            label={entries.length === 1 ? "Entry" : "Entries"}
+            value={entries.length}
+            caption={entries.length ? `Last ${fmtDateTime(entries[entries.length - 1].capturedAt)}` : "None yet"}
+          />
+        </Grid>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <StatTile label="Status" value={statusOf(status).label} caption={type?.full} />
+        </Grid>
+      </Grid>
 
-      {approvalView && (
-        <Card sx={{ p: 2.5, mb: 2 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-            Check before approving
-          </Typography>
-          <FlagList flags={sub.flags} />
-          <Box sx={{ mt: 2 }}>
-            <ApprovalMap sub={sub} pitALabel={duct ? type?.pitA : "Start"} pitBLabel={duct ? type?.pitB : "End"} />
-          </Box>
-        </Card>
-      )}
-
-      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-        Progress
-      </Typography>
-      <Card sx={{ p: 2.5, mb: 2 }}>
-        <ProgressTrack stages={stages} />
-      </Card>
-
-      <Card sx={{ p: 2 }}>
-        <HistoryList history={sub.history} />
-      </Card>
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, lg: 8 }} sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          {approvalView && (
+            <SectionCard title="Check before approving" subtitle="Flags and where everything was captured">
+              <FlagList flags={sub.flags} />
+              <Box sx={{ mt: 2 }}>
+                <ApprovalMap sub={sub} pitALabel={duct ? type?.pitA : "Start"} pitBLabel={duct ? type?.pitB : "End"} />
+              </Box>
+            </SectionCard>
+          )}
+          <SectionCard title="Progress" subtitle="Site condition → start → entries → end → approval">
+            <ProgressTrack stages={stages} />
+          </SectionCard>
+        </Grid>
+        <Grid size={{ xs: 12, lg: 4 }} sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          <SectionCard title="Details" action={<ExecStatusPill status={status} />}>
+            <DetailRow label="Type of work">
+              <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.75 }}>
+                <TypeTag type={type} />
+                {type?.label}
+              </Box>
+            </DetailRow>
+            <DetailRow label="Road">{sub.roadName}</DetailRow>
+            <DetailRow label="Section">{sub.sectionInfo?.section?.name}</DetailRow>
+            <DetailRow label="Block">{sub.sectionInfo?.block?.name}</DetailRow>
+            <DetailRow label="From">{sub.fromLatLong}</DetailRow>
+            <DetailRow label="To">{sub.toLatLong}</DetailRow>
+            <DetailRow label="Created">{`${fmtDateTime(sub.createdAt)}${sub.createdBy?.name ? ` · ${sub.createdBy.name}` : ""}`}</DetailRow>
+            <Link component="button" variant="body2" onClick={() => go(`/subsections/${subSectionId}/trenching`)} sx={{ mt: 1.5, fontWeight: 600 }}>
+              Open the entries on the trenching page
+            </Link>
+          </SectionCard>
+          <HistoryCard history={sub.history} />
+        </Grid>
+      </Grid>
 
       {actions.length > 0 && <StickyActionBar>{actions}</StickyActionBar>}
 
@@ -422,7 +428,13 @@ const SubsectionJobPage = ({ approvalView = false }) => {
           )}
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 1.5 }}>
-          <Button variant="contained" startIcon={busy ? <CircularProgress size={16} color="inherit" /> : <CheckIcon />} onClick={saveEntry} disabled={busy} fullWidth={isPhone}>
+          <Button
+            variant="contained"
+            startIcon={busy ? <CircularProgress size={16} color="inherit" /> : <CheckIcon />}
+            onClick={saveEntry}
+            disabled={busy}
+            fullWidth={isPhone}
+          >
             Save entry
           </Button>
         </DialogActions>

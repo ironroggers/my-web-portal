@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { Box, Button, ButtonBase, Card, IconButton, InputAdornment, TextField, Tooltip, Typography } from "@mui/material";
+import { Alert, Box, Button, ButtonBase, Card, IconButton, InputAdornment, TextField, Tooltip, Typography } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SearchIcon from "@mui/icons-material/Search";
@@ -9,38 +9,34 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import AltRouteIcon from "@mui/icons-material/AltRoute";
 import FilterAltOffOutlinedIcon from "@mui/icons-material/FilterAltOffOutlined";
 import PageHeader from "../../common/PageHeader";
+import SectionCard from "../../common/SectionCard";
 import executionService from "../../../services/executionService.jsx";
 import { usePermissions } from "../../../hooks/usePermissions";
 import { useExecutionConfig } from "../../../hooks/useExecutionConfig";
 import ChipGroup from "../ChipGroup";
 import SubRow from "../SubRow";
-import { EmptyState, PageState, RestorationLine, StackBar } from "../execUi";
+import { EmptyState, ListCard, PageState, RestorationLine, StackBar } from "../execUi";
 import { showToast } from "../toast";
 import { useExecContext } from "../useExecContext";
 import { useLoader } from "../useLoader";
+import { tint } from "../execSx";
 
 const NEEDS_ACTION_RANK = { REJECTED: 0, IN_PROGRESS: 1, NOT_STARTED: 2 };
 
-const RESTORATION_BG = { LOCKED: "action.hover", READY: "rgba(29,78,216,0.08)", PENDING_APPROVAL: "rgba(180,83,9,0.08)", APPROVED: "rgba(21,128,61,0.08)", REJECTED: "rgba(185,28,28,0.06)" };
+const RESTORATION_BG = {
+  LOCKED: "action.hover",
+  READY: tint("primary", 0.08),
+  PENDING_APPROVAL: tint("warning", 0.08),
+  APPROVED: tint("success", 0.08),
+  REJECTED: tint("error", 0.06),
+};
 
 const Group = ({ title, subs, empty, onOpen }) => (
-  <Card sx={{ mb: 2 }}>
-    <Box sx={{ display: "flex", alignItems: "baseline", gap: 1, px: 2, py: 1.25, borderBottom: 1, borderColor: "divider" }}>
-      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-        {title}
-      </Typography>
-      <Typography variant="caption" sx={{ color: "text.disabled" }}>
-        {subs.length}
-      </Typography>
-    </Box>
-    {subs.length ? (
-      subs.map((s) => <SubRow key={s._id} sub={s} onClick={() => onOpen(s)} />)
-    ) : (
-      <Typography variant="body2" sx={{ color: "text.secondary", px: 2, py: 1.5 }}>
-        {empty}
-      </Typography>
-    )}
-  </Card>
+  <ListCard title={title} count={subs.length} empty={empty}>
+    {subs.map((s) => (
+      <SubRow key={s._id} sub={s} onClick={() => onOpen(s)} />
+    ))}
+  </ListCard>
 );
 
 /**
@@ -110,7 +106,13 @@ const BlockSubsectionsPage = ({ section }) => {
   const counts = all.reduce((acc, s) => ({ ...acc, [s.executionStatus]: (acc[s.executionStatus] || 0) + 1 }), {});
   const q = query.trim().toLowerCase();
   const list = all.filter(
-    (s) => (type === "ALL" || s.typeOfWork === type) && (!q || s.name.toLowerCase().includes(q) || String(s.roadName || "").toLowerCase().includes(q))
+    (s) =>
+      (type === "ALL" || s.typeOfWork === type) &&
+      (!q ||
+        s.name.toLowerCase().includes(q) ||
+        String(s.roadName || "")
+          .toLowerCase()
+          .includes(q))
   );
   const needsAction = list
     .filter((s) => s.executionStatus in NEEDS_ACTION_RANK)
@@ -128,7 +130,10 @@ const BlockSubsectionsPage = ({ section }) => {
   const openRestoration = () => {
     if (restStatus === "LOCKED") {
       const left = (restoration?.total || 0) - (restoration?.ended || 0);
-      showToast(restoration?.total ? `${left} subsection${left === 1 ? "" : "s"} still need${left === 1 ? "s" : ""} to end execution` : "Add subsections first", "info");
+      showToast(
+        restoration?.total ? `${left} subsection${left === 1 ? "" : "s"} still need${left === 1 ? "s" : ""} to end execution` : "Add subsections first",
+        "info"
+      );
       return;
     }
     go(`/sections/${sectionId}/restoration`);
@@ -139,12 +144,12 @@ const BlockSubsectionsPage = ({ section }) => {
     <Box>
       {header}
       {error && (
-        <Typography variant="body2" sx={{ color: "error.main", mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
           {error}
-        </Typography>
+        </Alert>
       )}
 
-      <Card sx={{ p: 2, mb: 2 }}>
+      <SectionCard title="Progress" subtitle={all.length ? `${all.length} subsections` : undefined} sx={{ mb: 2 }}>
         {all.length ? (
           <StackBar counts={counts} legend />
         ) : (
@@ -155,7 +160,17 @@ const BlockSubsectionsPage = ({ section }) => {
         {restoration && (
           <ButtonBase
             onClick={openRestoration}
-            sx={{ display: "flex", width: "100%", justifyContent: "flex-start", gap: 1, p: 1.25, mt: 1.5, borderRadius: 1, bgcolor: RESTORATION_BG[restStatus] || "action.hover", textAlign: "left" }}
+            sx={{
+              display: "flex",
+              width: "100%",
+              justifyContent: "flex-start",
+              gap: 1,
+              p: 1.25,
+              mt: 1.5,
+              borderRadius: 1,
+              bgcolor: RESTORATION_BG[restStatus] || "action.hover",
+              textAlign: "left",
+            }}
           >
             <RestorationLine restoration={restoration} remark={restoration.approval?.remark} sx={{ flex: 1, minWidth: 0 }} />
             {restStatus === "READY" || restStatus === "REJECTED" ? (
@@ -167,7 +182,7 @@ const BlockSubsectionsPage = ({ section }) => {
             )}
           </ButtonBase>
         )}
-      </Card>
+      </SectionCard>
 
       <Box sx={{ display: "flex", gap: 1.5, alignItems: "center", flexWrap: "wrap", mb: 2 }}>
         <Box sx={{ flex: "1 1 320px", minWidth: 0 }}>
@@ -227,20 +242,21 @@ const BlockSubsectionsPage = ({ section }) => {
       ) : null}
 
       {legacy.length > 0 && (
-        <Card sx={{ mb: 2 }}>
-          <Box sx={{ display: "flex", alignItems: "baseline", gap: 1, px: 2, py: 1.25, borderBottom: 1, borderColor: "divider" }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-              Older subsections
-            </Typography>
-            <Typography variant="caption" sx={{ color: "text.disabled" }}>
-              {legacy.length}
-            </Typography>
-          </Box>
+        <ListCard title="Older subsections" count={legacy.length}>
           {legacy.map((s) => (
             <ButtonBase
               key={s._id}
               onClick={() => go(`/subsections/${s._id}/trenching`)}
-              sx={{ display: "block", width: "100%", textAlign: "left", px: 2, py: 1.5, borderBottom: 1, borderColor: "divider", "&:last-of-type": { borderBottom: 0 } }}
+              sx={{
+                display: "block",
+                width: "100%",
+                textAlign: "left",
+                px: 2,
+                py: 1.5,
+                borderBottom: 1,
+                borderColor: "divider",
+                "&:last-of-type": { borderBottom: 0 },
+              }}
             >
               <Typography variant="body2" sx={{ fontWeight: 700 }}>
                 {s.name || "Unnamed subsection"}
@@ -250,7 +266,7 @@ const BlockSubsectionsPage = ({ section }) => {
               </Typography>
             </ButtonBase>
           ))}
-        </Card>
+        </ListCard>
       )}
     </Box>
   );

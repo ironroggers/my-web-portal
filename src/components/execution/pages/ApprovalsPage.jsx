@@ -10,7 +10,7 @@ import { fmtDateTime } from "../../../utils/executionFormat";
 import ChipGroup from "../ChipGroup";
 import SubRow from "../SubRow";
 import { FlagChips } from "../Flags";
-import { EmptyState, PageState, RestorationPill } from "../execUi";
+import { EmptyState, ListCard, PageState, RestorationPill } from "../execUi";
 import { titleCase } from "../execConstants";
 import { setWorkBadges } from "../workBadges";
 import { useExecContext } from "../useExecContext";
@@ -120,7 +120,14 @@ const ApprovalsPage = () => {
           </MenuItem>
         ))}
       </TextField>
-      <TextField select size="small" label="Block" value={blockProfile} onChange={(e) => setBlockProfile(e.target.value)} sx={{ width: { xs: "100%", sm: 200 } }}>
+      <TextField
+        select
+        size="small"
+        label="Block"
+        value={blockProfile}
+        onChange={(e) => setBlockProfile(e.target.value)}
+        sx={{ width: { xs: "100%", sm: 200 } }}
+      >
         <MenuItem value="">All blocks</MenuItem>
         {blocks.map((b) => (
           <MenuItem key={b._id} value={b._id}>
@@ -128,7 +135,14 @@ const ApprovalsPage = () => {
           </MenuItem>
         ))}
       </TextField>
-      <TextField select size="small" label="Type of work" value={typeOfWork} onChange={(e) => setTypeOfWork(e.target.value)} sx={{ width: { xs: "100%", sm: 180 } }}>
+      <TextField
+        select
+        size="small"
+        label="Type of work"
+        value={typeOfWork}
+        onChange={(e) => setTypeOfWork(e.target.value)}
+        sx={{ width: { xs: "100%", sm: 180 } }}
+      >
         <MenuItem value="">All types</MenuItem>
         {(config?.typeOrder || []).map((t) => (
           <MenuItem key={t} value={t}>
@@ -149,21 +163,10 @@ const ApprovalsPage = () => {
     );
   }
 
-  const groupHead = (title, n) => (
-    <Box sx={{ display: "flex", alignItems: "baseline", gap: 1, px: 2, py: 1.25, borderBottom: 1, borderColor: "divider" }}>
-      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-        {title}
-      </Typography>
-      <Typography variant="caption" sx={{ color: "text.disabled" }}>
-        {n}
-      </Typography>
-    </Box>
-  );
-
   const nothing = (showSubs ? subs.length : 0) + (showRests ? rests.length : 0) === 0;
 
   return (
-    <Box sx={{ maxWidth: 1040 }}>
+    <Box>
       {header}
       {filters}
       {error && (
@@ -173,13 +176,16 @@ const ApprovalsPage = () => {
       )}
       {nothing ? (
         <Card>
-          <EmptyState icon={<InboxOutlinedIcon />} title="Nothing waiting" text={district || blockProfile || typeOfWork || kind ? "Nothing matches these filters." : "New submissions show up here."} />
+          <EmptyState
+            icon={<InboxOutlinedIcon />}
+            title="Nothing waiting"
+            text={district || blockProfile || typeOfWork || kind ? "Nothing matches these filters." : "New submissions show up here."}
+          />
         </Card>
       ) : (
         <>
           {showSubs && subs.length > 0 && (
-            <Card sx={{ mb: 2 }}>
-              {groupHead("Subsections", subs.length)}
+            <ListCard title="Subsections" count={subs.length}>
               {subs.map((s) => (
                 <Box key={s._id} sx={{ borderBottom: 1, borderColor: "divider", "&:last-of-type": { borderBottom: 0 } }}>
                   <SubRow
@@ -194,16 +200,25 @@ const ApprovalsPage = () => {
                   )}
                 </Box>
               ))}
-            </Card>
+            </ListCard>
           )}
           {showRests && rests.length > 0 && (
-            <Card sx={{ mb: 2 }}>
-              {groupHead("Restorations", rests.length)}
+            <ListCard title="Restorations" count={rests.length}>
               {rests.map((r) => (
                 <ButtonBase
                   key={r.section?._id}
                   onClick={() => go(`/approvals/restorations/${r.section?._id}`, stateOf(r))}
-                  sx={{ display: "block", width: "100%", textAlign: "left", px: 2, py: 1.5, borderBottom: 1, borderColor: "divider", "&:last-of-type": { borderBottom: 0 }, "&:hover": { bgcolor: "action.hover" } }}
+                  sx={{
+                    display: "block",
+                    width: "100%",
+                    textAlign: "left",
+                    px: 2,
+                    py: 1.5,
+                    borderBottom: 1,
+                    borderColor: "divider",
+                    "&:last-of-type": { borderBottom: 0 },
+                    "&:hover": { bgcolor: "action.hover" },
+                  }}
                 >
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <Typography variant="body2" sx={{ fontWeight: 700, flex: 1, minWidth: 0 }} noWrap>
@@ -225,7 +240,7 @@ const ApprovalsPage = () => {
                   <FlagChips flags={r.flags} />
                 </ButtonBase>
               ))}
-            </Card>
+            </ListCard>
           )}
         </>
       )}

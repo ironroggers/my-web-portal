@@ -9,6 +9,7 @@ import MediaPicker from "./MediaPicker";
 import { openGeoCamera } from "./geoCamera";
 import { newMediaItem, uploadItem } from "./mediaItems";
 import { showToast } from "./toast";
+import { tint } from "./execSx";
 
 const ENTRY_PHOTO = { minPhotos: 0, maxPhotos: 1, video: "none" };
 
@@ -95,7 +96,7 @@ const EntryForm = ({ typeOfWork, fields, value, onUpdate, errors = {} }) => {
         <ButtonBase
           onClick={autofill}
           disabled={reading}
-          sx={{ width: "100%", justifyContent: "flex-start", gap: 1.5, p: 1.5, mb: 2, borderRadius: 1, bgcolor: "rgba(29,78,216,0.08)", textAlign: "left" }}
+          sx={{ width: "100%", justifyContent: "flex-start", gap: 1.5, p: 1.5, mb: 2, borderRadius: 1, bgcolor: tint("primary", 0.08), textAlign: "left" }}
         >
           {reading ? <CircularProgress size={22} /> : <SmartToyOutlinedIcon color="primary" />}
           <Box>

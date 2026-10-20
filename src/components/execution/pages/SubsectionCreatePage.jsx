@@ -1,19 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Box,
-  Button,
-  Card,
-  Chip,
-  CircularProgress,
-  IconButton,
-  InputAdornment,
-  Step,
-  StepLabel,
-  Stepper,
-  TextField,
-  Tooltip,
-  Typography,
-} from "@mui/material";
+import { Box, Button, Chip, CircularProgress, Grid, IconButton, InputAdornment, Step, StepLabel, Stepper, TextField, Tooltip, Typography } from "@mui/material";
 import { useParams } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
@@ -22,6 +8,8 @@ import MyLocationIcon from "@mui/icons-material/MyLocation";
 import LinkIcon from "@mui/icons-material/Link";
 import StraightenIcon from "@mui/icons-material/Straighten";
 import PageHeader from "../../common/PageHeader";
+import SectionCard from "../../common/SectionCard";
+import DetailRow from "../../common/DetailRow";
 import executionService from "../../../services/executionService.jsx";
 import sectionsService from "../../../services/sectionsService.jsx";
 import { usePermissions } from "../../../hooks/usePermissions";
@@ -115,7 +103,9 @@ const SubsectionCreatePage = () => {
   const [locating, setLocating] = useState(null);
   const [saving, setSaving] = useState(false);
   const inputs = { roadName: useRef(null), fromLatLong: useRef(null), toLatLong: useRef(null), subSectionLength: useRef(null) };
-  const go = useExecContext(section ? { blockProfileId: section.blockProfile, blockProfileName: section.block, sectionId, sectionName: section.name } : { sectionId });
+  const go = useExecContext(
+    section ? { blockProfileId: section.blockProfile, blockProfileName: section.block, sectionId, sectionName: section.name } : { sectionId }
+  );
 
   const load = useCallback(async () => {
     try {
@@ -323,7 +313,7 @@ const SubsectionCreatePage = () => {
     (config?.typeOrder || []).filter((t) => (typeOf(t)?.kind === "ducting") === (kind === "ducting")).map((t) => ({ value: t, label: typeOf(t).label }));
 
   return (
-    <Box sx={{ maxWidth: 760 }}>
+    <Box>
       {header}
       <Box sx={{ display: { xs: "block", sm: "none" } }}>
         <StepLine labels={labels} index={index} />
@@ -336,126 +326,146 @@ const SubsectionCreatePage = () => {
         ))}
       </Stepper>
 
-      {step === "work" && (
-        <>
-          <Box sx={{ bgcolor: "rgba(29,78,216,0.08)", borderRadius: 1, p: 1.5, mb: 2 }}>
-            <Typography variant="caption" sx={{ color: "text.secondary" }}>
-              Subsection name · generated
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, lg: 8 }}>
+          {step === "work" && (
+            <>
+              <SectionCard title={labels[index]} subtitle="Type of work, road and where it runs" contentSx={{ display: "grid", gap: 2.5 }}>
+                <Box>
+                  <FieldLabel>Type of work</FieldLabel>
+                  {(config?.typeGroups || []).map((g) => (
+                    <Box key={g.kind} sx={{ mb: 1 }}>
+                      <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
+                        {g.label}
+                      </Typography>
+                      <ChipGroup options={typeChips(g.kind)} value={d.typeOfWork} onChange={(v) => set("typeOfWork", v)} error={Boolean(errors.typeOfWork)} />
+                    </Box>
+                  ))}
+                  <ErrorText>{errors.typeOfWork}</ErrorText>
+                </Box>
+                <Box>
+                  {textField("roadName", "Road name", { placeholder: "e.g. NH 66" })}
+                  {roads.length > 0 && (
+                    <Box sx={{ mt: 1 }}>
+                      <ChipGroup options={roads} value={null} onChange={(v) => set("roadName", v)} size="small" />
+                    </Box>
+                  )}
+                </Box>
+                <Box>
+                  {latLongField("fromLatLong", "From (lat, long)", "9.280830, 76.458600")}
+                  {previous?.toLatLong && (
+                    <Chip
+                      icon={<LinkIcon />}
+                      label={`Continue from ${previous.name}`}
+                      onClick={() => set("fromLatLong", previous.toLatLong)}
+                      color="primary"
+                      variant="outlined"
+                      size="small"
+                      sx={{ mt: 1 }}
+                    />
+                  )}
+                </Box>
+                {latLongField("toLatLong", "To (lat, long)", "9.281700, 76.457900")}
+                <Box>
+                  {textField("subSectionLength", "Length (m)", { placeholder: "e.g. 120", slotProps: { htmlInput: { inputMode: "decimal" } } })}
+                  {straight != null ? (
+                    <Chip
+                      icon={<StraightenIcon />}
+                      label={`Use straight-line distance · ${fmtDistance(straight)}`}
+                      onClick={() => set("subSectionLength", String(straight))}
+                      color="primary"
+                      variant="outlined"
+                      size="small"
+                      sx={{ mt: 1 }}
+                    />
+                  ) : (
+                    <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.75 }}>
+                      Fill From and To to get a suggested length.
+                    </Typography>
+                  )}
+                </Box>
+              </SectionCard>
+            </>
+          )}
+
+          {step === "site" && (
+            <SectionCard title={labels[index]} subtitle="The ground before work starts" contentSx={{ display: "grid", gap: 2.5 }}>
+              <Box>
+                <FieldLabel>Terrain</FieldLabel>
+                <ChipGroup
+                  options={config?.options?.terrain || []}
+                  value={d.terrain}
+                  onChange={(v) => set("terrain", v, "initialCondition.terrain")}
+                  allowClear
+                  error={Boolean(errors["initialCondition.terrain"])}
+                />
+                <ErrorText>{errors["initialCondition.terrain"]}</ErrorText>
+              </Box>
+              <Box>
+                <FieldLabel optional>Crossing</FieldLabel>
+                <ChipGroup
+                  options={config?.options?.crossing || []}
+                  value={d.crossing}
+                  onChange={(v) => set("crossing", v, "initialCondition.crossing")}
+                  allowClear
+                />
+              </Box>
+              <Box>
+                <FieldLabel>OFC side</FieldLabel>
+                <ChipGroup
+                  options={config?.options?.ofcSide || []}
+                  value={d.ofcSide}
+                  onChange={(v) => set("ofcSide", v, "initialCondition.ofcSide")}
+                  allowClear
+                  error={Boolean(errors["initialCondition.ofcSide"])}
+                />
+                <ErrorText>{errors["initialCondition.ofcSide"]}</ErrorText>
+              </Box>
+              {textField("roadFeatures", "Road features (optional)", { placeholder: "e.g. Two-lane bitumen road, drain on LHS", multiline: true, minRows: 2 })}
+              {textField("authorityName", "Authority name (optional)", { placeholder: "e.g. PWD Roads, Harippad section" })}
+            </SectionCard>
+          )}
+
+          {step === "photos" && (
+            <SectionCard
+              title={labels[index]}
+              subtitle="Photograph and film the area as it is today. The first photo becomes the before picture when the section is restored."
+            >
+              <MediaPicker
+                rule={config?.mediaRules?.siteCondition || { minPhotos: 1, maxPhotos: 4, video: "required" }}
+                value={{ photos: d.photos, video: d.video }}
+                onUpdate={(fn) =>
+                  update((prev) => {
+                    const nextMedia = fn({ photos: prev.photos, video: prev.video });
+                    return { ...prev, photos: nextMedia.photos, video: nextMedia.video };
+                  })
+                }
+                errors={{ photos: errors["initialCondition.photos"], video: errors["initialCondition.video"] }}
+              />
+              <Box sx={{ mt: 2.5 }}>
+                {textField("remarks", "Condition note (optional)", {
+                  placeholder: "e.g. Bitumen surface intact, no existing damage",
+                  multiline: true,
+                  minRows: 2,
+                })}
+              </Box>
+            </SectionCard>
+          )}
+        </Grid>
+        <Grid size={{ xs: 12, lg: 4 }}>
+          <SectionCard title="Subsection name" subtitle="Generated from the road, type of work and the next number">
+            <Typography sx={{ fontFamily: "monospace", fontWeight: 700, fontSize: "1.375rem", color: "primary.dark", overflowWrap: "anywhere" }}>
+              {subsectionName(d.roadName, type?.code, seq)}
             </Typography>
-            <Typography sx={{ fontFamily: "monospace", fontWeight: 700, fontSize: 20, color: "primary.dark" }}>{subsectionName(d.roadName, type?.code, seq)}</Typography>
-          </Box>
-          <Card sx={{ p: 2.5, display: "grid", gap: 2.5 }}>
-            <Box>
-              <FieldLabel>Type of work</FieldLabel>
-              {(config?.typeGroups || []).map((g) => (
-                <Box key={g.kind} sx={{ mb: 1 }}>
-                  <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
-                    {g.label}
-                  </Typography>
-                  <ChipGroup options={typeChips(g.kind)} value={d.typeOfWork} onChange={(v) => set("typeOfWork", v)} error={Boolean(errors.typeOfWork)} />
-                </Box>
-              ))}
-              <ErrorText>{errors.typeOfWork}</ErrorText>
+            <Box sx={{ mt: 1.5 }}>
+              <DetailRow label="Section">{section?.name}</DetailRow>
+              <DetailRow label="Type of work">{type?.full}</DetailRow>
+              <DetailRow label="Road">{d.roadName.trim()}</DetailRow>
+              <DetailRow label="Length">{Number(d.subSectionLength) > 0 ? `${d.subSectionLength} m` : null}</DetailRow>
             </Box>
-            <Box>
-              {textField("roadName", "Road name", { placeholder: "e.g. NH 66" })}
-              {roads.length > 0 && (
-                <Box sx={{ mt: 1 }}>
-                  <ChipGroup options={roads} value={null} onChange={(v) => set("roadName", v)} size="small" />
-                </Box>
-              )}
-            </Box>
-            <Box>
-              {latLongField("fromLatLong", "From (lat, long)", "9.280830, 76.458600")}
-              {previous?.toLatLong && (
-                <Chip
-                  icon={<LinkIcon />}
-                  label={`Continue from ${previous.name}`}
-                  onClick={() => set("fromLatLong", previous.toLatLong)}
-                  color="primary"
-                  variant="outlined"
-                  size="small"
-                  sx={{ mt: 1 }}
-                />
-              )}
-            </Box>
-            {latLongField("toLatLong", "To (lat, long)", "9.281700, 76.457900")}
-            <Box>
-              {textField("subSectionLength", "Length (m)", { placeholder: "e.g. 120", slotProps: { htmlInput: { inputMode: "decimal" } } })}
-              {straight != null ? (
-                <Chip
-                  icon={<StraightenIcon />}
-                  label={`Use straight-line distance · ${fmtDistance(straight)}`}
-                  onClick={() => set("subSectionLength", String(straight))}
-                  color="primary"
-                  variant="outlined"
-                  size="small"
-                  sx={{ mt: 1 }}
-                />
-              ) : (
-                <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.75 }}>
-                  Fill From and To to get a suggested length.
-                </Typography>
-              )}
-            </Box>
-          </Card>
-        </>
-      )}
-
-      {step === "site" && (
-        <Card sx={{ p: 2.5, display: "grid", gap: 2.5 }}>
-          <Box>
-            <FieldLabel>Terrain</FieldLabel>
-            <ChipGroup
-              options={config?.options?.terrain || []}
-              value={d.terrain}
-              onChange={(v) => set("terrain", v, "initialCondition.terrain")}
-              allowClear
-              error={Boolean(errors["initialCondition.terrain"])}
-            />
-            <ErrorText>{errors["initialCondition.terrain"]}</ErrorText>
-          </Box>
-          <Box>
-            <FieldLabel optional>Crossing</FieldLabel>
-            <ChipGroup options={config?.options?.crossing || []} value={d.crossing} onChange={(v) => set("crossing", v, "initialCondition.crossing")} allowClear />
-          </Box>
-          <Box>
-            <FieldLabel>OFC side</FieldLabel>
-            <ChipGroup
-              options={config?.options?.ofcSide || []}
-              value={d.ofcSide}
-              onChange={(v) => set("ofcSide", v, "initialCondition.ofcSide")}
-              allowClear
-              error={Boolean(errors["initialCondition.ofcSide"])}
-            />
-            <ErrorText>{errors["initialCondition.ofcSide"]}</ErrorText>
-          </Box>
-          {textField("roadFeatures", "Road features (optional)", { placeholder: "e.g. Two-lane bitumen road, drain on LHS", multiline: true, minRows: 2 })}
-          {textField("authorityName", "Authority name (optional)", { placeholder: "e.g. PWD Roads, Harippad section" })}
-        </Card>
-      )}
-
-      {step === "photos" && (
-        <Card sx={{ p: 2.5 }}>
-          <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
-            Photograph and film the area as it is today. The first photo becomes the &quot;before&quot; picture when the section is restored.
-          </Typography>
-          <MediaPicker
-            rule={config?.mediaRules?.siteCondition || { minPhotos: 1, maxPhotos: 4, video: "required" }}
-            value={{ photos: d.photos, video: d.video }}
-            onUpdate={(fn) =>
-              update((prev) => {
-                const nextMedia = fn({ photos: prev.photos, video: prev.video });
-                return { ...prev, photos: nextMedia.photos, video: nextMedia.video };
-              })
-            }
-            errors={{ photos: errors["initialCondition.photos"], video: errors["initialCondition.video"] }}
-          />
-          <Box sx={{ mt: 2.5 }}>
-            {textField("remarks", "Condition note (optional)", { placeholder: "e.g. Bitumen surface intact, no existing damage", multiline: true, minRows: 2 })}
-          </Box>
-        </Card>
-      )}
+          </SectionCard>
+        </Grid>
+      </Grid>
 
       <StickyActionBar>
         {index > 0 && (

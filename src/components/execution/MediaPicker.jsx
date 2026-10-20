@@ -11,6 +11,7 @@ import { fmtDuration, isAboveLimit } from "../../utils/executionFormat";
 import { openGeoCamera } from "./geoCamera";
 import ExecMediaViewer from "./ExecMediaViewer";
 import { mediaSrc, newMediaItem, posterSrc, uploadItem } from "./mediaItems";
+import { tint } from "./execSx";
 
 const SIZE = 88;
 
@@ -51,7 +52,7 @@ export const MediaThumb = ({ media, onClick, size = SIZE }) => {
         </Box>
       )}
       {media.uploadStatus === "failed" && (
-        <Box sx={{ position: "absolute", inset: 0, bgcolor: "rgba(185,28,28,0.75)", display: "grid", placeItems: "center", color: "#fff", fontSize: 12, fontWeight: 600 }}>
+        <Box sx={{ position: "absolute", inset: 0, bgcolor: tint("error", 0.75), display: "grid", placeItems: "center", color: "#fff", fontSize: 12, fontWeight: 600 }}>
           <RefreshIcon />
           Retry
         </Box>
@@ -75,7 +76,7 @@ const AddTile = ({ icon, label, onClick, error }) => (
       border: "1px dashed",
       borderColor: error ? "error.main" : "primary.main",
       color: error ? "error.main" : "primary.main",
-      bgcolor: error ? "rgba(185,28,28,0.04)" : "rgba(29,78,216,0.04)",
+      bgcolor: error ? tint("error", 0.04) : tint("primary", 0.04),
       flexDirection: "column",
       gap: 0.5,
       fontSize: 12,

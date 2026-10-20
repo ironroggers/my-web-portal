@@ -4,6 +4,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import BusinessOutlinedIcon from "@mui/icons-material/BusinessOutlined";
 import ApartmentOutlinedIcon from "@mui/icons-material/ApartmentOutlined";
 import CableOutlinedIcon from "@mui/icons-material/CableOutlined";
+import { tint } from "../execution/execSx";
 
 const Mark = ({ icon, label, done }) => (
   <Box
@@ -14,7 +15,7 @@ const Mark = ({ icon, label, done }) => (
       px: 1,
       py: 0.25,
       borderRadius: 999,
-      bgcolor: done ? "rgba(21,128,61,0.1)" : "action.hover",
+      bgcolor: done ? tint("success", 0.1) : "action.hover",
       color: done ? "success.dark" : "text.secondary",
       whiteSpace: "nowrap",
     }}

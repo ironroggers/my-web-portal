@@ -187,11 +187,11 @@ const BlockDiagramsPanel = ({ blockProfile }) => {
   } else if (view === "l14") {
     body = (
       <>
-        <Box sx={{ overflowX: "auto", border: 1, borderColor: "divider", borderRadius: 1 }}>
+        <Card sx={{ overflowX: "auto" }}>
           <Box sx={{ minWidth: 820 }}>
             <L14Schematic ref={svgRef} blockProfile={blockProfile} features={features} onSelect={setSelected} />
           </Box>
-        </Box>
+        </Card>
         <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.75 }}>
           Joint closures aren&apos;t recorded on their own yet, so they are derived: a BJC where three or more routes meet, an SJC at each splicing point. Mark a section as an existing route in its edit dialog to draw it dashed.
         </Typography>
