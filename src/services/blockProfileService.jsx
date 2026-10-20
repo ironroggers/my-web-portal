@@ -1,16 +1,11 @@
 import { EXECUTION_URL } from "../API/api-keys.jsx";
+import { executionHeaders } from "./executionService.jsx";
 
 const base = EXECUTION_URL?.replace(/\/$/, "");
 
-// The execution service doesn't check tokens yet; sending one now means
-// nothing changes here once it does.
-const headers = () => {
-  const token = localStorage.getItem("token");
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-};
+// The execution service doesn't check tokens yet; sending one now means nothing changes
+// here once it does. The X-User-* headers say who is asking (the demo block is ADMIN only).
+const headers = () => executionHeaders();
 
 // Errors keep the status and per-field messages so forms can point at the right input
 const handle = async (res) => {

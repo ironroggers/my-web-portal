@@ -118,6 +118,10 @@ const executionService = {
   rejectRestoration: (sectionId, version, remark) =>
     request(`/api/sections/${id(sectionId)}/restoration/reject`, { method: "POST", body: { version, remark } }),
 
+  // ---- demo block (ADMIN only): status, and build it again from scratch
+  getDemoBlock: () => request("/api/demo/block"),
+  resetDemoBlock: () => request("/api/demo/block/reset", { method: "POST" }),
+
   // ---- inboxes
   listApprovals: (filters = {}) => request("/api/approvals", { query: filters }),
   getMyWork: () => request("/api/my-work"),
