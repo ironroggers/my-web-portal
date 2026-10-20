@@ -3,7 +3,6 @@ import { Alert, Box, Button, Card, CircularProgress, IconButton, MenuItem, Skele
 import { useNavigate, useSearchParams } from "react-router-dom";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import TimelineIcon from "@mui/icons-material/Timeline";
-import HubOutlinedIcon from "@mui/icons-material/HubOutlined";
 import AccountTreeOutlinedIcon from "@mui/icons-material/AccountTreeOutlined";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import executionService from "../../../services/executionService.jsx";
@@ -11,30 +10,25 @@ import { fmtDateTime, fmtDistance } from "../../../utils/executionFormat";
 import { useLoader } from "../../execution/useLoader";
 import { EmptyState } from "../../execution/execUi";
 import L14Diagram, { L14Legend } from "./L14Diagram";
-import TopologyMap from "./TopologyMap";
 import L14Schematic from "./L14Schematic";
-import { allPoints, buildFeatures } from "./blockFeatures";
-import { makeProjection } from "./projection";
-import { exportA4Pdf, imageAsDataUrl } from "./exportPdf";
+import { buildFeatures } from "./blockFeatures";
+import { exportA4Pdf } from "./exportPdf";
 import { showToast } from "../../execution/toast";
 import { titleCase } from "../../execution/execConstants";
 import { DetailPanel, L14Button, MediaList, NodeDetail, OpenButton, SectionDetail, SubsectionDetail } from "./DiagramDetails";
 import { nodeKey, nodeTitle } from "./diagramGeometry";
 
 /**
- * Diagrams tab: the block topology (plotted from captured lat/long, with or without a
- * map behind it), the L-14 schematic of the whole block, and one section's chainage
- * strip. Same data as the Map tab (GET /api/block-profiles/:id/map). Clicking anything
- * opens its details in a side panel; topology and L-14 export as A4 PDFs. The view,
- * map choice and section are kept in the URL.
+ * Diagrams tab: the L-14 schematic of the whole block (exports as an A4 PDF) and one
+ * section's chainage strip. Same data as the Map tab (GET /api/block-profiles/:id/map).
+ * Clicking anything opens its details in a side panel. The view and section are kept
+ * in the URL.
  */
 const BlockDiagramsPanel = ({ blockProfile }) => {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const view = ["l14", "section"].includes(params.get("view")) ? params.get("view") : "topology";
-  const withMap = params.get("map") !== "0";
+  const view = params.get("view") === "section" ? "section" : "l14";
   const svgRef = useRef(null);
-  const [layers, setLayers] = useState({ landmark: false });
   const [exporting, setExporting] = useState(false);
   const [selected, setSelected] = useState(null);
   const blockProfileId = blockProfile._id;
@@ -125,32 +119,13 @@ const BlockDiagramsPanel = ({ blockProfile }) => {
     return { title: selected.title, subtitle: section?.name, body: <MediaList items={selected.items} /> };
   })();
 
-  // The static map behind the topology (also used for the PDF)
-  const mapUrl = useMemo(() => {
-    if (view !== "topology" || !withMap || !data) return null;
-    return makeProjection(allPoints(features), { x: 16, y: 72, w: 1156, h: 744 }, { withMap: true }).map?.url || null;
-  }, [view, withMap, data, features]);
-
   const exportPdf = async () => {
     if (!svgRef.current) return;
     try {
       setExporting(true);
-      const block = titleCase(blockProfile.block).replace(/[^A-Za-z0-9]+/g, "-");
-      let mapIncluded = true;
-      // The map image has to be inline in the SVG to end up in the PDF
-      const image = svgRef.current.querySelector("image");
-      let original = null;
-      if (image && mapUrl) {
-        const dataUrl = await imageAsDataUrl(mapUrl);
-        if (dataUrl) {
-          original = image.getAttribute("href");
-          image.setAttribute("href", dataUrl);
-        } else mapIncluded = false;
-      }
-      const name = view === "l14" ? `L14-${block}.pdf` : `Topology-${block}${withMap && mapIncluded ? "" : "-no-map"}.pdf`;
+      const name = `L14-${titleCase(blockProfile.block).replace(/[^A-Za-z0-9]+/g, "-")}.pdf`;
       await exportA4Pdf(svgRef.current, name, `${titleCase(blockProfile.block)} · LGD ${blockProfile.blockCode} · generated ${fmtDateTime(new Date())} IST · Locus`);
-      if (original) image.setAttribute("href", original);
-      showToast(view === "topology" && withMap && !mapIncluded ? "Exported without the map: the map image couldn't be included" : `Saved ${name}`, view === "topology" && withMap && !mapIncluded ? "warning" : "success");
+      showToast(`Saved ${name}`);
     } catch (e) {
       showToast(e.message || "Export failed", "error");
     } finally {
@@ -162,10 +137,6 @@ const BlockDiagramsPanel = ({ blockProfile }) => {
   const toolbar = (
     <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap", mb: 2 }}>
       <ToggleButtonGroup size="small" exclusive value={view} onChange={(e, v) => v && setView(v)} aria-label="Diagram">
-        <ToggleButton value="topology">
-          <HubOutlinedIcon fontSize="small" sx={{ mr: 0.75 }} />
-          Block topology
-        </ToggleButton>
         <ToggleButton value="l14">
           <AccountTreeOutlinedIcon fontSize="small" sx={{ mr: 0.75 }} />
           L-14
@@ -185,12 +156,7 @@ const BlockDiagramsPanel = ({ blockProfile }) => {
         </TextField>
       )}
       <Box sx={{ flex: 1 }} />
-      {view === "topology" && (
-        <Button variant="outlined" size="small" onClick={() => setView("topology", { map: withMap ? "0" : "1" })}>
-          {withMap ? "Without map" : "With map"}
-        </Button>
-      )}
-      {(view === "topology" || view === "l14") && data && (
+      {view === "l14" && data && (
         <Button
           variant="contained"
           size="small"
@@ -217,29 +183,6 @@ const BlockDiagramsPanel = ({ blockProfile }) => {
       </Alert>
     ) : (
       <Skeleton variant="rounded" height={420} />
-    );
-  } else if (view === "topology") {
-    body = (
-      <>
-        <Box sx={{ overflowX: "auto", border: 1, borderColor: "divider", borderRadius: 1 }}>
-          <Box sx={{ minWidth: 820 }}>
-            <TopologyMap
-              ref={svgRef}
-              blockProfile={blockProfile}
-              features={features}
-              layers={layers}
-              onToggleLayer={(key) => setLayers((l) => ({ ...l, [key]: l[key] === false }))}
-              withMap={withMap}
-              mapImage={mapUrl}
-              onSelect={setSelected}
-            />
-          </Box>
-        </Box>
-        <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.75 }}>
-          Plotted from the captured lat/long of every layer. Click a legend row to show or hide that layer; click anything on the diagram for its details.
-          Routes follow the captured pits and entries of each section.{withMap ? " The map background is a Google static map (one request each time it's drawn)." : ""}
-        </Typography>
-      </>
     );
   } else if (view === "l14") {
     body = (

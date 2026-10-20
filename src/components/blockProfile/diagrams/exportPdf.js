@@ -1,37 +1,13 @@
 import { jsPDF } from "jspdf";
 
-// A4 landscape PDF of a diagram SVG. The SVG carries its own title, legend, north arrow
-// and scale bar; it's drawn onto a canvas at print resolution and placed on the page.
-
-const blobToDataUrl = (blob) =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-
-/** Fetch an image as a data URL (null when the server doesn't allow it, e.g. no CORS) */
-export const imageAsDataUrl = async (url) => {
-  try {
-    const res = await fetch(url, { mode: "cors" });
-    if (!res.ok) return null;
-    return await blobToDataUrl(await res.blob());
-  } catch {
-    return null;
-  }
-};
+// A4 landscape PDF of a diagram SVG. The SVG carries its own title and legend;
+// it is drawn onto a canvas at print resolution and placed on the page.
 
 const svgToJpeg = (svg, width, height, scale) =>
   new Promise((resolve, reject) => {
     const clone = svg.cloneNode(true);
     clone.setAttribute("width", String(width));
     clone.setAttribute("height", String(height));
-    // Images inside an SVG drawn as an image must be inline; drop any that aren't
-    clone.querySelectorAll("image").forEach((img) => {
-      const href = img.getAttribute("href") || "";
-      if (!href.startsWith("data:")) img.remove();
-    });
     const xml = new XMLSerializer().serializeToString(clone);
     const url = URL.createObjectURL(new Blob([xml], { type: "image/svg+xml;charset=utf-8" }));
     const image = new Image();

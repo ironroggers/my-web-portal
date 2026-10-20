@@ -64,11 +64,3 @@ export const buildFeatures = (blockProfile, data) => {
 
   return { nodes, nodeByKey, routes, joints, structures, ri, landmarks, crossings, degree, branches };
 };
-
-export const allPoints = (f) => [
-  ...f.nodes.map((n) => n.p),
-  ...f.routes.flatMap((r) => r.points),
-  ...f.joints.map((x) => x.p),
-  ...f.structures.map((x) => x.p),
-  ...f.ri.map((x) => x.p),
-];
