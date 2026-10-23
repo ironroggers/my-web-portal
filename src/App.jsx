@@ -37,6 +37,7 @@ import BlockProfileDetailPage from "./components/blockProfile/BlockProfileDetail
 // OFC execution
 import SectionSubsectionsRoute from "./components/execution/pages/SectionSubsectionsRoute";
 import InfraCapturePage from "./components/execution/pages/InfraCapturePage";
+import InfraEquipmentPage from "./components/blockProfile/InfraEquipmentPage";
 import SubsectionCreatePage from "./components/execution/pages/SubsectionCreatePage";
 import SubsectionJobPage from "./components/execution/pages/SubsectionJobPage";
 import ExecutionPointPage from "./components/execution/pages/ExecutionPointPage";
@@ -239,6 +240,30 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <InfraCapturePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/block-profiles/:blockProfileId/equipment"
+                element={
+                  <ProtectedRoute>
+                    <InfraEquipmentPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/block-profiles/:blockProfileId/equipment/:form"
+                element={
+                  <ProtectedRoute>
+                    <InfraEquipmentPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/block-profiles/:blockProfileId/gps/:lgdCode/equipment/:form"
+                element={
+                  <ProtectedRoute>
+                    <InfraEquipmentPage />
                   </ProtectedRoute>
                 }
               />

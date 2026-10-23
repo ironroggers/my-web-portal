@@ -397,8 +397,12 @@ const BlockProfileDetailPage = () => {
       </Tabs>
 
       {tab === "overview" && <Overview profile={profile} />}
-      {tab === "block" && <BlockInfraPanel blockProfile={profile} canCapture={can("captureInfra")} />}
-      {tab === "gps" && <GpInfraPanel blockProfile={profile} canCapture={can("captureInfra")} />}
+      {tab === "block" && (
+        <BlockInfraPanel blockProfile={profile} canCapture={can("captureInfra")} canEditEquipment={can("manageInfraEquipment")} />
+      )}
+      {tab === "gps" && (
+        <GpInfraPanel blockProfile={profile} canCapture={can("captureInfra")} canEditEquipment={can("manageInfraEquipment")} />
+      )}
       {tab === "sections" && <BlockSectionsPanel blockProfile={profile} canManage={can("createSection")} onChanged={loadProfile} />}
       {tab === "diagrams" && <BlockDiagramsPanel blockProfile={profile} />}
       {tab === "map" && (

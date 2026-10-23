@@ -7,6 +7,7 @@ import {
   Card,
   Chip,
   CircularProgress,
+  GlobalStyles,
   Grid,
   IconButton,
   Link,
@@ -36,9 +37,13 @@ import { posterSrc, mediaSrc } from "../execution/mediaItems";
 import { titleCase } from "../execution/execConstants";
 import { useLoader } from "../execution/useLoader";
 import { formatDate } from "./blockProfileConstants";
+import EquipmentDetails from "./EquipmentDetails";
+import { MISC_TYPE_TAGS } from "./equipmentForms";
 import {
+  BADGE_PATH,
   BHQ_COLOR,
   DIAMOND_PATH,
+  EQUIPMENT_COLORS,
   GP_COLOR,
   INFRA_COLORS,
   MEDIA_KIND,
@@ -47,6 +52,7 @@ import {
   PIN_PATH,
   REF_COLOR,
   RESTORATION_COLORS,
+  RING_COLOR,
   SQUARE_PATH,
   STATUS_COLORS,
   circleSymbol,
@@ -61,8 +67,28 @@ const DEFAULT_ZOOM = 8;
 const MAP_CONTAINER_STYLE = { width: "100%", height: "100%" };
 const MAP_OPTIONS = { streetViewControl: false, mapTypeControl: true, fullscreenControl: true };
 
-// One colour per KML file so overlapping routes stay distinguishable
-const KML_COLORS = ["#2563eb", "#ea580c", "#db2777", "#ca8a04", "#0891b2", "#92400e"];
+// One colour per KML file so overlapping routes stay distinguishable; none is used by another layer
+const KML_COLORS = ["#f97316", "#ca8a04", "#e11d48", "#0e7490", "#65a30d", "#78350f"];
+
+// Names show next to the network points from this zoom in; further out they'd overlap
+const NAME_ZOOM = 12;
+const EQUIPMENT_FORMS_ON_MAP = [
+  { key: "block", label: "Block router" },
+  { key: "gp", label: "GP router" },
+  { key: "misc", label: "Misc" },
+];
+const EQUIPMENT_TITLES = { block: "Block equipment", gp: "GP equipment", misc: "Misc equipment" };
+// Code inside the equipment badge: R for routers, the asset-code tag for misc (RA, FD, FT, CC, SP)
+const equipmentCode = (e) => (e.form === "misc" ? MISC_TYPE_TAGS[e.equipmentType] || "M" : "R");
+const equipmentColor = (e) => (e.form === "misc" ? EQUIPMENT_COLORS.misc : EQUIPMENT_COLORS.router);
+// Dashed line with an arrow halfway, pointing clockwise (previous → next node)
+const ringIcons = (color) => [
+  { icon: { path: "M 0,-1 0,1", strokeOpacity: 1, strokeColor: color, scale: 2 }, offset: "0", repeat: "10px" },
+  {
+    icon: { path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 3, strokeColor: color, strokeOpacity: 1, fillColor: color, fillOpacity: 1 },
+    offset: "50%",
+  },
+];
 const kmlColor = (index) => KML_COLORS[index % KML_COLORS.length];
 
 const SUB_STATUSES = ["NOT_STARTED", "IN_PROGRESS", "PENDING_APPROVAL", "APPROVED", "REJECTED"];
@@ -100,7 +126,50 @@ const Line = ({ color, dashed, thick }) => (
   <Box sx={{ width: 22, height: 0, borderTop: `${thick ? 5 : 3}px ${dashed ? "dashed" : "solid"} ${color}`, opacity: thick ? 0.5 : 1 }} />
 );
 
+const Badge = ({ color, text }) => (
+  <Box
+    sx={{
+      minWidth: 22,
+      height: 15,
+      px: 0.25,
+      borderRadius: 0.75,
+      bgcolor: color,
+      color: "#fff",
+      fontSize: 9,
+      fontWeight: 700,
+      lineHeight: "15px",
+      textAlign: "center",
+      border: "1.5px solid #fff",
+      boxShadow: "0 0 0 1px rgba(0,0,0,0.2)",
+    }}
+  >
+    {text}
+  </Box>
+);
+
 const Swatch = ({ children }) => <Box sx={{ width: 24, display: "flex", justifyContent: "center", flexShrink: 0 }}>{children}</Box>;
+
+/** A swatch and its meaning, inside a layer's legend */
+const Key = ({ swatch, children, action }) => (
+  <Box sx={{ display: "flex", alignItems: "center", gap: 1, minHeight: 22 }}>
+    <Swatch>{swatch}</Swatch>
+    <Typography variant="caption" sx={{ flex: 1 }}>
+      {children}
+    </Typography>
+    {action}
+  </Box>
+);
+
+/** Heading over a group of layers */
+const GroupHeading = ({ children }) => (
+  <Typography
+    variant="overline"
+    component="div"
+    sx={{ px: 2, pt: 1.25, pb: 0.25, color: "text.secondary", bgcolor: "action.hover", borderBottom: 1, borderColor: "divider", lineHeight: 1.8 }}
+  >
+    {children}
+  </Typography>
+);
 
 /** One layer: switch, swatch, label and count; its filters show while it's on */
 const LayerRow = ({ swatch, label, count, checked, onChange, children, disabled }) => (
@@ -158,6 +227,19 @@ const Line2 = ({ children }) =>
       {children}
     </Typography>
   ) : null;
+
+// One line per thing recorded at a site (BHQ or GP), with a link to open it
+const SiteLine = ({ label, done, text, onOpen }) => (
+  <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, py: 0.25 }}>
+    <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: done ? "success.main" : "text.disabled", flexShrink: 0 }} />
+    <Typography variant="caption" sx={{ flex: 1 }}>
+      <b>{label}:</b> {text}
+    </Typography>
+    <Link component="button" variant="caption" onClick={onOpen}>
+      Open
+    </Link>
+  </Box>
+);
 
 export const MediaRow = ({ m, limit, onOpen }) => {
   const kind = MEDIA_KIND[m.kind];
@@ -218,8 +300,23 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
   const [hidden, setHidden] = useState(() => new Set());
   const lastFitKeyRef = useRef("");
 
-  // Layers and their filters
-  const [layers, setLayers] = useState({ network: true, blockInfra: true, gpInfra: true, sections: true, subsections: true, refs: true, media: true });
+  const [zoom, setZoom] = useState(DEFAULT_ZOOM);
+
+  // Layers and their filters. Attachments and reference points start off: they are many
+  // small dots that hide the network until someone looks for them.
+  const [layers, setLayers] = useState({
+    network: true,
+    names: true,
+    blockInfra: true,
+    gpInfra: true,
+    equipment: true,
+    rings: true,
+    sections: true,
+    subsections: true,
+    refs: false,
+    media: false,
+  });
+  const [equipmentForms, setEquipmentForms] = useState(() => new Set(EQUIPMENT_FORMS_ON_MAP.map((f) => f.key)));
   const [subStatuses, setSubStatuses] = useState(() => new Set([...SUB_STATUSES, "LEGACY"]));
   const [mediaKinds, setMediaKinds] = useState(() => new Set(MEDIA_KINDS.map((k) => k.key)));
   const [fileTypes, setFileTypes] = useState(() => new Set(["IMAGE", "VIDEO"]));
@@ -265,6 +362,50 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
   );
 
   const infra = useMemo(() => (data?.infra || []).filter((i) => Number.isFinite(i.lat)), [data]);
+  const equipment = useMemo(() => (data?.equipment || []).filter((e) => Number.isFinite(e.lat)), [data]);
+  const visibleEquipment = equipment.filter((e) => equipmentForms.has(e.form));
+
+  // Where a ring node is: its equipment sheet's location, else the BHQ / GP coordinates
+  const nodePosition = useCallback(
+    (code) => {
+      if (code === blockProfile.bhq?.code) {
+        const e = equipment.find((x) => x.form === "block");
+        return e ? { lat: e.lat, lng: e.lng } : bhqPoint;
+      }
+      const e = equipment.find((x) => x.form === "gp" && x.gpLgdCode === code);
+      if (e) return { lat: e.lat, lng: e.lng };
+      return gpPoints.find(({ gp }) => gp.lgdCode === code)?.point || null;
+    },
+    [equipment, bhqPoint, gpPoints, blockProfile.bhq?.code]
+  );
+  const nodeName = useCallback(
+    (code) => (code === blockProfile.bhq?.code ? blockProfile.bhq.name : (blockProfile.gps || []).find((g) => g.lgdCode === code)?.name || code),
+    [blockProfile.bhq, blockProfile.gps]
+  );
+
+  // Ring links from the GP sheets' previous / next node, once per direction
+  const ringLinks = useMemo(() => {
+    const links = new Map();
+    const add = (from, to, distanceM) => {
+      if (!from || !to || from === to) return;
+      const key = `${from}>${to}`;
+      const existing = links.get(key);
+      if (existing) {
+        if (existing.distanceM == null) existing.distanceM = distanceM;
+        return;
+      }
+      const a = nodePosition(from);
+      const b = nodePosition(to);
+      if (a && b) links.set(key, { key, from, to, a, b, distanceM });
+    };
+    equipment
+      .filter((e) => e.form === "gp")
+      .forEach((e) => {
+        add(e.prevNode, e.gpLgdCode, e.prevNodeDistanceM);
+        add(e.gpLgdCode, e.nextNode, e.nextNodeDistanceM);
+      });
+    return [...links.values()];
+  }, [equipment, nodePosition]);
   const sections = useMemo(() => (data?.sections || []).filter((s) => s.from && s.to), [data]);
   const subsections = useMemo(() => data?.subsections || [], [data]);
   const allMedia = useMemo(() => data?.media || [], [data]);
@@ -286,13 +427,20 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
       ...gpPoints.map(({ point }) => point),
       ...kmlFiles.flatMap((file) => (kmlState[file._id]?.features || []).flatMap(featurePoints)),
       ...infra.map((i) => ({ lat: i.lat, lng: i.lng })),
+      ...equipment.map((e) => ({ lat: e.lat, lng: e.lng })),
       ...sections.flatMap((s) => [s.from, s.to]),
       ...subsections.flatMap((s) => [s.from, s.to, s.start, s.end, ...s.entries].filter(Boolean).map((p) => ({ lat: p.lat, lng: p.lng }))),
       ...allMedia.map((m) => ({ lat: m.lat, lng: m.lng })),
     ],
-    [router, bhqPoint, gpPoints, kmlFiles, kmlState, infra, sections, subsections, allMedia]
+    [router, bhqPoint, gpPoints, kmlFiles, kmlState, infra, equipment, sections, subsections, allMedia]
   );
-  const fitKey = [router ? formatPoint(router) : "", bhqPoint ? formatPoint(bhqPoint) : "", gpPoints.length, loadedKmlIds.join(","), data ? `${infra.length}/${sections.length}/${subsections.length}/${allMedia.length}` : ""].join("|");
+  const fitKey = [
+    router ? formatPoint(router) : "",
+    bhqPoint ? formatPoint(bhqPoint) : "",
+    gpPoints.length,
+    loadedKmlIds.join(","),
+    data ? `${infra.length}/${equipment.length}/${sections.length}/${subsections.length}/${allMedia.length}` : "",
+  ].join("|");
 
   useEffect(() => {
     if (!map || points.length === 0 || fitKey === lastFitKeyRef.current) return;
@@ -344,6 +492,10 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
   };
 
   const routerColor = theme.palette.secondary.main;
+  const showNames = layers.names && zoom >= NAME_ZOOM;
+  // A name under a network point, with a white halo (.block-map-name) so it reads on any map tile
+  const nameLabel = (text) =>
+    showNames ? { text: titleCase(text), className: "block-map-name", color: "#111827", fontSize: "11px", fontWeight: "600" } : undefined;
   const unmappedGps = (blockProfile.gps?.length || 0) - gpPoints.length;
   const blockState = { blockProfileId, blockProfileName: blockProfile.block };
   const openSection = (id, name) => navigate(`/sections/${id}/subsections`, { state: { ...blockState, sectionId: id, sectionName: name } });
@@ -363,6 +515,93 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
         ))}
       </>
     ));
+
+  const gpPath = (code) => `/block-profiles/${blockProfileId}/gps/${encodeURIComponent(code)}`;
+  const go = (path) => navigate(path, { state: blockState });
+
+  // BHQ or GP: what's recorded there, so one click answers "what is this and how far along is it"
+  const infoSite = (position, { name, kind, code, infraOf, sheets }) => {
+    const capture = (data?.infra || []).find(infraOf);
+    select(position, (
+      <Box sx={{ width: 260 }}>
+        <InfoTitle sub={`${kind} · ${code}`}>{titleCase(name)}</InfoTitle>
+        <Line2>{formatPoint(position)}</Line2>
+        <Box sx={{ mt: 0.75 }}>
+          <SiteLine
+            label="Infra capture"
+            done={Boolean(capture)}
+            text={capture ? `${capture.photoCount} ${capture.photoCount === 1 ? "photo" : "photos"}` : "not captured"}
+            onOpen={() => go(sheets.infraPath)}
+          />
+          {sheets.forms.map(({ form, path }) => {
+            // Block-level sheets have no GP code
+            const e = (data?.equipment || []).find((x) => x.form === form && (x.gpLgdCode || null) === sheets.gpLgdCode);
+            return (
+              <SiteLine
+                key={form}
+                label={EQUIPMENT_TITLES[form]}
+                done={Boolean(e)}
+                text={e ? e.assetCode : "not filled"}
+                onOpen={() => (e && Number.isFinite(e.lat) ? infoEquipment(e) : go(path))}
+              />
+            );
+          })}
+        </Box>
+      </Box>
+    ));
+  };
+
+  const infoGp = (gp, point) =>
+    infoSite(point, {
+      name: gp.name,
+      kind: "Gram Panchayat · LGD",
+      code: gp.lgdCode,
+      infraOf: (i) => i.level === "GP" && i.gpLgdCode === gp.lgdCode,
+      sheets: {
+        gpLgdCode: gp.lgdCode,
+        infraPath: `${gpPath(gp.lgdCode)}/infra`,
+        forms: [
+          { form: "gp", path: `${gpPath(gp.lgdCode)}/equipment/gp` },
+          { form: "misc", path: `${gpPath(gp.lgdCode)}/equipment/misc` },
+        ],
+      },
+    });
+
+  const infoBhq = () =>
+    infoSite(bhqPoint, {
+      name: blockProfile.bhq.name,
+      kind: "Block HQ · code",
+      code: blockProfile.bhq.code,
+      infraOf: (i) => i.level === "BLOCK",
+      sheets: {
+        gpLgdCode: null,
+        infraPath: `/block-profiles/${blockProfileId}/infra`,
+        forms: [
+          { form: "block", path: `/block-profiles/${blockProfileId}/equipment/block` },
+          { form: "misc", path: `/block-profiles/${blockProfileId}/equipment/misc` },
+        ],
+      },
+    });
+
+  // Every value of an equipment sheet, as on the Block infra / GPs tabs
+  const infoEquipment = (e) =>
+    select({ lat: e.lat, lng: e.lng }, (
+      <Box sx={{ width: 300 }}>
+        <InfoTitle sub={[titleCase(e.name), e.assetCode].filter(Boolean).join(" · ")}>{EQUIPMENT_TITLES[e.form]}</InfoTitle>
+        <Box sx={{ maxHeight: 300, overflowY: "auto", pr: 1, my: 0.5 }}>
+          <EquipmentDetails formKey={e.form} record={e} columns={{ xs: 1 }} />
+        </Box>
+        <Link component="button" variant="caption" onClick={() => go(e.gpLgdCode ? `${gpPath(e.gpLgdCode)}/equipment/${e.form}` : `/block-profiles/${blockProfileId}/equipment/${e.form}`)}>
+          Open form
+        </Link>
+      </Box>
+    ));
+
+  const infoRing = (link, position) =>
+    infoNode(position, `${titleCase(nodeName(link.from))} → ${titleCase(nodeName(link.to))}`, [
+      "Ring link (clockwise), from the GP equipment sheets",
+      link.distanceM != null ? `Optical length ${fmtDistance(link.distanceM)}` : "Optical length not entered",
+    ]);
 
   const infoInfra = (i) =>
     select({ lat: i.lat, lng: i.lng }, (
@@ -503,6 +742,7 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
       options={MAP_OPTIONS}
       onLoad={setMap}
       onUnmount={() => setMap(null)}
+      onZoomChanged={() => map && setZoom(map.getZoom())}
       onClick={() => setSelected(null)}
     >
       {kmlFiles.map((file, index) =>
@@ -523,31 +763,44 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
 
       {layers.subsections && visibleSubs.map(renderSubsection)}
 
+      {layers.rings &&
+        ringLinks.map((link) => (
+          <Polyline
+            key={link.key}
+            path={[link.a, link.b]}
+            options={{ strokeOpacity: 0, icons: ringIcons(RING_COLOR), zIndex: 2 }}
+            onClick={(e) => infoRing(link, e.latLng.toJSON())}
+          />
+        ))}
+
       {layers.network &&
         gpPoints.map(({ gp, point }) => (
           <Marker
             key={gp.lgdCode}
             position={point}
-            title={`GP: ${gp.name}`}
-            icon={symbol(DIAMOND_PATH, GP_COLOR)}
+            title={`GP: ${titleCase(gp.name)} (LGD ${gp.lgdCode})`}
+            icon={symbol(DIAMOND_PATH, GP_COLOR, { labelBelow: 21 })}
+            label={nameLabel(gp.name)}
             zIndex={9}
-            onClick={() => infoNode(point, gp.name, ["Gram Panchayat", `LGD ${gp.lgdCode}`, formatPoint(point)])}
+            onClick={() => infoGp(gp, point)}
           />
         ))}
       {layers.network && bhqPoint && (
         <Marker
           position={bhqPoint}
-          title={`BHQ: ${blockProfile.bhq.name}`}
-          icon={symbol(SQUARE_PATH, BHQ_COLOR)}
+          title={`BHQ: ${titleCase(blockProfile.bhq.name)}`}
+          icon={symbol(SQUARE_PATH, BHQ_COLOR, { labelBelow: 20 })}
+          label={nameLabel(`${blockProfile.bhq.name} (BHQ)`)}
           zIndex={10}
-          onClick={() => infoNode(bhqPoint, blockProfile.bhq.name, ["Block HQ (BHQ)", `Code ${blockProfile.bhq.code}`, formatPoint(bhqPoint)])}
+          onClick={infoBhq}
         />
       )}
       {layers.network && router && (
         <Marker
           position={router}
           title="Block router"
-          icon={circleSymbol(routerColor, 9)}
+          icon={circleSymbol(routerColor, 9, { labelBelow: 2.4 })}
+          label={nameLabel("Block router")}
           zIndex={10}
           onClick={() => infoNode(router, "Block router", [blockProfile.blockRouter?.address, formatPoint(router)])}
         />
@@ -560,10 +813,22 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
             key={i._id}
             position={{ lat: i.lat, lng: i.lng }}
             icon={symbol(PIN_PATH, INFRA_COLORS[i.level])}
-            label={{ text: String(i.photoCount), color: "#ffffff", fontSize: "10px", fontWeight: "700" }}
             zIndex={11}
-            title={`${i.level === "BLOCK" ? "Block infra" : "GP infra"}: ${titleCase(i.name)}`}
+            title={`${i.level === "BLOCK" ? "Block infra capture" : "GP infra capture"}: ${titleCase(i.name)} · ${i.photoCount} ${i.photoCount === 1 ? "photo" : "photos"}`}
             onClick={() => infoInfra(i)}
+          />
+        ))}
+
+      {layers.equipment &&
+        visibleEquipment.map((e) => (
+          <Marker
+            key={e._id}
+            position={{ lat: e.lat, lng: e.lng }}
+            icon={symbol(BADGE_PATH, equipmentColor(e))}
+            label={{ text: equipmentCode(e), color: "#ffffff", fontSize: "10px", fontWeight: "700" }}
+            zIndex={12}
+            title={`${EQUIPMENT_TITLES[e.form]}: ${titleCase(e.name)}${e.assetCode ? ` · ${e.assetCode}` : ""}`}
+            onClick={() => infoEquipment(e)}
           />
         ))}
 
@@ -588,6 +853,7 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
 
   return (
     <>
+      <GlobalStyles styles={{ ".block-map-name": { textShadow: "0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff", whiteSpace: "nowrap" } }} />
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, lg: 8 }}>
           <Card sx={{ position: "relative", height: { xs: 460, md: 680 }, overflow: "hidden" }}>
@@ -621,44 +887,89 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
                 {dataError}
               </Alert>
             )}
+            <GroupHeading>Network</GroupHeading>
             <LayerRow
               swatch={<Diamond color={GP_COLOR} />}
-              label="Network: BHQ, GPs, router"
+              label="BHQ, GPs and block router"
               count={gpPoints.length + (bhqPoint ? 1 : 0) + (router ? 1 : 0)}
               checked={layers.network}
               onChange={() => toggleLayer("network")}
             >
               <Stack spacing={0.25}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Swatch>
-                    <Square color={BHQ_COLOR} size={11} />
-                  </Swatch>
-                  <Typography variant="caption">{bhqPoint ? "Block HQ (BHQ)" : "Block HQ (no coordinates)"}</Typography>
-                </Box>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Swatch>
-                    <Diamond color={GP_COLOR} />
-                  </Swatch>
-                  <Typography variant="caption">Gram Panchayat</Typography>
-                </Box>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Swatch>
-                    <Dot color={routerColor} />
-                  </Swatch>
-                  <Typography variant="caption">{router ? "Block router" : "Block router (not set)"}</Typography>
-                </Box>
+                <Key swatch={<Square color={BHQ_COLOR} size={11} />}>{bhqPoint ? "Block HQ (BHQ)" : "Block HQ (no coordinates)"}</Key>
+                <Key swatch={<Diamond color={GP_COLOR} />}>Gram Panchayat</Key>
+                <Key swatch={<Dot color={routerColor} />}>{router ? "Block router" : "Block router (not set)"}</Key>
+                <Key
+                  swatch={
+                    <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                      Aa
+                    </Typography>
+                  }
+                  action={<Switch size="small" checked={layers.names} onChange={() => toggleLayer("names")} slotProps={{ input: { "aria-label": "Show names" } }} />}
+                >
+                  Names {zoom < NAME_ZOOM && layers.names ? "(zoom in to see them)" : ""}
+                </Key>
                 {unmappedGps > 0 && (
                   <Typography variant="caption" sx={{ color: "text.secondary" }}>
                     {unmappedGps} {unmappedGps === 1 ? "GP has" : "GPs have"} no coordinates and {unmappedGps === 1 ? "isn't" : "aren't"} on the map.
                   </Typography>
                 )}
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                  Click a BHQ or GP to see its infra capture and equipment sheets.
+                </Typography>
               </Stack>
             </LayerRow>
-            <LayerRow swatch={<Pin color={INFRA_COLORS.BLOCK} />} label="Block infra" count={blockInfraCount} checked={layers.blockInfra} onChange={() => toggleLayer("blockInfra")} />
-            <LayerRow swatch={<Pin color={INFRA_COLORS.GP} />} label="GP infra" count={gpInfraCount} checked={layers.gpInfra} onChange={() => toggleLayer("gpInfra")} />
+
+            <GroupHeading>Infra</GroupHeading>
+            <LayerRow
+              swatch={<Pin color={INFRA_COLORS.BLOCK} />}
+              label="Block infra capture"
+              count={blockInfraCount}
+              checked={layers.blockInfra}
+              onChange={() => toggleLayer("blockInfra")}
+            />
+            <LayerRow swatch={<Pin color={INFRA_COLORS.GP} />} label="GP infra capture" count={gpInfraCount} checked={layers.gpInfra} onChange={() => toggleLayer("gpInfra")} />
+            <LayerRow
+              swatch={<Badge color={EQUIPMENT_COLORS.router} text="R" />}
+              label="Equipment"
+              count={equipment.length}
+              checked={layers.equipment}
+              onChange={() => toggleLayer("equipment")}
+            >
+              <Stack direction="row" useFlexGap spacing={0.75} sx={{ flexWrap: "wrap", mb: 1 }}>
+                {EQUIPMENT_FORMS_ON_MAP.map((f) => (
+                  <FilterChip
+                    key={f.key}
+                    label={f.label}
+                    count={equipment.filter((e) => e.form === f.key).length}
+                    color={f.key === "misc" ? EQUIPMENT_COLORS.misc : EQUIPMENT_COLORS.router}
+                    square
+                    on={equipmentForms.has(f.key)}
+                    onClick={() => setEquipmentForms((s) => toggleIn(s, f.key))}
+                  />
+                ))}
+              </Stack>
+              <Stack spacing={0.25}>
+                <Key swatch={<Badge color={EQUIPMENT_COLORS.router} text="R" />}>Router (block or GP sheet)</Key>
+                <Key swatch={<Badge color={EQUIPMENT_COLORS.misc} text="FD" />}>Misc: RA rack, FD FDMS, FT FTB, CC CCU, SP SPV</Key>
+              </Stack>
+            </LayerRow>
+            <LayerRow
+              swatch={<Line color={RING_COLOR} dashed />}
+              label="Ring links"
+              count={ringLinks.length}
+              checked={layers.rings}
+              onChange={() => toggleLayer("rings")}
+            >
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                Previous → next node from the GP equipment sheets; the arrow points clockwise. Click a link for its optical length.
+              </Typography>
+            </LayerRow>
+
+            <GroupHeading>Work</GroupHeading>
             <LayerRow swatch={<Line color={RESTORATION_COLORS.APPROVED} thick />} label="Sections" count={sections.length} checked={layers.sections} onChange={() => toggleLayer("sections")}>
               <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
-                Coloured by restoration
+                Wide band from node to node, coloured by restoration
               </Typography>
               <Stack direction="row" useFlexGap spacing={1} sx={{ flexWrap: "wrap" }}>
                 {Object.entries(RESTORATION_COLORS).map(([key, color]) => (
@@ -670,6 +981,9 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
               </Stack>
             </LayerRow>
             <LayerRow swatch={<Line color={STATUS_COLORS.IN_PROGRESS} />} label="Subsections" count={subsections.length} checked={layers.subsections} onChange={() => toggleLayer("subsections")}>
+              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
+                Coloured by status
+              </Typography>
               <Stack direction="row" useFlexGap spacing={0.75} sx={{ flexWrap: "wrap", mb: 1 }}>
                 {[...SUB_STATUSES, "LEGACY"]
                   .filter((key) => key !== "LEGACY" || statusCount("LEGACY"))
@@ -678,42 +992,21 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
                   ))}
               </Stack>
               <Stack spacing={0.25}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Swatch>
-                    <Line color="#475569" dashed />
-                  </Swatch>
-                  <Typography variant="caption">Planned from → to</Typography>
-                </Box>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Swatch>
-                    <Line color="#475569" />
-                  </Swatch>
-                  <Typography variant="caption">Executed path through the entries</Typography>
-                </Box>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Swatch>
-                    <Dot color="#15803d" size={14} />
-                  </Swatch>
-                  <Typography variant="caption">A · start pit / point</Typography>
-                </Box>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Swatch>
-                    <Dot color="#b91c1c" size={14} />
-                  </Swatch>
-                  <Typography variant="caption">B · end pit / point</Typography>
-                </Box>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Swatch>
-                    <Dot color={REF_COLOR} size={9} />
-                  </Swatch>
-                  <Typography variant="caption" sx={{ flex: 1 }}>
-                    Reference points ({refCount})
-                  </Typography>
-                  <Switch size="small" checked={layers.refs} onChange={() => toggleLayer("refs")} slotProps={{ input: { "aria-label": "Show reference points" } }} />
-                </Box>
+                <Key swatch={<Line color="#475569" dashed />}>Planned line, from → to</Key>
+                <Key swatch={<Line color="#475569" />}>Executed path through the entries</Key>
+                <Key swatch={<Dot color="#15803d" size={14} />}>A · start pit / point</Key>
+                <Key swatch={<Dot color="#b91c1c" size={14} />}>B · end pit / point</Key>
+                <Key
+                  swatch={<Dot color={REF_COLOR} size={9} />}
+                  action={<Switch size="small" checked={layers.refs} onChange={() => toggleLayer("refs")} slotProps={{ input: { "aria-label": "Show reference points" } }} />}
+                >
+                  Reference points ({refCount})
+                </Key>
               </Stack>
             </LayerRow>
-            <LayerRow swatch={<Dot color="#0891b2" />} label="Geotagged attachments" count={allMedia.length} checked={layers.media} onChange={() => toggleLayer("media")}>
+
+            <GroupHeading>Attachments</GroupHeading>
+            <LayerRow swatch={<Dot color="#0891b2" />} label="Geotagged photos and videos" count={allMedia.length} checked={layers.media} onChange={() => toggleLayer("media")}>
               <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
                 Captured at
               </Typography>

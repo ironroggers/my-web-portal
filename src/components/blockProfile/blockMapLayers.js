@@ -1,4 +1,5 @@
-// Colours, shapes and grouping for the block map's layers (BlockMapPanel)
+// Colours, shapes and grouping for the block map's layers (BlockMapPanel). Every kind of
+// point has its own colour and shape so nothing on the map needs a click to tell apart.
 
 export const GP_COLOR = "#7c3aed";
 export const BHQ_COLOR = "#1e3a8a";
@@ -10,6 +11,13 @@ export const SQUARE_PATH = "M -8 -8 L 8 -8 L 8 8 L -8 8 z";
 export const PIN_PATH = "M 0 0 C -2 -6 -9 -9 -9 -16 A 9 9 0 1 1 9 -16 C 9 -9 2 -6 0 0 z";
 // Small square for videos (photos are circles)
 export const MEDIA_SQUARE_PATH = "M -6 -6 L 6 -6 L 6 6 L -6 6 z";
+// Rounded badge with a short code inside, for equipment sheets
+export const BADGE_PATH = "M -10 -8 L 10 -8 Q 13 -8 13 -5 L 13 5 Q 13 8 10 8 L -10 8 Q -13 8 -13 5 L -13 -5 Q -13 -8 -10 -8 z";
+
+// Router equipment (block and GP sheets) and misc equipment (rack, FDMS, FTB, CCU, SPV)
+export const EQUIPMENT_COLORS = { router: "#b45309", misc: "#4d7c0f" };
+// Previous / next node links on the ring, from the GP equipment sheets
+export const RING_COLOR = "#b45309";
 
 export const INFRA_COLORS = { BLOCK: "#0f766e", GP: "#db2777" };
 
@@ -32,7 +40,7 @@ export const RESTORATION_COLORS = {
   REJECTED: "#b91c1c",
 };
 
-export const REF_COLOR = "#7c3aed";
+export const REF_COLOR = "#475569";
 
 // Geotagged attachments by where they were captured
 export const MEDIA_KINDS = [
@@ -42,7 +50,8 @@ export const MEDIA_KINDS = [
   { key: "START", label: "Start", color: "#65a30d" },
   { key: "ENTRY", label: "Entries", color: "#2563eb" },
   { key: "END", label: "End", color: "#c2410c" },
-  { key: "RESTORATION", label: "Restoration", color: "#9333ea" },
+  { key: "RESTORATION", label: "Restoration", color: "#a21caf" },
+  { key: "EQUIPMENT", label: "Equipment", color: "#b45309" },
 ];
 export const MEDIA_KIND = Object.fromEntries(MEDIA_KINDS.map((k) => [k.key, k]));
 
@@ -61,7 +70,8 @@ export const groupMedia = (media) => {
   return [...groups.values()];
 };
 
-export const symbol = (path, color, { scale = 1, stroke = "#ffffff", strokeWeight = 2, anchor } = {}) => ({
+// labelBelow: put the marker's label (a name) under the shape instead of on it
+export const symbol = (path, color, { scale = 1, stroke = "#ffffff", strokeWeight = 2, anchor, labelBelow } = {}) => ({
   path,
   scale,
   fillColor: color,
@@ -70,6 +80,7 @@ export const symbol = (path, color, { scale = 1, stroke = "#ffffff", strokeWeigh
   strokeWeight,
   ...(anchor ? { anchor } : {}),
   ...(path === PIN_PATH ? { labelOrigin: new window.google.maps.Point(0, -16) } : {}),
+  ...(labelBelow ? { labelOrigin: new window.google.maps.Point(0, labelBelow) } : {}),
 });
 
 export const circleSymbol = (color, scale, options = {}) => symbol(window.google.maps.SymbolPath.CIRCLE, color, { scale, ...options });

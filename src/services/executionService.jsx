@@ -84,6 +84,13 @@ const executionService = {
   saveGpInfra: (blockId, lgdCode, body) =>
     request(`/api/block-profiles/${id(blockId)}/gps/${id(lgdCode)}/infra`, { method: "PUT", body }),
 
+  // ---- equipment sheets (web only): block and misc once per block; gp and misc once per GP
+  getBlockEquipment: (blockId, form = "block") => request(`/api/block-profiles/${id(blockId)}/equipment/${id(form)}`),
+  saveBlockEquipment: (blockId, body, form = "block") => request(`/api/block-profiles/${id(blockId)}/equipment/${id(form)}`, { method: "PUT", body }),
+  getGpEquipment: (blockId, lgdCode, form) => request(`/api/block-profiles/${id(blockId)}/gps/${id(lgdCode)}/equipment/${id(form)}`),
+  saveGpEquipment: (blockId, lgdCode, form, body) =>
+    request(`/api/block-profiles/${id(blockId)}/gps/${id(lgdCode)}/equipment/${id(form)}`, { method: "PUT", body }),
+
   // ---- sections and subsections
   listSections: (blockId, { page = 1, limit = 1000 } = {}) =>
     request("/api/sections", { query: { blockProfile: blockId, page, limit } }),
