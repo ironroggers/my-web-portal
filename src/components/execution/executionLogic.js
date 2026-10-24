@@ -37,6 +37,8 @@ export const validateEntry = (fields, form) => {
         errors[f.key] = f.required ? f.requiredMessage : "Numbers only";
       } else if (f.positive && !(Number(raw) > 0)) {
         errors[f.key] = f.requiredMessage;
+      } else if (f.nonNegative && Number(raw) < 0) {
+        errors[f.key] = "Enter 0 or more";
       }
     } else if (f.kind === "text" && isBlank(raw) && (f.required || (f.requiredUnlessPhoto && !form.photo))) {
       errors[f.key] = f.requiredMessage;
