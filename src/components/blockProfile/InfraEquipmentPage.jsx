@@ -60,7 +60,8 @@ const InfraEquipmentPage = () => {
   const [photo, setPhoto] = useState(null);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
-  const [viewing, setViewing] = useState(false);
+  // The photo open in the viewer: the sheet's geo photo or a misc type's
+  const [viewing, setViewing] = useState(null);
 
   const load = useCallback(async () => {
     if (!spec) return;
@@ -232,6 +233,8 @@ const InfraEquipmentPage = () => {
             <Stack spacing={1.5} sx={{ mt: 2 }}>
               {items.map((item, i) => {
                 const code = miscAssetCode(geo, data.target.code, item.type);
+                // Taken on the mobile app for this type
+                const typePhoto = miscItemsOf(data.record).find((i) => i.type === item.type)?.geoPhoto;
                 return (
                   <Box key={item.type} sx={{ p: 1.5, border: 1, borderColor: "divider", borderRadius: 1 }}>
                     <Box sx={{ display: "flex", alignItems: "baseline", gap: 1.5, flexWrap: "wrap", mb: 1.25 }}>
@@ -242,6 +245,15 @@ const InfraEquipmentPage = () => {
                       {itemError(i) && (
                         <Typography variant="caption" sx={{ color: "error.main" }}>
                           {itemError(i)}
+                        </Typography>
+                      )}
+                      <Box sx={{ flex: 1 }} />
+                      {typePhoto ? (
+                        <MediaThumb media={typePhoto} size={56} onClick={() => setViewing(typePhoto)} />
+                      ) : (
+                        <Typography variant="caption" sx={{ color: "text.secondary", display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+                          <PhoneAndroidOutlinedIcon sx={{ fontSize: 16 }} />
+                          No photo yet
                         </Typography>
                       )}
                     </Box>
@@ -255,7 +267,7 @@ const InfraEquipmentPage = () => {
             </Stack>
           )}
           <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 1 }}>
-            Asset codes are generated: {spec.assetFormat}
+            Asset codes are generated: {spec.assetFormat}. Each type's photo is taken on the Locus app.
           </Typography>
         </Box>
       );
@@ -350,20 +362,23 @@ const InfraEquipmentPage = () => {
                 </Typography>
               )}
             </SectionCard>
-            <SectionCard
-              title="Geo photo"
-              subtitle="Taken on the Locus app, from Block infra or GP infra"
-              action={<StatusPill label={photo ? "Taken" : "Not taken yet"} tone={photo ? "success" : "default"} />}
-            >
-              {photo ? (
-                <MediaThumb media={photo} onClick={() => setViewing(true)} />
-              ) : (
-                <Stack direction="row" spacing={1} sx={{ alignItems: "center", color: "text.secondary" }}>
-                  <PhoneAndroidOutlinedIcon fontSize="small" />
-                  <Typography variant="body2">The field team takes this photo on the mobile app.</Typography>
-                </Stack>
-              )}
-            </SectionCard>
+            {/* Misc sheets take one photo per type, shown with each type; an older sheet-wide photo still shows here */}
+            {(formKey !== "misc" || photo) && (
+              <SectionCard
+                title="Geo photo"
+                subtitle="Taken on the Locus app, from Block infra or GP infra"
+                action={<StatusPill label={photo ? "Taken" : "Not taken yet"} tone={photo ? "success" : "default"} />}
+              >
+                {photo ? (
+                  <MediaThumb media={photo} onClick={() => setViewing(photo)} />
+                ) : (
+                  <Stack direction="row" spacing={1} sx={{ alignItems: "center", color: "text.secondary" }}>
+                    <PhoneAndroidOutlinedIcon fontSize="small" />
+                    <Typography variant="body2">The field team takes this photo on the mobile app.</Typography>
+                  </Stack>
+                )}
+              </SectionCard>
+            )}
           </Stack>
         </Grid>
         <Grid size={{ xs: 12, lg: 8 }}>
@@ -387,7 +402,7 @@ const InfraEquipmentPage = () => {
           </Button>
         </StickyActionBar>
       )}
-      {viewing && photo && <ExecMediaViewer media={photo} onClose={() => setViewing(false)} />}
+      {viewing && <ExecMediaViewer media={viewing} onClose={() => setViewing(null)} />}
     </Box>
   );
 };

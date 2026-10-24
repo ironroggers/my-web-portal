@@ -25,7 +25,8 @@ const Group = ({ title, children }) => (
 
 /** Every field of a saved equipment sheet, grouped as on the form; empty ones show "—" */
 const EquipmentDetails = ({ formKey, record, columns = { xs: 1, md: 2 } }) => {
-  const [viewing, setViewing] = useState(false);
+  // The photo open in the viewer: the sheet's geo photo or a misc type's
+  const [viewing, setViewing] = useState(null);
   const spec = EQUIPMENT_FORMS[formKey];
   const repeat = (n) => `repeat(${n}, minmax(0, 1fr))`;
   return (
@@ -54,6 +55,15 @@ const EquipmentDetails = ({ formKey, record, columns = { xs: 1, md: 2 } }) => {
                         {details}
                       </Box>
                     )}
+                    {item.geoPhoto ? (
+                      <Box sx={{ mt: 0.75 }}>
+                        <MediaThumb media={item.geoPhoto} size={56} onClick={() => setViewing(item.geoPhoto)} />
+                      </Box>
+                    ) : (
+                      <Box component="span" sx={{ display: "block", color: "text.disabled" }}>
+                        No photo yet
+                      </Box>
+                    )}
                   </DetailRow>
                 );
               })
@@ -69,14 +79,14 @@ const EquipmentDetails = ({ formKey, record, columns = { xs: 1, md: 2 } }) => {
       ))}
       <Group title="Location & photo">
         <DetailRow label="Latitude, longitude">{fmtLatLong(record.latitude, record.longitude)}</DetailRow>
-        <DetailRow label="Geo photo">{record.geoPhoto ? "Attached" : "—"}</DetailRow>
+        <DetailRow label="Geo photo">{record.geoPhoto ? "Attached" : formKey === "misc" ? "One per type, above" : "—"}</DetailRow>
         {record.geoPhoto && (
           <Box sx={{ mt: 1 }}>
-            <MediaThumb media={record.geoPhoto} onClick={() => setViewing(true)} />
+            <MediaThumb media={record.geoPhoto} onClick={() => setViewing(record.geoPhoto)} />
           </Box>
         )}
       </Group>
-      {viewing && <ExecMediaViewer media={record.geoPhoto} onClose={() => setViewing(false)} />}
+      {viewing && <ExecMediaViewer media={viewing} onClose={() => setViewing(null)} />}
     </Box>
   );
 };
