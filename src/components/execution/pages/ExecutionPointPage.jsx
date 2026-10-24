@@ -163,8 +163,8 @@ const ExecutionPointPage = ({ which = "start" }) => {
   const type = typeOf(sub.typeOfWork);
   const ducting = isDucting(sub.typeOfWork);
   const pitLabel = isStart ? type?.pitA : type?.pitB;
-  // Start of ducting is the pit step alone; end adds photos & video; other work has one step
-  const steps = ducting ? (isStart ? ["pit"] : ["pit", "media"]) : ["media"];
+  // Ducting is the pit step alone (start and end); other work has one location step
+  const steps = ducting ? ["pit"] : ["media"];
   const mediaRule = config?.mediaRules?.[which] || { minPhotos: 1, maxPhotos: 4, video: "required" };
   const labels = steps.map((s) => (s === "pit" ? pitLabel : config?.stepLabels?.media || "Photos & video"));
   const index = Math.min(d.step || 0, steps.length - 1);
@@ -278,6 +278,21 @@ const ExecutionPointPage = ({ which = "start" }) => {
 
       {step === "pit" && (
         <>
+          {/* End: how much was executed against the plan */}
+          {!isStart && (
+            <Alert
+              severity={off ? "warning" : "info"}
+              icon={off ? <WarningAmberIcon fontSize="inherit" /> : <StraightenIcon fontSize="inherit" />}
+              sx={{ mb: 3 }}
+            >
+              <AlertTitle sx={{ fontWeight: 600 }}>
+                Executed {fmtDistance(doneM)} of {fmtDistance(sub.subSectionLength)}
+              </AlertTitle>
+              {/* TODO(confirm): whether the note becomes required when more than 10% off */}
+              {off ? "More than 10% off the plan. Explain it in the note." : "Matches the planned length."}
+            </Alert>
+          )}
+
           <SectionCard
             title={pitLabel}
             subtitle="Stand on the pit and capture its GPS"
@@ -335,21 +350,19 @@ const ExecutionPointPage = ({ which = "start" }) => {
               />
             ))}
           </SectionCard>
-          {/* Start has no photos step, so its note is here */}
-          {isStart && (
-            <SectionCard title="Note" sx={{ mb: 3 }}>
-              <TextField
-                fullWidth
-                multiline
-                minRows={2}
-                size="small"
-                label="Note (optional)"
-                value={d.remarks}
-                onChange={(e) => update({ remarks: e.target.value })}
-                placeholder="e.g. Pit opened, machine positioned"
-              />
-            </SectionCard>
-          )}
+          {/* No photos step for ducting, so the note is here */}
+          <SectionCard title="Note" sx={{ mb: 3 }}>
+            <TextField
+              fullWidth
+              multiline
+              minRows={2}
+              size="small"
+              label="Note (optional)"
+              value={d.remarks}
+              onChange={(e) => update({ remarks: e.target.value })}
+              placeholder={isStart ? "e.g. Pit opened, machine positioned" : "e.g. Pit closed after duct exit, end cap fixed"}
+            />
+          </SectionCard>
           {autoStamp}
         </>
       )}
@@ -357,19 +370,7 @@ const ExecutionPointPage = ({ which = "start" }) => {
       {step === "media" && (
         <>
           {!ducting && autoStamp}
-          {!isStart && ducting && (
-            <Alert
-              severity={off ? "warning" : "info"}
-              icon={off ? <WarningAmberIcon fontSize="inherit" /> : <StraightenIcon fontSize="inherit" />}
-              sx={{ mb: 3 }}
-            >
-              <AlertTitle sx={{ fontWeight: 600 }}>
-                Executed {fmtDistance(doneM)} of {fmtDistance(sub.subSectionLength)}
-              </AlertTitle>
-              {/* TODO(confirm): whether the note becomes required when more than 10% off */}
-              {off ? "More than 10% off the plan. Explain it in the note." : "Matches the planned length."}
-            </Alert>
-          )}
+
           {!ducting && (
             <SectionCard title={isStart ? "Start location" : "End location"} subtitle="Stand at the spot and capture GPS" icon={<PlaceIcon />} sx={{ mb: 3 }}>
               <GpsField
