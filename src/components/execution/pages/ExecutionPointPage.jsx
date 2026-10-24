@@ -21,14 +21,24 @@ import { clearDraft, loadDraft, saveDraft } from "../../../utils/drafts";
 import GpsField from "../GpsField";
 import MediaPicker from "../MediaPicker";
 import { RefPointDialog, RefRow } from "../RefPoint";
-import { EMPTY_POINT_DRAFT, checkPointStep, draftFromPoint, emptyPit, refDone } from "../executionLogic";
+import { EMPTY_POINT_DRAFT, checkPointStep, draftFromPoint, emptyPit, emptyRef, refDone } from "../executionLogic";
 import { anyPending, toDraftMedia, toMediaFile } from "../mediaItems";
 import { PageState, StepLine, StickyActionBar } from "../execUi";
 import { attentionMessage, reportError, showToast } from "../toast";
 import { contextOfSub, useExecContext } from "../useExecContext";
 
 // Drafts keep uploaded media only (localStorage can't hold files)
-const toStoredDraft = (d) => ({ ...d, photos: d.photos.map(toDraftMedia).filter(Boolean), video: toDraftMedia(d.video) });
+const storedMedia = (holder = {}) => ({ photos: (holder.photos || []).map(toDraftMedia).filter(Boolean), video: toDraftMedia(holder.video) || null });
+const toStoredDraft = (d) => ({
+  ...d,
+  ...storedMedia(d),
+  pit: { ...d.pit, ...storedMedia(d.pit), refs: d.pit.refs.map((r) => ({ ...r, ...storedMedia(r) })) },
+  // A reference point open in the dialog keeps its media in its row
+  sheet: d.sheet ? { ...d.sheet, value: { ...d.sheet.value, photos: undefined, video: undefined } } : null,
+});
+// Media of the pit, its reference points and the step, for "wait for uploads" and the request
+const allMedia = (d) => [...d.photos, d.video, ...(d.pit.photos || []), d.pit.video, ...d.pit.refs.flatMap((r) => [...(r.photos || []), r.video])];
+const mediaOf = (holder = {}) => ({ photos: (holder.photos || []).map(toMediaFile), video: toMediaFile(holder.video) });
 
 /** C9 / C11: Start or End execution. Ducting: pit + 3 reference points, then photos & video. */
 const ExecutionPointPage = ({ which = "start" }) => {
@@ -66,7 +76,15 @@ const ExecutionPointPage = ({ which = "start" }) => {
       const saved = loadDraft(draftKey);
       if (!active || !card) return;
       if (saved) {
-        setD({ ...EMPTY_POINT_DRAFT, ...saved, photos: (saved.photos || []).filter(Boolean), video: saved.video || null });
+        const restored = { ...EMPTY_POINT_DRAFT, ...saved, photos: (saved.photos || []).filter(Boolean), video: saved.video || null };
+        const pit = { ...emptyPit(), ...(saved.pit || {}) };
+        restored.pit = {
+          ...pit,
+          photos: (pit.photos || []).filter(Boolean),
+          video: pit.video || null,
+          refs: [0, 1, 2].map((i) => ({ ...emptyRef(), ...(pit.refs?.[i] || {}), photos: (pit.refs?.[i]?.photos || []).filter(Boolean), video: pit.refs?.[i]?.video || null })),
+        };
+        setD(restored);
         return;
       }
       if (!isStart && card.end) {
@@ -182,7 +200,7 @@ const ExecutionPointPage = ({ which = "start" }) => {
         return;
       }
     }
-    if (anyPending([...d.photos, d.video])) {
+    if (anyPending(allMedia(d))) {
       showToast("Wait for the uploads to finish", "warning");
       return;
     }
@@ -198,7 +216,8 @@ const ExecutionPointPage = ({ which = "start" }) => {
               longitude: d.pit.longitude,
               accuracy: d.pit.accuracy,
               copiedFrom: d.pit.copiedFrom,
-              refs: d.pit.refs.map((r) => ({ ...r, tapeDistanceM: Number(r.tapeDistanceM) })),
+              ...mediaOf(d.pit),
+              refs: d.pit.refs.map((r) => ({ ...r, tapeDistanceM: Number(r.tapeDistanceM), ...mediaOf(r) })),
             },
           }
         : { latitude: d.location.latitude, longitude: d.location.longitude, accuracy: d.location.accuracy }),
@@ -286,6 +305,15 @@ const ExecutionPointPage = ({ which = "start" }) => {
                 Copied from the end pit of {d.pit.copiedFromName}. Check it on site.
               </Alert>
             )}
+            <Box sx={{ mt: 2 }}>
+              <MediaPicker
+                title={`${pitLabel} photos (optional)`}
+                rule={config?.mediaRules?.pit || { minPhotos: 0, maxPhotos: 4, video: "optional" }}
+                value={{ photos: d.pit.photos || [], video: d.pit.video || null }}
+                onUpdate={(fn) => update((p) => ({ ...p, pit: { ...p.pit, ...fn({ photos: p.pit.photos || [], video: p.pit.video || null }) } }))}
+                errors={{ photos: errors["pit.photos"], video: errors["pit.video"] }}
+              />
+            </Box>
           </SectionCard>
           <SectionCard
             title="Reference points"
@@ -296,13 +324,29 @@ const ExecutionPointPage = ({ which = "start" }) => {
             sx={{ mb: 3 }}
           >
             {d.pit.refs.map((r, i) => (
-              <RefRow
-                key={i}
-                refPoint={r}
-                index={i}
-                bad={["description", "location", "tapeDistanceM"].some((k) => errors[`pit.refs.${i}.${k}`])}
-                onClick={() => update({ sheet: { index: i, value: { ...r } } })}
-              />
+              <React.Fragment key={i}>
+                <RefRow
+                  refPoint={r}
+                  index={i}
+                  bad={["description", "location", "tapeDistanceM"].some((k) => errors[`pit.refs.${i}.${k}`])}
+                  onClick={() => update({ sheet: { index: i, value: { ...r } } })}
+                />
+                {/* The point's own photos and video, saved with the step */}
+                <Box sx={{ pl: 5.25, pb: 1.5 }}>
+                  <MediaPicker
+                    title="Photos (optional)"
+                    rule={config?.mediaRules?.refPoint || { minPhotos: 0, maxPhotos: 2, video: "optional" }}
+                    value={{ photos: r.photos || [], video: r.video || null }}
+                    onUpdate={(fn) =>
+                      update((p) => ({
+                        ...p,
+                        pit: { ...p.pit, refs: p.pit.refs.map((x, j) => (j === i ? { ...x, ...fn({ photos: x.photos || [], video: x.video || null }) } : x)) },
+                      }))
+                    }
+                    errors={{ photos: errors[`pit.refs.${i}.photos`], video: errors[`pit.refs.${i}.video`] }}
+                  />
+                </Box>
+              </React.Fragment>
             ))}
           </SectionCard>
           {autoStamp}
@@ -397,7 +441,8 @@ const ExecutionPointPage = ({ which = "start" }) => {
         onClose={() => update({ sheet: null })}
         onSave={(value) => {
           const i = d.sheet.index;
-          update((p) => ({ ...p, sheet: null, pit: { ...p.pit, refs: p.pit.refs.map((r, j) => (j === i ? value : r)) } }));
+          // The point's photos and video live in its row, so they stay as they are
+          update((p) => ({ ...p, sheet: null, pit: { ...p.pit, refs: p.pit.refs.map((r, j) => (j === i ? { ...value, photos: r.photos, video: r.video } : r)) } }));
           setErrors((e) => ({
             ...e,
             [`pit.refs.${i}.description`]: undefined,

@@ -64,8 +64,9 @@ export const entryBody = (fields, form, toMediaFile) => {
 
 // ---- pits and reference points
 
-export const emptyRef = () => ({ description: "", latitude: null, longitude: null, accuracy: null, tapeDistanceM: "" });
-export const emptyPit = () => ({ latitude: null, longitude: null, accuracy: null, refs: [emptyRef(), emptyRef(), emptyRef()] });
+// The pit and each reference point can have their own photos and video (optional)
+export const emptyRef = () => ({ description: "", latitude: null, longitude: null, accuracy: null, tapeDistanceM: "", photos: [], video: null });
+export const emptyPit = () => ({ latitude: null, longitude: null, accuracy: null, refs: [emptyRef(), emptyRef(), emptyRef()], photos: [], video: null });
 
 export const refDone = (r) => Boolean(r && String(r.description || "").trim() && pointOf(r) && Number(r.tapeDistanceM) > 0);
 
@@ -118,9 +119,19 @@ export const draftFromPoint = (point) => ({
         refs: [0, 1, 2].map((i) => {
           const r = point.pit.refs?.[i];
           return r
-            ? { description: r.description || "", latitude: r.latitude, longitude: r.longitude, accuracy: r.accuracy, tapeDistanceM: r.tapeDistanceM != null ? String(r.tapeDistanceM) : "" }
+            ? {
+                description: r.description || "",
+                latitude: r.latitude,
+                longitude: r.longitude,
+                accuracy: r.accuracy,
+                tapeDistanceM: r.tapeDistanceM != null ? String(r.tapeDistanceM) : "",
+                photos: (r.photos || []).map((m, j) => fromSaved(m, `prevRef${i}-${j}`)),
+                video: fromSaved(r.video, `prevRef${i}Video`),
+              }
             : emptyRef();
         }),
+        photos: (point.pit.photos || []).map((m, i) => fromSaved(m, `prevPit${i}`)),
+        video: fromSaved(point.pit.video, "prevPitVideo"),
       }
     : emptyPit(),
   location: point.pit ? null : point.latitude != null ? { latitude: point.latitude, longitude: point.longitude, accuracy: point.accuracy } : null,

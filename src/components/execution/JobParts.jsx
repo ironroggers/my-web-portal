@@ -24,7 +24,7 @@ export const KV = ({ rows }) => (
   </Box>
 );
 
-/** Start or end as recorded: pit with its 3 reference points (ducting) or a location */
+/** Start or end as recorded: pit with its 3 reference points (ducting), each with any photos, or a location */
 export const PointView = ({ point }) => {
   const { config } = useExecutionConfig();
   const limit = config?.accuracyLimitM ?? 1;
@@ -44,7 +44,27 @@ export const PointView = ({ point }) => {
           Pit copied from the previous subsection&apos;s end pit
         </Typography>
       )}
-      {point.pit?.refs?.length ? point.pit.refs.map((r, i) => <RefRow key={r._id || i} refPoint={r} index={i} />) : null}
+      {/* The pit's own photos and video, then each reference point with its own */}
+      {point.pit && (point.pit.photos?.length > 0 || point.pit.video) && (
+        <Box sx={{ mb: 1 }}>
+          <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
+            Pit photos
+          </Typography>
+          <MediaStrip media={point.pit} size={56} />
+        </Box>
+      )}
+      {point.pit?.refs?.length
+        ? point.pit.refs.map((r, i) => (
+            <React.Fragment key={r._id || i}>
+              <RefRow refPoint={r} index={i} />
+              {(r.photos?.length > 0 || r.video) && (
+                <Box sx={{ pl: 5.25, pb: 1 }}>
+                  <MediaStrip media={r} size={56} />
+                </Box>
+              )}
+            </React.Fragment>
+          ))
+        : null}
       {point.remarks && <KV rows={[["Note", point.remarks]]} />}
       <Box sx={{ mt: 1 }}>
         <MediaStrip media={point} />
