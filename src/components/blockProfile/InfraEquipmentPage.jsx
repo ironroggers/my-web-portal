@@ -16,7 +16,7 @@ import { fromSaved } from "../execution/mediaItems";
 import { PageState, StickyActionBar } from "../execution/execUi";
 import { titleCase } from "../execution/execConstants";
 import { reportError, showToast } from "../execution/toast";
-import { EQUIPMENT_FORMS, MISC_TYPES, assetPrefix, formFields, miscAssetCode, miscItemsOf, validateEquipment } from "./equipmentForms";
+import { EQUIPMENT_FORMS, MISC_TYPES, assetPrefix, formFields, miscAssetCode, miscItemsOf, photosOf, validateEquipment } from "./equipmentForms";
 
 const fieldGrid = {
   display: "grid",
@@ -41,7 +41,7 @@ const toValues = (formKey, source = {}) => ({
 
 /**
  * Block_eqpt (once per block), gp_eqpt (once per GP) and misc_eqpt (once per block and per GP),
- * filled on the web. The geo photo is taken on the mobile app and only shown here.
+ * filled on the web. Their images are taken on the mobile app and only shown here.
  */
 const InfraEquipmentPage = () => {
   const { blockProfileId, lgdCode, form } = useParams();
@@ -57,7 +57,8 @@ const InfraEquipmentPage = () => {
   const [data, setData] = useState(null);
   const [loadError, setLoadError] = useState("");
   const [values, setValues] = useState({});
-  const [photo, setPhoto] = useState(null);
+  // The sheet's images, taken on the mobile app
+  const [photos, setPhotos] = useState([]);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   // The photo open in the viewer: the sheet's geo photo or a misc type's
@@ -72,7 +73,7 @@ const InfraEquipmentPage = () => {
         : await executionService.getBlockEquipment(blockProfileId, formKey);
       setData(res);
       setValues(toValues(formKey, res.record || res.defaults));
-      setPhoto(fromSaved(res.geoPhoto, "geoPhoto"));
+      setPhotos(photosOf(res).map((m, i) => fromSaved(m, `geoPhoto${i}`)));
       setErrors({});
     } catch (e) {
       setLoadError(e.message || "Failed to load");
@@ -101,7 +102,7 @@ const InfraEquipmentPage = () => {
       showToast(`${n} ${n === 1 ? "thing needs" : "things need"} attention`, "error");
       return;
     }
-    // The geo photo isn't sent: the mobile app saves it on its own
+    // The images aren't sent: the mobile app saves them on its own
     const body = { ...values, version: data.version };
     try {
       setSaving(true);
@@ -234,7 +235,7 @@ const InfraEquipmentPage = () => {
               {items.map((item, i) => {
                 const code = miscAssetCode(geo, data.target.code, item.type);
                 // Taken on the mobile app for this type
-                const typePhoto = miscItemsOf(data.record).find((i) => i.type === item.type)?.geoPhoto;
+                const typePhotos = photosOf(miscItemsOf(data.record).find((i) => i.type === item.type));
                 return (
                   <Box key={item.type} sx={{ p: 1.5, border: 1, borderColor: "divider", borderRadius: 1 }}>
                     <Box sx={{ display: "flex", alignItems: "baseline", gap: 1.5, flexWrap: "wrap", mb: 1.25 }}>
@@ -248,12 +249,16 @@ const InfraEquipmentPage = () => {
                         </Typography>
                       )}
                       <Box sx={{ flex: 1 }} />
-                      {typePhoto ? (
-                        <MediaThumb media={typePhoto} size={56} onClick={() => setViewing(typePhoto)} />
+                      {typePhotos.length ? (
+                        <Stack direction="row" spacing={0.75}>
+                          {typePhotos.map((m) => (
+                            <MediaThumb key={m.url} media={m} size={56} onClick={() => setViewing(m)} />
+                          ))}
+                        </Stack>
                       ) : (
                         <Typography variant="caption" sx={{ color: "text.secondary", display: "inline-flex", alignItems: "center", gap: 0.5 }}>
                           <PhoneAndroidOutlinedIcon sx={{ fontSize: 16 }} />
-                          No photo yet
+                          No image yet
                         </Typography>
                       )}
                     </Box>
@@ -267,7 +272,7 @@ const InfraEquipmentPage = () => {
             </Stack>
           )}
           <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 1 }}>
-            Asset codes are generated: {spec.assetFormat}. Each type's photo is taken on the Locus app.
+            Asset codes are generated: {spec.assetFormat}. Each type's images are taken on the Locus app.
           </Typography>
         </Box>
       );
@@ -362,19 +367,23 @@ const InfraEquipmentPage = () => {
                 </Typography>
               )}
             </SectionCard>
-            {/* Misc sheets take one photo per type, shown with each type; an older sheet-wide photo still shows here */}
-            {(formKey !== "misc" || photo) && (
+            {/* Misc sheets take images per type, shown with each type; an older sheet-wide photo still shows here */}
+            {(formKey !== "misc" || photos.length > 0) && (
               <SectionCard
-                title="Geo photo"
+                title="Equipment images"
                 subtitle="Taken on the Locus app, from Block infra or GP infra"
-                action={<StatusPill label={photo ? "Taken" : "Not taken yet"} tone={photo ? "success" : "default"} />}
+                action={<StatusPill label={photos.length ? `${photos.length} taken` : "Not taken yet"} tone={photos.length ? "success" : "default"} />}
               >
-                {photo ? (
-                  <MediaThumb media={photo} onClick={() => setViewing(photo)} />
+                {photos.length ? (
+                  <Stack direction="row" useFlexGap spacing={1} sx={{ flexWrap: "wrap" }}>
+                    {photos.map((m) => (
+                      <MediaThumb key={m.key || m.url} media={m} onClick={() => setViewing(m)} />
+                    ))}
+                  </Stack>
                 ) : (
                   <Stack direction="row" spacing={1} sx={{ alignItems: "center", color: "text.secondary" }}>
                     <PhoneAndroidOutlinedIcon fontSize="small" />
-                    <Typography variant="body2">The field team takes this photo on the mobile app.</Typography>
+                    <Typography variant="body2">The field team takes these images on the mobile app.</Typography>
                   </Stack>
                 )}
               </SectionCard>

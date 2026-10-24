@@ -153,6 +153,10 @@ export const miscItemsOf = (record) =>
       ? [{ type: record.equipmentType, assetCode: record.assetCode, model: record.model, serialNo: record.serialNo }]
       : [];
 
+// Images of a piece of equipment (a sheet or one misc type), taken on the mobile app; a single
+// geoPhoto saved before counts as one
+export const photosOf = (holder) => (holder?.geoPhotos?.length ? holder.geoPhotos : holder?.geoPhoto ? [holder.geoPhoto] : []);
+
 // Code in a misc sheet's map badge: its type's tag, with + when it has more than one type
 export const miscBadge = (record) => {
   const tags = miscItemsOf(record).map((i) => MISC_TYPE_TAGS[i.type]).filter(Boolean);

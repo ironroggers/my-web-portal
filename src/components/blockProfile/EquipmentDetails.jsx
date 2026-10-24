@@ -5,7 +5,7 @@ import { fmtLatLong } from "../../utils/executionFormat";
 import { formatNumber } from "../../utils/formatNumber";
 import ExecMediaViewer from "../execution/ExecMediaViewer";
 import { MediaThumb } from "../execution/MediaPicker";
-import { EQUIPMENT_FORMS, miscItemsOf, miscTypeLabel } from "./equipmentForms";
+import { EQUIPMENT_FORMS, miscItemsOf, miscTypeLabel, photosOf } from "./equipmentForms";
 
 const display = (field, value) => {
   if (value === undefined || value === null || value === "") return "—";
@@ -55,13 +55,15 @@ const EquipmentDetails = ({ formKey, record, columns = { xs: 1, md: 2 } }) => {
                         {details}
                       </Box>
                     )}
-                    {item.geoPhoto ? (
-                      <Box sx={{ mt: 0.75 }}>
-                        <MediaThumb media={item.geoPhoto} size={56} onClick={() => setViewing(item.geoPhoto)} />
+                    {photosOf(item).length ? (
+                      <Box sx={{ mt: 0.75, display: "flex", gap: 0.75, flexWrap: "wrap" }}>
+                        {photosOf(item).map((m) => (
+                          <MediaThumb key={m.url} media={m} size={56} onClick={() => setViewing(m)} />
+                        ))}
                       </Box>
                     ) : (
                       <Box component="span" sx={{ display: "block", color: "text.disabled" }}>
-                        No photo yet
+                        No image yet
                       </Box>
                     )}
                   </DetailRow>
@@ -77,12 +79,16 @@ const EquipmentDetails = ({ formKey, record, columns = { xs: 1, md: 2 } }) => {
           )}
         </Group>
       ))}
-      <Group title="Location & photo">
+      <Group title="Location & images">
         <DetailRow label="Latitude, longitude">{fmtLatLong(record.latitude, record.longitude)}</DetailRow>
-        <DetailRow label="Geo photo">{record.geoPhoto ? "Attached" : formKey === "misc" ? "One per type, above" : "—"}</DetailRow>
-        {record.geoPhoto && (
-          <Box sx={{ mt: 1 }}>
-            <MediaThumb media={record.geoPhoto} onClick={() => setViewing(record.geoPhoto)} />
+        <DetailRow label="Images">
+          {photosOf(record).length ? `${photosOf(record).length} taken` : formKey === "misc" ? "Per type, above" : "—"}
+        </DetailRow>
+        {photosOf(record).length > 0 && (
+          <Box sx={{ mt: 1, display: "flex", gap: 1, flexWrap: "wrap" }}>
+            {photosOf(record).map((m) => (
+              <MediaThumb key={m.url} media={m} onClick={() => setViewing(m)} />
+            ))}
           </Box>
         )}
       </Group>
