@@ -8,7 +8,8 @@ const COLORS = { plan: "#64748b", start: "#15803d", end: "#b91c1c", ref: "#7c3ae
 const MAP_STYLE = { width: "100%", height: "100%" };
 const MAP_OPTIONS = { mapTypeControl: true, streetViewControl: false, fullscreenControl: true, clickableIcons: false };
 
-const toLatLng = (p) => (p ? { lat: Number(p.latitude), lng: Number(p.longitude) } : null);
+// parseLatLong and pointOf already give { lat, lng }; keep only finite points so the map never gets NaN
+const toLatLng = (p) => (p && Number.isFinite(p.lat) && Number.isFinite(p.lng) ? { lat: p.lat, lng: p.lng } : null);
 
 const circle = (color, scale) => ({
   path: window.google.maps.SymbolPath.CIRCLE,
@@ -38,7 +39,7 @@ const ApprovalMap = ({ sub, pitALabel = "Start", pitBLabel = "End" }) => {
   const shapes = useMemo(() => {
     const from = parseLatLong(sub.fromLatLong);
     const to = parseLatLong(sub.toLatLong);
-    const plan = [from, to].filter(Boolean).map((p) => ({ lat: p.latitude, lng: p.longitude }));
+    const plan = [from, to].map(toLatLng).filter(Boolean);
     const point = (holder) => toLatLng(pointOf(holder?.pit) || pointOf(holder));
     const refs = (holder) => (holder?.pit?.refs || []).map((r) => toLatLng(pointOf(r))).filter(Boolean);
     const entries = (sub.entries || []).map((e) => toLatLng(pointOf(e))).filter(Boolean);
