@@ -1,13 +1,14 @@
 import React, { useEffect, useRef } from "react";
 import { Polyline, Polygon, Marker, InfoWindow } from "@react-google-maps/api";
 import { Button } from "@mui/material";
-import { parseKMLContent, fetchKMLContentFromURL } from "../utils/kmlUtils";
+import { parseKMLContent, fetchKMLContentFromURL, inHiddenLayer, kmlPointIcon, kmlStyleOf } from "../utils/kmlUtils";
 
 const DEFAULT_COLOR = "#00FF00";
 
-// `color` and `onLoad` are optional: the block profile map draws each file in its
-// own colour and reads the parsed features (with any files that failed) for bounds.
-const KMLLayer = ({ loadedKMLs, map, color = DEFAULT_COLOR, onLoad }) => {
+// `color`, `onLoad` and `hiddenLayers` are optional: the block profile map draws each file
+// in its own colour, reads the parsed features (with any files that failed) for bounds and
+// its layer list, and hides the KML folders (layers) switched off there.
+const KMLLayer = ({ loadedKMLs, map, color = DEFAULT_COLOR, onLoad, hiddenLayers }) => {
   const onLoadRef = useRef(onLoad);
   useEffect(() => {
     onLoadRef.current = onLoad;
@@ -85,35 +86,15 @@ const KMLLayer = ({ loadedKMLs, map, color = DEFAULT_COLOR, onLoad }) => {
     setSelectedFeature(null);
   };
 
-  // Styling options for better visibility
-  const polylineOptions = {
-    strokeColor: color, // Green by default for KML routes
-    strokeOpacity: 0.8,
-    strokeWeight: 4,
-    clickable: true,
+  // Each feature in the colours its KML gives it (line colour, width and opacity, fill,
+  // icon colour or image); `color` only for what the KML leaves unstyled
+  const lineOptions = (feature) => {
+    const s = kmlStyleOf(feature, color);
+    return { strokeColor: s.strokeColor, strokeOpacity: s.strokeOpacity, strokeWeight: s.strokeWeight, clickable: true };
   };
-
-  const polygonOptions = {
-    strokeColor: color,
-    strokeOpacity: 0.8,
-    strokeWeight: 3,
-    fillColor: color,
-    fillOpacity: 0.2,
-    clickable: true,
-  };
-
-  const markerOptions = {
-    icon: {
-      url:
-        "data:image/svg+xml;base64," +
-        btoa(`
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="8" fill="${color}" stroke="${color === DEFAULT_COLOR ? "#006600" : "#ffffff"}" stroke-width="2"/>
-          <circle cx="12" cy="12" r="4" fill="#ffffff"/>
-        </svg>
-      `),
-      scaledSize: new window.google.maps.Size(24, 24),
-    },
+  const polygonOptions = (feature) => {
+    const s = kmlStyleOf(feature, color);
+    return { strokeColor: s.strokeColor, strokeOpacity: s.strokeOpacity, strokeWeight: Math.min(s.strokeWeight, 3), fillColor: s.fillColor, fillOpacity: s.fillOpacity, clickable: true };
   };
 
   // Show loading indicator if processing KMLs
@@ -128,7 +109,7 @@ const KMLLayer = ({ loadedKMLs, map, color = DEFAULT_COLOR, onLoad }) => {
 
   return (
     <>
-      {parsedFeatures.map((feature) => {
+      {parsedFeatures.filter((feature) => !inHiddenLayer(feature, hiddenLayers)).map((feature) => {
         switch (feature.type) {
           case "marker":
             return (
@@ -136,7 +117,7 @@ const KMLLayer = ({ loadedKMLs, map, color = DEFAULT_COLOR, onLoad }) => {
                 key={feature.id}
                 position={feature.position}
                 title={feature.title}
-                options={markerOptions}
+                options={{ icon: kmlPointIcon(feature, color) }}
                 onClick={() => handleFeatureClick(feature)}
               />
             );
@@ -146,7 +127,7 @@ const KMLLayer = ({ loadedKMLs, map, color = DEFAULT_COLOR, onLoad }) => {
               <Polyline
                 key={feature.id}
                 path={feature.path}
-                options={polylineOptions}
+                options={lineOptions(feature)}
                 onClick={() => handleFeatureClick(feature)}
               />
             );
@@ -156,7 +137,7 @@ const KMLLayer = ({ loadedKMLs, map, color = DEFAULT_COLOR, onLoad }) => {
               <Polygon
                 key={feature.id}
                 paths={feature.paths}
-                options={polygonOptions}
+                options={polygonOptions(feature)}
                 onClick={() => handleFeatureClick(feature)}
               />
             );
