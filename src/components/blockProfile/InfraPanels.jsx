@@ -375,6 +375,7 @@ export const GpInfraPanel = ({ blockProfile, canCapture, canEditEquipment }) => 
                 </Typography>
                 <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   LGD {g.lgdCode}
+                  {g.ringCode ? ` · Ring ${g.ringCode}` : ""}
                   {meta(g) ? ` · ${meta(g)}` : ""}
                 </Typography>
               </Box>
@@ -394,6 +395,7 @@ export const GpInfraPanel = ({ blockProfile, canCapture, canEditEquipment }) => 
               <TableRow>
                 <TableCell>GP</TableCell>
                 <TableCell>LGD code</TableCell>
+                <TableCell>Ring</TableCell>
                 <TableCell align="right">From router</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell align="right">Photos</TableCell>
@@ -416,6 +418,7 @@ export const GpInfraPanel = ({ blockProfile, canCapture, canEditEquipment }) => 
                   >
                     <TableCell sx={{ fontWeight: 600 }}>{titleCase(g.name)}</TableCell>
                     <TableCell sx={{ fontVariantNumeric: "tabular-nums" }}>{g.lgdCode}</TableCell>
+                    <TableCell sx={{ fontFamily: "monospace", color: g.ringCode ? "text.primary" : "text.disabled" }}>{g.ringCode || "—"}</TableCell>
                     <TableCell
                       align="right"
                       sx={{
@@ -441,7 +444,7 @@ export const GpInfraPanel = ({ blockProfile, canCapture, canEditEquipment }) => 
                   </TableRow>
                   <TableRow>
                     <TableCell
-                      colSpan={8}
+                      colSpan={9}
                       sx={{
                         p: 0,
                         ...(expanded === g.lgdCode ? {} : { borderBottom: 0 }),

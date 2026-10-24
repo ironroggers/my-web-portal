@@ -33,6 +33,7 @@ const EMPTY_FORM = {
   block: "",
   blockCode: "",
   numberOfGps: "",
+  numberOfRings: "",
   remarks: "",
   // The block router is the block's head node: sections start here
   blockRouter: { siteType: "", address: "", latitude: "", longitude: "" },
@@ -40,17 +41,25 @@ const EMPTY_FORM = {
 
 // rowId is only a React key; it isn't sent to the server
 let gpRowId = 0;
-const newGpRow = (gp = {}) => ({
+// A GP points at its ring's row (ringRowId), so renaming a ring code keeps its GPs
+const newGpRow = (gp = {}, ringRows = []) => ({
   rowId: ++gpRowId,
   name: gp.name || "",
   lgdCode: gp.lgdCode || "",
   latitude: gp.latitude ?? "",
   longitude: gp.longitude ?? "",
+  ringRowId: ringRows.find((r) => r.code === gp.ringCode)?.rowId ?? "",
 });
+
+let ringRowId = 0;
+const newRingRow = (code = "") => ({ rowId: ++ringRowId, code });
+const MAX_RINGS = 20;
+const ringCodeOf = (rings, gp) => rings.find((r) => r.rowId === gp.ringRowId)?.code.trim().toUpperCase() || "";
 
 const toForm = (profile) => ({
   ...Object.fromEntries(TEXT_FIELDS.map((key) => [key, profile[key] || ""])),
   numberOfGps: profile.numberOfGps ?? "",
+  numberOfRings: profile.rings?.length ? String(profile.rings.length) : "",
   blockRouter: {
     siteType: profile.blockRouter?.siteType || "",
     latitude: profile.blockRouter?.latitude ?? "",
@@ -74,8 +83,8 @@ const validateCoordinates = (errors, prefix, { latitude, longitude }) => {
   else if (!Number.isFinite(lng) || lng < -180 || lng > 180) errors[`${prefix}.longitude`] = "Must be between -180 and 180";
 };
 
-// Keys match the server's validation paths (blockRouter.latitude, gps.0.lgdCode)
-const validate = (form, gps) => {
+// Keys match the server's validation paths (blockRouter.latitude, gps.0.lgdCode, rings.0.code)
+const validate = (form, gps, rings) => {
   const errors = {};
   if (isBlank(form.block)) errors.block = "Required";
   if (isBlank(form.blockCode)) errors.blockCode = "Required";
@@ -83,6 +92,20 @@ const validate = (form, gps) => {
   else if (!isWholeNumber(form.numberOfGps) || Number(form.numberOfGps) < 1) errors.numberOfGps = "Enter a whole number of 1 or more";
 
   validateCoordinates(errors, "blockRouter", form.blockRouter);
+
+  if (!isBlank(form.numberOfRings) && (!isWholeNumber(form.numberOfRings) || Number(form.numberOfRings) > MAX_RINGS)) {
+    errors.numberOfRings = `Enter a whole number up to ${MAX_RINGS}`;
+  }
+  const ringCounts = {};
+  rings.forEach((r) => {
+    const code = r.code.trim().toUpperCase();
+    if (code) ringCounts[code] = (ringCounts[code] || 0) + 1;
+  });
+  rings.forEach((r, index) => {
+    const code = r.code.trim().toUpperCase();
+    if (!code) errors[`rings.${index}.code`] = "Required";
+    else if (ringCounts[code] > 1) errors[`rings.${index}.code`] = "Duplicate ring code";
+  });
 
   const codeCounts = {};
   gps.forEach((gp) => {
@@ -98,15 +121,17 @@ const validate = (form, gps) => {
   return errors;
 };
 
-const toPayload = (form, gps) => {
+const toPayload = (form, gps, rings) => {
   const { siteType, latitude, longitude, address } = form.blockRouter;
   const hasRouterPoint = hasPoint(form.blockRouter);
   return {
     ...Object.fromEntries(TEXT_FIELDS.map((key) => [key, form[key].trim()])),
     numberOfGps: Number(form.numberOfGps),
+    rings: rings.map((r) => ({ code: r.code.trim().toUpperCase() })),
     gps: gps.map((gp) => ({
       name: gp.name.trim(),
       lgdCode: gp.lgdCode.trim(),
+      ringCode: ringCodeOf(rings, gp) || null,
       ...(hasPoint(gp) && { latitude: Number(gp.latitude), longitude: Number(gp.longitude) }),
     })),
     blockRouter: {
@@ -124,13 +149,13 @@ const fieldGrid = {
   gap: 2,
 };
 
-// Name, LGD code, latitude, longitude on one line from md up
+// Name, LGD code, latitude, longitude and ring on one line from md up
 const gpFieldGrid = {
   ...fieldGrid,
   gridTemplateColumns: {
     xs: "minmax(0, 1fr)",
     sm: "repeat(2, minmax(0, 1fr))",
-    md: "minmax(0, 2fr) repeat(3, minmax(0, 1fr))",
+    md: "minmax(0, 2fr) repeat(4, minmax(0, 1fr))",
   },
 };
 
@@ -144,6 +169,7 @@ const BlockProfileFormPage = () => {
   const [loadError, setLoadError] = useState("");
   const [form, setForm] = useState(EMPTY_FORM);
   const [gps, setGps] = useState([]);
+  const [rings, setRings] = useState([]);
   const [touched, setTouched] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [serverErrors, setServerErrors] = useState({});
@@ -157,12 +183,14 @@ const BlockProfileFormPage = () => {
       .then((data) => {
         setProfile(data);
         setForm(toForm(data));
-        setGps((data.gps || []).map(newGpRow));
+        const ringRows = (data.rings || []).map((r) => newRingRow(r.code));
+        setRings(ringRows);
+        setGps((data.gps || []).map((gp) => newGpRow(gp, ringRows)));
       })
       .catch((e) => setLoadError(e.message || "Failed to load the block profile"));
   }, [blockProfileId]);
 
-  const errors = useMemo(() => validate(form, gps), [form, gps]);
+  const errors = useMemo(() => validate(form, gps, rings), [form, gps, rings]);
 
   // Format problems show while typing; "Required" waits until the field is left or the form submitted
   const fieldError = (key) => {
@@ -200,6 +228,24 @@ const BlockProfileFormPage = () => {
     clearServerError("gps");
   };
 
+  // The number of rings sets how many code fields there are; codes already typed stay
+  const updateRingCount = (event) => {
+    const { value } = event.target;
+    setForm((previous) => ({ ...previous, numberOfRings: value }));
+    clearServerError("numberOfRings");
+    if (!isWholeNumber(value) || Number(value) > MAX_RINGS) return;
+    const n = Number(value);
+    setRings((previous) => (n <= previous.length ? previous.slice(0, n) : [...previous, ...Array.from({ length: n - previous.length }, () => newRingRow())]));
+    // Rows past the new count are gone; their GPs' ring goes back to not set
+    setTouched((previous) => Object.fromEntries(Object.entries(previous).filter(([key]) => !key.startsWith("rings."))));
+  };
+  const updateRing = (rowId, index) => (event) => {
+    const { value } = event.target;
+    setRings((previous) => previous.map((r) => (r.rowId === rowId ? { ...r, code: value.toUpperCase() } : r)));
+    clearServerError(`rings.${index}.code`);
+    clearServerError("rings");
+  };
+
   const addGp = () => setGps((previous) => [...previous, newGpRow()]);
   const removeGp = (rowId) => {
     setGps((previous) => previous.filter((gp) => gp.rowId !== rowId));
@@ -231,7 +277,7 @@ const BlockProfileFormPage = () => {
     setServerErrors({});
     try {
       setSaving(true);
-      const payload = toPayload(form, gps);
+      const payload = toPayload(form, gps, rings);
       const saved = isEdit
         ? await blockProfileService.update(blockProfileId, { ...payload, updatedBy: userId })
         : await blockProfileService.create({ ...payload, createdBy: userId });
@@ -364,6 +410,40 @@ const BlockProfileFormPage = () => {
         </Grid>
 
         <Grid size={12}>
+          <SectionCard title="Rings" subtitle="The block's rings by ring code; each GP below says which ring it's on">
+            {textField("numberOfRings", "Number of rings", {
+              onChange: updateRingCount,
+              type: "number",
+              slotProps: { htmlInput: { min: 0, max: MAX_RINGS, step: 1 } },
+              sx: { width: { xs: "100%", sm: 200 } },
+            })}
+            {serverErrors.rings && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {serverErrors.rings}
+              </Alert>
+            )}
+            {rings.length > 0 && (
+              <Box sx={{ ...fieldGrid, gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: "repeat(2, minmax(0, 1fr))", md: "repeat(3, minmax(0, 1fr))" }, mt: 2 }}>
+                {rings.map((ring, index) => (
+                  <TextField
+                    key={ring.rowId}
+                    label={`Ring ${index + 1} code`}
+                    value={ring.code}
+                    onChange={updateRing(ring.rowId, index)}
+                    onBlur={touch(`rings.${index}.code`)}
+                    error={Boolean(fieldError(`rings.${index}.code`))}
+                    helperText={fieldError(`rings.${index}.code`) || "e.g. SSDDDBBBBAAA"}
+                    size="small"
+                    required
+                    slotProps={{ htmlInput: { style: { fontFamily: "monospace" } } }}
+                  />
+                ))}
+              </Box>
+            )}
+          </SectionCard>
+        </Grid>
+
+        <Grid size={12}>
           <SectionCard
             title="Gram Panchayats"
             subtitle="Entered by hand for now; a GP master will fill these later. Coordinates put the GP on the block map."
@@ -448,6 +528,27 @@ const BlockProfileFormPage = () => {
                           slotProps={{ htmlInput: { inputMode: "decimal" } }}
                         />
                       ))}
+                      <TextField
+                        select
+                        label="Ring"
+                        value={rings.some((r) => r.rowId === gp.ringRowId) ? gp.ringRowId : ""}
+                        onChange={updateGp(gp.rowId, "ringRowId")}
+                        error={Boolean(fieldError(`gps.${index}.ringCode`))}
+                        helperText={fieldError(`gps.${index}.ringCode`) || (rings.length ? undefined : "Add rings above")}
+                        disabled={!rings.length}
+                        size="small"
+                      >
+                        <MenuItem value="">
+                          <Typography component="span" variant="body2" sx={{ color: "text.secondary" }}>
+                            Not set
+                          </Typography>
+                        </MenuItem>
+                        {rings.map((r, i) => (
+                          <MenuItem key={r.rowId} value={r.rowId}>
+                            {r.code.trim() || `Ring ${i + 1}`}
+                          </MenuItem>
+                        ))}
+                      </TextField>
                     </Box>
                     <Tooltip title="Remove GP">
                       <IconButton

@@ -90,6 +90,15 @@ const Overview = ({ profile }) => {
             <DetailRow label="State">{withCode(profile.state, profile.stateCode)}</DetailRow>
             <DetailRow label="District">{withCode(profile.district, profile.districtCode)}</DetailRow>
             <DetailRow label="Block">{withCode(profile.block, profile.blockCode)}</DetailRow>
+            <DetailRow label={`Rings (${profile.rings?.length || 0})`}>
+              {profile.rings?.length ? (
+                <Box component="span" sx={{ fontFamily: "monospace" }}>
+                  {profile.rings.map((r) => r.code).join(", ")}
+                </Box>
+              ) : (
+                ""
+              )}
+            </DetailRow>
             <DetailRow label="Status">
               <StatusPill label={status.label} tone={status.tone} />
             </DetailRow>
@@ -151,6 +160,7 @@ const Overview = ({ profile }) => {
                     <TableCell sx={{ width: 48 }}>#</TableCell>
                     <TableCell>GP name</TableCell>
                     <TableCell>LGD code</TableCell>
+                    <TableCell>Ring</TableCell>
                     <TableCell>Coordinates</TableCell>
                   </TableRow>
                 </TableHead>
@@ -160,6 +170,7 @@ const Overview = ({ profile }) => {
                       <TableCell sx={{ color: "text.secondary", fontVariantNumeric: "tabular-nums" }}>{index + 1}</TableCell>
                       <TableCell>{gp.name}</TableCell>
                       <TableCell sx={{ fontVariantNumeric: "tabular-nums" }}>{gp.lgdCode}</TableCell>
+                      <TableCell sx={{ fontFamily: "monospace", color: gp.ringCode ? "text.primary" : "text.disabled" }}>{gp.ringCode || "—"}</TableCell>
                       <TableCell sx={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
                         {gp.latitude != null && gp.longitude != null ? (
                           <Link href={googleMapsUrl(gp.latitude, gp.longitude)} target="_blank" rel="noopener noreferrer">
