@@ -24,6 +24,7 @@ import AddIcon from "@mui/icons-material/Add";
 import BuildOutlinedIcon from "@mui/icons-material/BuildOutlined";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import PageHeader from "../../common/PageHeader";
 import SectionCard from "../../common/SectionCard";
 import StatTile from "../../common/StatTile";
@@ -32,7 +33,6 @@ import executionService from "../../../services/executionService.jsx";
 import { usePermissions } from "../../../hooks/usePermissions";
 import { useExecutionConfig } from "../../../hooks/useExecutionConfig";
 import { countLabel, fmtDateTime, fmtDistance } from "../../../utils/executionFormat";
-import { clearDraft, loadDraft, saveDraft } from "../../../utils/drafts";
 import ProgressTrack from "../ProgressTrack";
 import EntriesView from "../EntriesView";
 import EntryForm from "../EntryForm";
@@ -42,8 +42,8 @@ import { FlagList } from "../Flags";
 import { MediaStrip } from "../MediaPicker";
 import { FixBox, HistoryCard, KV, PointView } from "../JobParts";
 import { ExecStatusPill, PageState, StickyActionBar, TypeTag } from "../execUi";
-import { carryOver, draftFromPoint, emptyEntry, entryBody, validateEntry } from "../executionLogic";
-import { anyPending, toDraftMedia, toMediaFile } from "../mediaItems";
+import { carryOver, emptyEntry, entryBody, validateEntry } from "../executionLogic";
+import { anyPending, toMediaFile } from "../mediaItems";
 import { attentionMessage, reportError, showToast } from "../toast";
 import { contextOfSub, useExecContext } from "../useExecContext";
 
@@ -66,7 +66,6 @@ const SubsectionJobPage = ({ approvalView = false }) => {
   const [sheet, setSheet] = useState(null); // { form, errors }
   const [busy, setBusy] = useState(false);
   const go = useExecContext(contextOfSub(sub));
-  const entryDraftKey = `entry:${subSectionId}`;
 
   const load = useCallback(async () => {
     try {
@@ -83,13 +82,6 @@ const SubsectionJobPage = ({ approvalView = false }) => {
   useEffect(() => {
     load();
   }, [load]);
-
-  // Keep the entry dialog as a draft so it survives a reload
-  useEffect(() => {
-    if (!sheet) return undefined;
-    const timer = setTimeout(() => saveDraft(entryDraftKey, { ...sheet.form, photo: toDraftMedia(sheet.form.photo) }), 300);
-    return () => clearTimeout(timer);
-  }, [sheet, entryDraftKey]);
 
   const sectionId = sub?.sectionInfo?.section?._id || sub?.section;
   const header = (
@@ -140,12 +132,11 @@ const SubsectionJobPage = ({ approvalView = false }) => {
   const done = sub.doneM || 0;
   const ic = sub.initialCondition || {};
 
-  const openEntry = () => {
-    const saved = loadDraft(entryDraftKey);
-    const last = entries[entries.length - 1];
-    const form = saved ? { ...saved, photo: saved.photo || null } : carryOver(emptyEntry(fields), config?.entryCarryOver || [], last);
-    setSheet({ form, errors: {} });
-  };
+  // A new entry starts empty; the previous entry's offset, side, protection… can be copied on request
+  const openEntry = () => setSheet({ form: emptyEntry(fields), errors: {} });
+  const previousEntry = entries[entries.length - 1];
+  const copyPrevious = () =>
+    setSheet((s) => (s ? { ...s, form: carryOver(s.form, config?.entryCarryOver || [], previousEntry), errors: {} } : s));
 
   const saveEntry = async () => {
     const errors = validateEntry(fields, sheet.form);
@@ -163,7 +154,6 @@ const SubsectionJobPage = ({ approvalView = false }) => {
       const card = await executionService.addEntry(subSectionId, entryBody(fields, sheet.form, toMediaFile));
       setSub(card);
       setSheet(null);
-      clearDraft(entryDraftKey);
       showToast(duct ? `Entry saved · ${fmtDistance(card.doneM)} of ${fmtDistance(card.subSectionLength)}` : "Entry saved");
     } catch (e) {
       setSheet((s) => (s ? { ...s, errors: e.fieldErrors || {} } : s));
@@ -194,8 +184,6 @@ const SubsectionJobPage = ({ approvalView = false }) => {
     try {
       setBusy(true);
       const card = await executionService.reopenSubsection(subSectionId, sub.version);
-      // The previous end details pre-fill the End steps
-      if (card.previousEnd) saveDraft(`end:${subSectionId}`, draftFromPoint(card.previousEnd));
       setSub(card);
       showToast("Reopened. Fix it, then End execution again. Your end details are kept.", "info");
     } catch (e) {
@@ -432,6 +420,11 @@ const SubsectionJobPage = ({ approvalView = false }) => {
           </IconButton>
         </DialogTitle>
         <DialogContent dividers>
+          {sheet && previousEntry && (config?.entryCarryOver || []).length > 0 && (
+            <Button size="small" startIcon={<ContentCopyIcon />} onClick={copyPrevious} sx={{ mb: 1.5 }}>
+              Copy from the previous entry
+            </Button>
+          )}
           {sheet && (
             <EntryForm
               typeOfWork={sub.typeOfWork}

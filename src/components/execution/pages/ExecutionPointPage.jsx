@@ -17,25 +17,15 @@ import executionService from "../../../services/executionService.jsx";
 import { usePermissions } from "../../../hooks/usePermissions";
 import { useExecutionConfig } from "../../../hooks/useExecutionConfig";
 import { fmtDateTimeLong, fmtDistance, pointOf } from "../../../utils/executionFormat";
-import { clearDraft, loadDraft, saveDraft } from "../../../utils/drafts";
 import GpsField from "../GpsField";
 import MediaPicker from "../MediaPicker";
 import { RefPointDialog, RefRow } from "../RefPoint";
-import { EMPTY_POINT_DRAFT, checkPointStep, draftFromPoint, emptyPit, emptyRef, refDone } from "../executionLogic";
-import { anyPending, toDraftMedia, toMediaFile } from "../mediaItems";
+import { EMPTY_POINT_DRAFT, checkPointStep, draftFromPoint, emptyPit, refDone } from "../executionLogic";
+import { anyPending, toMediaFile } from "../mediaItems";
 import { PageState, StepLine, StickyActionBar } from "../execUi";
 import { attentionMessage, reportError, showToast } from "../toast";
 import { contextOfSub, useExecContext } from "../useExecContext";
 
-// Drafts keep uploaded media only (localStorage can't hold files)
-const storedMedia = (holder = {}) => ({ photos: (holder.photos || []).map(toDraftMedia).filter(Boolean), video: toDraftMedia(holder.video) || null });
-const toStoredDraft = (d) => ({
-  ...d,
-  ...storedMedia(d),
-  pit: { ...d.pit, ...storedMedia(d.pit), refs: d.pit.refs.map((r) => ({ ...r, ...storedMedia(r) })) },
-  // A reference point open in the dialog keeps its uploaded media too
-  sheet: d.sheet ? { ...d.sheet, value: { ...d.sheet.value, ...storedMedia(d.sheet.value) } } : null,
-});
 // Media of the pit, its reference points and the step, for "wait for uploads" and the request
 const allMedia = (d) => [...d.photos, d.video, ...(d.pit.photos || []), d.pit.video, ...d.pit.refs.flatMap((r) => [...(r.photos || []), r.video])];
 const mediaOf = (holder = {}) => ({ photos: (holder.photos || []).map(toMediaFile), video: toMediaFile(holder.video) });
@@ -44,7 +34,6 @@ const mediaOf = (holder = {}) => ({ photos: (holder.photos || []).map(toMediaFil
 const ExecutionPointPage = ({ which = "start" }) => {
   const { subSectionId } = useParams();
   const isStart = which === "start";
-  const draftKey = `${which}:${subSectionId}`;
   const { can } = usePermissions();
   const { config, typeOf, isDucting } = useExecutionConfig();
   const [sub, setSub] = useState(null);
@@ -53,6 +42,8 @@ const ExecutionPointPage = ({ which = "start" }) => {
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  // A nearby subsection's end pit this start can copy, offered, never filled in by itself
+  const [startSuggestion, setStartSuggestion] = useState(null);
   const go = useExecContext(contextOfSub(sub));
   const jobUrl = `/subsections/${subSectionId}`;
 
@@ -68,57 +59,39 @@ const ExecutionPointPage = ({ which = "start" }) => {
     }
   };
 
-  // Restore the draft, else pre-fill: the previous end after a fix, or a nearby end pit for a start
+  // The form starts empty each time (nothing is kept on leaving it). End after "Fix and
+  // resubmit" opens with the end that was sent; a start can be filled from a nearby end
+  // pit, but only when asked (startSuggestion)
   useEffect(() => {
     let active = true;
     (async () => {
       const card = await loadSub();
-      const saved = loadDraft(draftKey);
       if (!active || !card) return;
-      if (saved) {
-        const restored = { ...EMPTY_POINT_DRAFT, ...saved, photos: (saved.photos || []).filter(Boolean), video: saved.video || null };
-        const pit = { ...emptyPit(), ...(saved.pit || {}) };
-        restored.pit = {
-          ...pit,
-          photos: (pit.photos || []).filter(Boolean),
-          video: pit.video || null,
-          refs: [0, 1, 2].map((i) => ({ ...emptyRef(), ...(pit.refs?.[i] || {}), photos: (pit.refs?.[i]?.photos || []).filter(Boolean), video: pit.refs?.[i]?.video || null })),
-        };
-        setD(restored);
-        return;
-      }
       if (!isStart && card.end) {
         setD(draftFromPoint(card.end));
         return;
       }
+      setD(EMPTY_POINT_DRAFT);
       if (isStart && card.typeOfWork) {
         try {
           const { suggestion } = await executionService.getStartPitSuggestion(subSectionId);
-          if (suggestion && active) {
-            const prefill = draftFromPoint({ pit: suggestion.pit });
-            prefill.pit.copiedFrom = suggestion.subSection;
-            prefill.pit.copiedFromName = suggestion.name;
-            setD(prefill);
-            return;
-          }
+          if (active) setStartSuggestion(suggestion || null);
         } catch {
-          // no suggestion (or not ducting): start empty
+          // no suggestion (or not ducting)
         }
       }
-      if (active) setD(EMPTY_POINT_DRAFT);
     })();
     return () => {
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftKey, attempt]);
+  }, [subSectionId, which, attempt]);
 
-  // Keep the draft (with its step and any open reference point) as it changes
-  useEffect(() => {
-    if (!d) return undefined;
-    const timer = setTimeout(() => saveDraft(draftKey, toStoredDraft(d)), 300);
-    return () => clearTimeout(timer);
-  }, [d, draftKey]);
+  // Fills the pit and its reference points from the suggested end pit
+  const applySuggestion = () => {
+    const prefill = draftFromPoint({ pit: startSuggestion.pit });
+    update((p) => ({ ...p, pit: { ...prefill.pit, copiedFrom: startSuggestion.subSection, copiedFromName: startSuggestion.name } }));
+  };
 
   const title = isStart ? "Start execution" : "End execution";
   const header = (
@@ -228,7 +201,6 @@ const ExecutionPointPage = ({ which = "start" }) => {
       setSaving(true);
       if (isStart) await executionService.startSubsection(subSectionId, body);
       else await executionService.endSubsection(subSectionId, body);
-      clearDraft(draftKey);
       showToast(isStart ? "Execution started · add entries as you go" : "Sent for approval");
       go(jobUrl, {}, { replace: true });
     } catch (err) {
@@ -309,6 +281,20 @@ const ExecutionPointPage = ({ which = "start" }) => {
               }}
               error={errors["pit.location"]}
             />
+            {startSuggestion && !d.pit.copiedFrom && !pointOf(d.pit) && (
+              <Alert
+                severity="info"
+                icon={<AutoAwesomeIcon fontSize="inherit" />}
+                action={
+                  <Button color="inherit" size="small" onClick={applySuggestion}>
+                    Use it
+                  </Button>
+                }
+                sx={{ mt: 1.5 }}
+              >
+                The end pit of {startSuggestion.name} is {fmtDistance(startSuggestion.distanceM)} from here. Use it as this start, with its reference points?
+              </Alert>
+            )}
             {d.pit.copiedFrom && (
               <Alert
                 severity="info"

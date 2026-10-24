@@ -15,10 +15,9 @@ import sectionsService from "../../../services/sectionsService.jsx";
 import { usePermissions } from "../../../hooks/usePermissions";
 import { useExecutionConfig } from "../../../hooks/useExecutionConfig";
 import { distanceM, fmtDistance, fmtLatLong, isAboveLimit, parseLatLong, subsectionName } from "../../../utils/executionFormat";
-import { clearDraft, loadDraft, saveDraft } from "../../../utils/drafts";
 import ChipGroup from "../ChipGroup";
 import MediaPicker from "../MediaPicker";
-import { anyPending, toDraftMedia, toMediaFile } from "../mediaItems";
+import { anyPending, toMediaFile } from "../mediaItems";
 import { CREATE_STEP_OF } from "../executionLogic";
 import { useGpsSampler } from "../useGpsSampler";
 import { PageState, StepLine, StickyActionBar } from "../execUi";
@@ -85,7 +84,6 @@ const ErrorText = ({ children }) =>
 /** C7: New subsection (ducting only) — Work & location → Site condition */
 const SubsectionCreatePage = () => {
   const { sectionId } = useParams();
-  const draftKey = `create:${sectionId}`;
   const { can } = usePermissions();
   const { config, typeOf, isDucting } = useExecutionConfig();
   const limit = config?.accuracyLimitM ?? 1;
@@ -112,20 +110,10 @@ const SubsectionCreatePage = () => {
     }
   }, [sectionId]);
 
-  // Restore the draft (and its step) or start fresh
+  // The form starts empty each time; nothing is kept on leaving it
   useEffect(() => {
     load();
-    const saved = loadDraft(draftKey);
-    setD(
-      saved
-        ? {
-            ...EMPTY,
-            ...saved,
-            crossings: Array.isArray(saved.crossings) ? saved.crossings : [],
-            crossingPhotos: (saved.crossingPhotos || []).filter(Boolean),
-          }
-        : EMPTY
-    );
+    setD(EMPTY);
     executionService
       .previewName(sectionId)
       .then((r) => setSeq(r.seq))
@@ -134,21 +122,7 @@ const SubsectionCreatePage = () => {
       .listSubsections(sectionId)
       .then((r) => setExisting((r.items || []).filter((s) => s.typeOfWork)))
       .catch(() => setExisting([]));
-  }, [draftKey, sectionId, load]);
-
-  // Keep the draft as the form changes (uploaded media only)
-  useEffect(() => {
-    if (!d) return undefined;
-    const timer = setTimeout(
-      () =>
-        saveDraft(draftKey, {
-          ...d,
-          crossingPhotos: d.crossingPhotos.map(toDraftMedia).filter(Boolean),
-        }),
-      300
-    );
-    return () => clearTimeout(timer);
-  }, [d, draftKey]);
+  }, [sectionId, load]);
 
   const backTo = `/sections/${sectionId}/subsections`;
   const header = (
@@ -272,7 +246,6 @@ const SubsectionCreatePage = () => {
     try {
       setSaving(true);
       const created = await executionService.createSubsection(body);
-      clearDraft(draftKey);
       showToast(`${created.name} created · next: Start execution`);
       go(`/subsections/${created._id}`, { subSectionId: created._id, subSectionName: created.name }, { replace: true });
     } catch (err) {
