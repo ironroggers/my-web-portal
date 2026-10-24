@@ -30,7 +30,6 @@ import ClearIcon from "@mui/icons-material/Clear";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import sectionsService from "../../services/sectionsService.jsx";
-import StatusPill from "../common/StatusPill";
 import FormDialog from "../common/FormDialog";
 import ConfirmDeleteDialog from "../common/ConfirmDeleteDialog";
 import { formatNumber } from "../../utils/formatNumber";
@@ -38,12 +37,6 @@ import { formatLength } from "./blockProfileConstants";
 import { RestorationLine, StackBar } from "../execution/execUi";
 import { countLabel } from "../../utils/executionFormat";
 
-const SECTION_STATUSES = {
-  1: { label: "Draft", tone: "default" },
-  2: { label: "In Progress", tone: "warning" },
-  3: { label: "Completed", tone: "success" },
-  4: { label: "Archived", tone: "default" },
-};
 
 // fromNode / toNode hold a node value like "GP:221001" while editing
 const EMPTY_FORM = {
@@ -54,11 +47,10 @@ const EMPTY_FORM = {
   mainPathLength: "",
   sharingPathLength: "",
   existingIncrementalPathLength: "",
-  status: 1,
-  routeType: "NEW",
 };
+// Status and route type aren't asked: new sections start as Draft on a new route (the
+// server's defaults), and editing leaves them as they are
 
-const ROUTE_TYPES = { NEW: "New route", EXISTING: "Existing route" };
 
 // The section's length is the sum of these three (the server adds them up the same way)
 const PATH_LENGTHS = [
@@ -237,8 +229,6 @@ const BlockSectionsPanel = ({ blockProfile, canManage = false, onChanged }) => {
       ...(PATH_LENGTHS.some(({ key }) => section[key] != null)
         ? Object.fromEntries(PATH_LENGTHS.map(({ key }) => [key, section[key] ?? ""]))
         : { mainPathLength: section.sectionLength || "", sharingPathLength: "", existingIncrementalPathLength: "" }),
-      status: section.status ?? 1,
-      routeType: section.routeType || "NEW",
     });
 
   const updateForm = (key) => (event) => {
@@ -283,8 +273,6 @@ const BlockSectionsPanel = ({ blockProfile, canManage = false, onChanged }) => {
         description: form.description,
         // The server sets the section length to their sum
         ...Object.fromEntries(PATH_LENGTHS.map(({ key }) => [key, String(form[key]).trim() === "" ? null : Number(form[key])])),
-        status: Number(form.status),
-        routeType: form.routeType,
         // The server copies the block's names and LGD codes onto the section,
         // and the end coordinates from these nodes
         blockProfile: blockProfileId,
@@ -417,7 +405,6 @@ const BlockSectionsPanel = ({ blockProfile, canManage = false, onChanged }) => {
         ) : isPhone ? (
           <Box>
             {items.map((section) => {
-              const status = SECTION_STATUSES[section.status] || { label: "Unknown", tone: "default" };
               return (
                 <Box
                   key={section._id}
@@ -443,7 +430,6 @@ const BlockSectionsPanel = ({ blockProfile, canManage = false, onChanged }) => {
                     {canManage && <SectionActions section={section} onEdit={openEdit} onDelete={askDelete} />}
                   </Box>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", mt: 1 }}>
-                    <StatusPill label={status.label} tone={status.tone} />
                     <Typography variant="caption" sx={{ color: "text.secondary" }}>
                       {formatLength(section.sectionLength)}
                     </Typography>
@@ -464,7 +450,6 @@ const BlockSectionsPanel = ({ blockProfile, canManage = false, onChanged }) => {
                   <TableCell>From</TableCell>
                   <TableCell>To</TableCell>
                   <TableCell align="right">Length</TableCell>
-                  <TableCell>Status</TableCell>
                   <TableCell sx={{ width: 280 }}>Execution</TableCell>
                   {canManage && <TableCell align="right">Actions</TableCell>}
                   <TableCell padding="checkbox" />
@@ -472,7 +457,6 @@ const BlockSectionsPanel = ({ blockProfile, canManage = false, onChanged }) => {
               </TableHead>
               <TableBody>
                 {items.map((section) => {
-                  const status = SECTION_STATUSES[section.status] || { label: "Unknown", tone: "default" };
                   return (
                     <TableRow key={section._id} hover onClick={() => openSection(section)} sx={{ cursor: "pointer" }}>
                       <TableCell sx={{ maxWidth: 360 }}>
@@ -493,9 +477,6 @@ const BlockSectionsPanel = ({ blockProfile, canManage = false, onChanged }) => {
                       </TableCell>
                       <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
                         {formatLength(section.sectionLength)}
-                      </TableCell>
-                      <TableCell>
-                        <StatusPill label={status.label} tone={status.tone} />
                       </TableCell>
                       <TableCell sx={{ maxWidth: 280 }}>
                         <SectionProgress section={section} />
@@ -630,27 +611,6 @@ const BlockSectionsPanel = ({ blockProfile, canManage = false, onChanged }) => {
             helperText="Main + sharing + existing incremental path"
             slotProps={{ htmlInput: { readOnly: true, tabIndex: -1 }, input: { sx: { fontWeight: 600, bgcolor: "action.hover" } } }}
           />
-          <TextField
-            select
-            label="Route type"
-            value={form.routeType}
-            onChange={updateForm("routeType")}
-            size="small"
-            helperText="Existing routes are drawn dashed on the diagrams"
-          >
-            {Object.entries(ROUTE_TYPES).map(([value, label]) => (
-              <MenuItem key={value} value={value}>
-                {label}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField select label="Status" value={form.status} onChange={updateForm("status")} size="small">
-            {Object.entries(SECTION_STATUSES).map(([value, status]) => (
-              <MenuItem key={value} value={Number(value)}>
-                {status.label}
-              </MenuItem>
-            ))}
-          </TextField>
         </Box>
       </FormDialog>
 
