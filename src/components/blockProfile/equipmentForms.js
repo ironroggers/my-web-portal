@@ -123,7 +123,13 @@ export const EQUIPMENT_FORMS = {
     sections: [
       {
         title: "Equipment",
-        fields: [PHASE, BACKHAUL, { key: "items", label: "Types", type: "miscItems", full: true }, REMARKS],
+        fields: [
+          PHASE,
+          { key: "locationType", label: "Location type", type: "enum", options: GP_SITE_TYPES },
+          BACKHAUL,
+          { key: "items", label: "Types", type: "miscItems", full: true },
+          REMARKS,
+        ],
       },
     ],
   },
