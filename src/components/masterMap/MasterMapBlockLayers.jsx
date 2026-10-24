@@ -1,7 +1,7 @@
 import React, { memo, useMemo } from "react";
 import { Marker, Polygon, Polyline } from "@react-google-maps/api";
 import { titleCase } from "../execution/execConstants";
-import { MISC_TYPE_TAGS } from "../blockProfile/equipmentForms";
+import { miscBadge } from "../blockProfile/equipmentForms";
 import {
   BADGE_PATH,
   DIAMOND_PATH,
@@ -35,7 +35,7 @@ const ringIcons = (color) => [
     offset: "50%",
   },
 ];
-const equipmentCode = (e) => (e.form === "misc" ? MISC_TYPE_TAGS[e.equipmentType] || "M" : "R");
+const equipmentCode = (e) => (e.form === "misc" ? miscBadge(e) : "R");
 const equipmentColor = (e) => (e.form === "misc" ? EQUIPMENT_COLORS.misc : EQUIPMENT_COLORS.router);
 const at = (e) => e.latLng.toJSON();
 

@@ -13,6 +13,9 @@ const ASSET_CODE = { key: "assetCode", label: "Asset code", type: "assetCode", r
 const GP_SITE_TYPES = opts({ SCHOOL: "School", COLLEGE: "College", AANGANWADI: "Aanganwadi", GRAM_PANCHAYAT_BHAVAN: "Gram Panchayat Bhavan" });
 
 export const MISC_TYPE_TAGS = { RACK: "RA", FDMS: "FD", FTB: "FT", CCU: "CC", SPV: "SP" };
+// Types of misc equipment, in the order they're offered
+export const MISC_TYPES = opts({ RACK: "Rack", FDMS: "FDMS", FTB: "FTB", CCU: "CCU", SPV: "SPV" });
+export const miscTypeLabel = (type) => MISC_TYPES.find((t) => t.value === type)?.label || type;
 
 const pad = (value, length) => {
   const text = String(value ?? "").trim();
@@ -112,30 +115,38 @@ export const EQUIPMENT_FORMS = {
       },
     ],
   },
+  // One item per type of equipment at the site, each with a generated asset code
   misc: {
     title: "Misc equipment",
     sheet: "misc_eqpt",
-    assetFormat: "SSDDDBBBB XX PPPPPP (XX: RA rack, FD FDMS, FT FTB, CC CCU, SP SPV · PPPPPP: LGD code)",
-    suggestAssetCode: (prefix, v) =>
-      MISC_TYPE_TAGS[v.equipmentType] && v.lgdCode ? `${prefix}${MISC_TYPE_TAGS[v.equipmentType]}${pad(v.lgdCode, 6)}` : "",
+    assetFormat: "SSDDDBBBB XX PPPPPP (XX: RA rack, FD FDMS, FT FTB, CC CCU, SP SPV · PPPPPP: the site's LGD code)",
     sections: [
       {
         title: "Equipment",
-        fields: [
-          PHASE,
-          { key: "equipmentType", label: "Type", type: "enum", options: opts({ FDMS: "FDMS", RACK: "Rack", FTB: "FTB", CCU: "CCU", SPV: "SPV" }), required: true },
-          { key: "lgdCode", label: "LGD code", type: "text", helper: "The GP's; the block's for block-level equipment" },
-          { key: "locationType", label: "Location type", type: "enum", options: GP_SITE_TYPES },
-          ASSET_CODE,
-          PROJECT_STATUS,
-          { key: "model", label: "Model", type: "text" },
-          { key: "serialNo", label: "Serial no.", type: "text" },
-          BACKHAUL,
-          REMARKS,
-        ],
+        fields: [PHASE, BACKHAUL, { key: "items", label: "Types", type: "miscItems", full: true }, REMARKS],
       },
     ],
   },
+};
+
+// SSDDDBBBB + the type's tag + the site's LGD code (the GP's, or the block's) in 6 digits
+export const miscAssetCode = (geo, lgdCode, type) => {
+  const prefix = assetPrefix(geo);
+  return prefix && MISC_TYPE_TAGS[type] ? `${prefix}${MISC_TYPE_TAGS[type]}${pad(lgdCode, 6)}` : "";
+};
+
+// A misc record's items; a sheet saved before items existed has one type at the top level
+export const miscItemsOf = (record) =>
+  record?.items?.length
+    ? record.items
+    : record?.equipmentType
+      ? [{ type: record.equipmentType, assetCode: record.assetCode, model: record.model, serialNo: record.serialNo }]
+      : [];
+
+// Code in a misc sheet's map badge: its type's tag, with + when it has more than one type
+export const miscBadge = (record) => {
+  const tags = miscItemsOf(record).map((i) => MISC_TYPE_TAGS[i.type]).filter(Boolean);
+  return tags.length ? `${tags[0]}${tags.length > 1 ? "+" : ""}` : "M";
 };
 
 export const formFields = (formKey) => EQUIPMENT_FORMS[formKey].sections.flatMap((s) => s.fields);
@@ -147,6 +158,10 @@ const IPV4 = /^((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(25[0-5]|2[0-4]\d|1\d\d|[
 export const validateEquipment = (formKey, values) => {
   const errors = {};
   for (const f of formFields(formKey)) {
+    if (f.type === "miscItems") {
+      if (!values[f.key]?.length) errors[f.key] = "Pick at least one type";
+      continue;
+    }
     const text = String(values[f.key] ?? "").trim();
     if (!text) {
       if (f.required) errors[f.key] = "Required";

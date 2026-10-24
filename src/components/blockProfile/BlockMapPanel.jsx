@@ -39,7 +39,7 @@ import { titleCase } from "../execution/execConstants";
 import { useLoader } from "../execution/useLoader";
 import { SITE_TYPES, formatDate } from "./blockProfileConstants";
 import EquipmentDetails from "./EquipmentDetails";
-import { MISC_TYPE_TAGS } from "./equipmentForms";
+import { miscBadge } from "./equipmentForms";
 import {
   BADGE_PATH,
   ROUTER_COLOR,
@@ -81,7 +81,7 @@ const EQUIPMENT_FORMS_ON_MAP = [
 ];
 const EQUIPMENT_TITLES = { block: "Block equipment", gp: "GP equipment", misc: "Misc equipment" };
 // Code inside the equipment badge: R for routers, the asset-code tag for misc (RA, FD, FT, CC, SP)
-const equipmentCode = (e) => (e.form === "misc" ? MISC_TYPE_TAGS[e.equipmentType] || "M" : "R");
+const equipmentCode = (e) => (e.form === "misc" ? miscBadge(e) : "R");
 const equipmentColor = (e) => (e.form === "misc" ? EQUIPMENT_COLORS.misc : EQUIPMENT_COLORS.router);
 // Dashed line with an arrow halfway, pointing clockwise (previous → next node)
 const ringIcons = (color) => [

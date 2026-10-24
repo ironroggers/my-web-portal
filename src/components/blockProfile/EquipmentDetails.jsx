@@ -5,7 +5,7 @@ import { fmtLatLong } from "../../utils/executionFormat";
 import { formatNumber } from "../../utils/formatNumber";
 import ExecMediaViewer from "../execution/ExecMediaViewer";
 import { MediaThumb } from "../execution/MediaPicker";
-import { EQUIPMENT_FORMS } from "./equipmentForms";
+import { EQUIPMENT_FORMS, miscItemsOf, miscTypeLabel } from "./equipmentForms";
 
 const display = (field, value) => {
   if (value === undefined || value === null || value === "") return "—";
@@ -39,13 +39,32 @@ const EquipmentDetails = ({ formKey, record, columns = { xs: 1, md: 2 } }) => {
     >
       {spec.sections.map((section) => (
         <Group key={section.title} title={section.title}>
-          {section.fields.map((f) => (
-            <DetailRow key={f.key} label={f.label}>
-              <Box component="span" sx={f.key === "assetCode" || f.type === "mac" || f.type === "ip" ? { fontFamily: "monospace" } : undefined}>
-                {display(f, record[f.key])}
-              </Box>
-            </DetailRow>
-          ))}
+          {section.fields.map((f) =>
+            f.type === "miscItems" ? (
+              // One row per type: its asset code, model and serial no.
+              miscItemsOf(record).map((item) => {
+                const details = [item.model && `Model ${item.model}`, item.serialNo && `SN ${item.serialNo}`].filter(Boolean).join(" · ");
+                return (
+                  <DetailRow key={item.type} label={miscTypeLabel(item.type)}>
+                    <Box component="span" sx={{ fontFamily: "monospace" }}>
+                      {item.assetCode || "—"}
+                    </Box>
+                    {details && (
+                      <Box component="span" sx={{ display: "block", color: "text.secondary" }}>
+                        {details}
+                      </Box>
+                    )}
+                  </DetailRow>
+                );
+              })
+            ) : (
+              <DetailRow key={f.key} label={f.label}>
+                <Box component="span" sx={f.key === "assetCode" || f.type === "mac" || f.type === "ip" ? { fontFamily: "monospace" } : undefined}>
+                  {display(f, record[f.key])}
+                </Box>
+              </DetailRow>
+            )
+          )}
         </Group>
       ))}
       <Group title="Location & photo">

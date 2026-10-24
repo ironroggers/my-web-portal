@@ -5,7 +5,7 @@ import { titleCase } from "../execution/execConstants";
 import { MEDIA_KIND, RESTORATION_COLORS, STATUS_COLORS, ROUTER_COLOR, GP_COLOR, INFRA_COLORS, EQUIPMENT_COLORS } from "../blockProfile/blockMapLayers";
 import { SITE_TYPES } from "../blockProfile/blockProfileConstants";
 import { kmlStyleOf } from "../mapViewPage/utils/kmlUtils";
-import { EQUIPMENT_FORMS, formFields } from "../blockProfile/equipmentForms";
+import { EQUIPMENT_FORMS, formFields, miscItemsOf, miscTypeLabel } from "../blockProfile/equipmentForms";
 import { EQUIPMENT_FORMS_ON_MAP, kmlColor, pathLengthM, subKey, toPoint } from "./masterMapLayers";
 
 // A section or subsection along its road from the KML, else straight from → to
@@ -152,14 +152,28 @@ export const exportMasterMapExcel = (blocks, kml, { layers, filters, config, roa
       blocks.flatMap((data) =>
         (data.equipment || [])
           .filter((e) => e.form === form)
-          .map((e) => ({
-            ...where(data),
-            Site: titleCase(e.name),
-            "GP LGD code": e.gpLgdCode || "",
-            ...Object.fromEntries(fields.map((f) => [f.label, fieldValue(f, e[f.key])])),
-            Latitude: round(e.lat),
-            Longitude: round(e.lng),
-          }))
+          // A misc sheet gives one row per type, with that item's asset code, model and serial no.
+          .flatMap((e) =>
+            (form === "misc" ? miscItemsOf(e) : [null]).map((item) => ({
+              ...where(data),
+              Site: titleCase(e.name),
+              "GP LGD code": e.gpLgdCode || "",
+              ...Object.fromEntries(
+                fields.flatMap((f) =>
+                  f.type === "miscItems"
+                    ? [
+                        ["Type", miscTypeLabel(item?.type)],
+                        ["Asset code", item?.assetCode || ""],
+                        ["Model", item?.model || ""],
+                        ["Serial no.", item?.serialNo || ""],
+                      ]
+                    : [[f.label, fieldValue(f, e[f.key])]]
+                )
+              ),
+              Latitude: round(e.lat),
+              Longitude: round(e.lng),
+            }))
+          )
       ),
     ]);
   }

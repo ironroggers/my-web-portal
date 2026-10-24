@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Autocomplete, Box, Button, CircularProgress, Grid, InputAdornment, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import { Autocomplete, Box, Button, Chip, CircularProgress, Grid, InputAdornment, MenuItem, Stack, TextField, Typography } from "@mui/material";
 import { useNavigate, useParams } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PhoneAndroidOutlinedIcon from "@mui/icons-material/PhoneAndroidOutlined";
@@ -16,7 +16,7 @@ import { fromSaved } from "../execution/mediaItems";
 import { PageState, StickyActionBar } from "../execution/execUi";
 import { titleCase } from "../execution/execConstants";
 import { reportError, showToast } from "../execution/toast";
-import { EQUIPMENT_FORMS, assetPrefix, formFields, validateEquipment } from "./equipmentForms";
+import { EQUIPMENT_FORMS, MISC_TYPES, assetPrefix, formFields, miscAssetCode, miscItemsOf, validateEquipment } from "./equipmentForms";
 
 const fieldGrid = {
   display: "grid",
@@ -27,8 +27,14 @@ const fieldGrid = {
 const asText = (value) => (value === undefined || value === null ? "" : String(value));
 
 // Form values (all strings) from a saved record, or the server's starting values
+// A misc sheet's items stay a list: [{ type, model, serialNo }]
 const toValues = (formKey, source = {}) => ({
-  ...Object.fromEntries(formFields(formKey).map((f) => [f.key, asText(source[f.key])])),
+  ...Object.fromEntries(
+    formFields(formKey).map((f) => [
+      f.key,
+      f.type === "miscItems" ? miscItemsOf(source).map((i) => ({ type: i.type, model: asText(i.model), serialNo: asText(i.serialNo) })) : asText(source[f.key]),
+    ])
+  ),
   latitude: asText(source.latitude),
   longitude: asText(source.longitude),
 });
@@ -78,7 +84,12 @@ const InfraEquipmentPage = () => {
 
   const set = (key) => (value) => {
     setValues((v) => ({ ...v, [key]: value }));
-    setErrors((e) => ({ ...e, [key]: undefined, ...(key === "latitude" || key === "longitude" ? { location: undefined } : {}) }));
+    setErrors((e) => {
+      const next = { ...e, [key]: undefined, ...(key === "latitude" || key === "longitude" ? { location: undefined } : {}) };
+      // A misc item's errors go with the item list
+      if (key === "items") Object.keys(next).filter((k) => k.startsWith("items.")).forEach((k) => delete next[k]);
+      return next;
+    });
   };
 
   const save = async () => {
@@ -176,6 +187,77 @@ const InfraEquipmentPage = () => {
           onInputChange={(_, v, reason) => reason === "input" && set(f.key)(v)}
           renderInput={(params) => <TextField {...params} label={f.label} size="small" error={common.error} helperText={errors[f.key] || "Pick the block router or a GP, or type a code"} />}
         />
+      );
+    }
+    if (f.type === "miscItems") {
+      const items = values.items || [];
+      const has = (type) => items.some((i) => i.type === type);
+      // Toggling a type keeps the items in the offered order and keeps what was typed for the others
+      const toggle = (type) =>
+        set("items")(
+          has(type)
+            ? items.filter((i) => i.type !== type)
+            : MISC_TYPES.map((t) => t.value)
+                .filter((t) => t === type || has(t))
+                .map((t) => items.find((i) => i.type === t) || { type: t, model: "", serialNo: "" })
+        );
+      const setItem = (type, key) => (e) => set("items")(items.map((i) => (i.type === type ? { ...i, [key]: e.target.value } : i)));
+      const itemError = (i) => errors[`items.${i}.type`];
+      return (
+        <Box sx={{ gridColumn: "1 / -1" }}>
+          <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.75 }}>
+            Types{" "}
+            <Typography component="span" variant="caption" sx={{ color: "text.secondary" }}>
+              · pick every type at this site
+            </Typography>
+          </Typography>
+          <Stack direction="row" useFlexGap spacing={1} sx={{ flexWrap: "wrap" }}>
+            {MISC_TYPES.map((t) => (
+              <Chip
+                key={t.value}
+                label={t.label}
+                color={has(t.value) ? "primary" : "default"}
+                variant={has(t.value) ? "filled" : "outlined"}
+                onClick={editable ? () => toggle(t.value) : undefined}
+                aria-pressed={has(t.value)}
+              />
+            ))}
+          </Stack>
+          {errors.items && (
+            <Typography variant="caption" sx={{ color: "error.main", display: "block", mt: 0.5 }}>
+              {errors.items}
+            </Typography>
+          )}
+          {items.length > 0 && (
+            <Stack spacing={1.5} sx={{ mt: 2 }}>
+              {items.map((item, i) => {
+                const code = miscAssetCode(geo, data.target.code, item.type);
+                return (
+                  <Box key={item.type} sx={{ p: 1.5, border: 1, borderColor: "divider", borderRadius: 1 }}>
+                    <Box sx={{ display: "flex", alignItems: "baseline", gap: 1.5, flexWrap: "wrap", mb: 1.25 }}>
+                      <Typography variant="subtitle2">{MISC_TYPES.find((t) => t.value === item.type)?.label || item.type}</Typography>
+                      <Typography variant="body2" sx={{ fontFamily: "monospace", color: code ? "text.primary" : "error.main" }}>
+                        {code || "Asset code needs the state, district and block LGD codes on the block profile"}
+                      </Typography>
+                      {itemError(i) && (
+                        <Typography variant="caption" sx={{ color: "error.main" }}>
+                          {itemError(i)}
+                        </Typography>
+                      )}
+                    </Box>
+                    <Box sx={fieldGrid}>
+                      <TextField label="Model" size="small" disabled={!editable} value={item.model} onChange={setItem(item.type, "model")} />
+                      <TextField label="Serial no." size="small" disabled={!editable} value={item.serialNo} onChange={setItem(item.type, "serialNo")} />
+                    </Box>
+                  </Box>
+                );
+              })}
+            </Stack>
+          )}
+          <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 1 }}>
+            Asset codes are generated: {spec.assetFormat}
+          </Typography>
+        </Box>
       );
     }
     if (f.type === "generatedAssetCode") {
