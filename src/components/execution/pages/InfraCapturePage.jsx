@@ -23,7 +23,7 @@ import { reportError, showToast } from "../toast";
 
 const PLACEHOLDERS = ["e.g. Building front with signboard", "e.g. Rack / equipment position", "e.g. Cable entry point", "e.g. Approach road"];
 
-/** Block HQ or GP infra: location + up to 4 geo-stamped photos, each with a description (C3/C4) */
+/** Block router site or GP infra: location + up to 4 geo-stamped photos, each with a description (C3/C4) */
 const InfraCapturePage = () => {
   const { blockProfileId, lgdCode } = useParams();
   const level = lgdCode ? "GP" : "BLOCK";

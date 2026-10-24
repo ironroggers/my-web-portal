@@ -113,7 +113,7 @@ const BlockEquipmentCard = ({ blockProfile, form, canEdit }) => {
   );
 };
 
-/** Block infra tab (C3): the BHQ capture and the block's equipment and misc sheets */
+/** Block infra tab (C3): the block router site capture and the block's equipment and misc sheets */
 export const BlockInfraPanel = ({ blockProfile, canCapture, canEditEquipment }) => (
   <Stack spacing={3}>
     <BlockCapture blockProfile={blockProfile} canCapture={canCapture} />
@@ -122,7 +122,7 @@ export const BlockInfraPanel = ({ blockProfile, canCapture, canEditEquipment }) 
   </Stack>
 );
 
-/** The BHQ capture, or an empty state with "Capture block infra" */
+/** The block router site capture, or an empty state with "Capture block infra" */
 const BlockCapture = ({ blockProfile, canCapture }) => {
   const navigate = useNavigate();
   const { config } = useExecutionConfig();
@@ -141,7 +141,7 @@ const BlockCapture = ({ blockProfile, canCapture }) => {
         <EmptyState
           icon={<BusinessOutlinedIcon />}
           title="Block infra not captured"
-          text="Record the block HQ's location and up to 4 geo-stamped photos with descriptions."
+          text="Record the block router site's location and up to 4 geo-stamped photos with descriptions."
           action={
             canCapture && (
               <Button variant="contained" startIcon={<AddAPhotoOutlinedIcon />} onClick={open}>
@@ -156,7 +156,7 @@ const BlockCapture = ({ blockProfile, canCapture }) => {
 
   return (
     <SectionCard
-      title={titleCase(data.target?.name) || "Block HQ"}
+      title={titleCase(data.target?.name) || "Block router"}
       subtitle={`Block infra · saved ${fmtDateTime(capture.updatedAt)}`}
       action={<StatusPill label="Captured" tone="success" />}
     >
@@ -301,7 +301,7 @@ const ExpandIcon = ({ open }) => (
   />
 );
 
-/** GPs tab (C4): every GP nearest to the BHQ first, filterable by capture state */
+/** GPs tab (C4): every GP nearest to the block router first, filterable by capture state */
 export const GpInfraPanel = ({ blockProfile, canCapture, canEditEquipment }) => {
   const theme = useTheme();
   const isPhone = useMediaQuery(theme.breakpoints.down("md"));
@@ -330,12 +330,12 @@ export const GpInfraPanel = ({ blockProfile, canCapture, canEditEquipment }) => 
     </Collapse>
   );
   const meta = (g) =>
-    [g.distanceFromBhqM != null ? `${fmtDistance(g.distanceFromBhqM)} from BHQ` : "", g.captured ? countLabel(g.photoCount, "photo") : ""]
+    [g.distanceFromRouterM != null ? `${fmtDistance(g.distanceFromRouterM)} from the router` : "", g.captured ? countLabel(g.photoCount, "photo") : ""]
       .filter(Boolean)
       .join(" · ");
 
   return (
-    <SectionCard title="Gram Panchayats" subtitle={`${data.captured} of ${all.length} captured · nearest to the BHQ first`} contentSx={{ p: 0 }}>
+    <SectionCard title="Gram Panchayats" subtitle={`${data.captured} of ${all.length} captured · nearest to the block router first`} contentSx={{ p: 0 }}>
       <Box sx={{ px: 2.5, py: 1.5, borderBottom: 1, borderColor: "divider" }}>
         <ChipGroup
           nowrap
@@ -394,7 +394,7 @@ export const GpInfraPanel = ({ blockProfile, canCapture, canEditEquipment }) => 
               <TableRow>
                 <TableCell>GP</TableCell>
                 <TableCell>LGD code</TableCell>
-                <TableCell align="right">From BHQ</TableCell>
+                <TableCell align="right">From router</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell align="right">Photos</TableCell>
                 <TableCell>Saved</TableCell>
@@ -423,7 +423,7 @@ export const GpInfraPanel = ({ blockProfile, canCapture, canEditEquipment }) => 
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {g.distanceFromBhqM != null ? fmtDistance(g.distanceFromBhqM) : "—"}
+                      {g.distanceFromRouterM != null ? fmtDistance(g.distanceFromRouterM) : "—"}
                     </TableCell>
                     <TableCell>
                       <GpStatus captured={g.captured} />

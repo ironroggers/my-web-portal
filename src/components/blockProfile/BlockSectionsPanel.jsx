@@ -72,11 +72,10 @@ const SectionProgress = ({ section }) =>
     </Box>
   ) : null;
 
-// The block's BHQ and GPs: the points a section can start and end at
+// The block router and GPs: the points a section can start and end at. The router is the
+// block's head node; its code is the block's LGD code.
 const blockNodes = (profile) => [
-  ...(profile.bhq?.code
-    ? [{ type: "BHQ", code: profile.bhq.code, name: profile.bhq.name, latitude: profile.bhq.latitude, longitude: profile.bhq.longitude }]
-    : []),
+  { type: "ROUTER", code: profile.blockCode, name: "Block router", latitude: profile.blockRouter?.latitude, longitude: profile.blockRouter?.longitude },
   ...(profile.gps || []).map((gp) => ({ type: "GP", code: gp.lgdCode, name: gp.name, latitude: gp.latitude, longitude: gp.longitude })),
 ];
 
@@ -332,7 +331,7 @@ const BlockSectionsPanel = ({ blockProfile, canManage = false, onChanged }) => {
     <>
       {canManage && !canAddSections && (
         <Alert severity="info" sx={{ mb: 3 }}>
-          Sections run between the block's BHQ and GPs. Add at least two of them to this block profile before adding sections.
+          Sections run between the block router and the GPs. Add at least one GP to this block profile before adding sections.
         </Alert>
       )}
 

@@ -89,21 +89,17 @@ const Overview = ({ profile }) => {
           <SectionCard title="Profile">
             <DetailRow label="State">{withCode(profile.state, profile.stateCode)}</DetailRow>
             <DetailRow label="District">{withCode(profile.district, profile.districtCode)}</DetailRow>
-            <DetailRow label="District Census code">{profile.districtCensusCode}</DetailRow>
             <DetailRow label="Block">{withCode(profile.block, profile.blockCode)}</DetailRow>
-            <DetailRow label="Site type">{SITE_TYPES[profile.siteType]}</DetailRow>
-            <DetailRow label="Number of racks">{profile.numberOfRacks != null ? String(profile.numberOfRacks) : ""}</DetailRow>
-            <DetailRow label="Start date">{formatDate(profile.startDate)}</DetailRow>
-            <DetailRow label="End date">{formatDate(profile.endDate)}</DetailRow>
             <DetailRow label="Status">
               <StatusPill label={status.label} tone={status.tone} />
             </DetailRow>
             <DetailRow label="Last updated">{formatDate(profile.updatedAt)}</DetailRow>
           </SectionCard>
 
-          <SectionCard title="Block router">
-            {hasRouterPoint || router.address ? (
+          <SectionCard title="Block router" subtitle="The block's head node: sections start here">
+            {hasRouterPoint || router.address || router.siteType ? (
               <>
+                <DetailRow label="Site type">{SITE_TYPES[router.siteType]}</DetailRow>
                 <DetailRow label="Coordinates">
                   {hasRouterPoint && (
                     <>
@@ -138,26 +134,6 @@ const Overview = ({ profile }) => {
         </Grid>
 
         <Grid size={{ xs: 12, md: 6 }} sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          <SectionCard title="Block HQ (BHQ)">
-            {profile.bhq?.name || profile.bhq?.code ? (
-              <>
-                <DetailRow label="Name">{profile.bhq.name}</DetailRow>
-                <DetailRow label="Code">{profile.bhq.code}</DetailRow>
-                <DetailRow label="Coordinates">
-                  {profile.bhq.latitude != null && profile.bhq.longitude != null && (
-                    <Link href={googleMapsUrl(profile.bhq.latitude, profile.bhq.longitude)} target="_blank" rel="noopener noreferrer">
-                      {profile.bhq.latitude}, {profile.bhq.longitude}
-                    </Link>
-                  )}
-                </DetailRow>
-              </>
-            ) : (
-              <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                Not set yet.
-              </Typography>
-            )}
-          </SectionCard>
-
           <SectionCard
             title="Gram Panchayats"
             subtitle={`Declared ${declared} · Entered ${entered}`}

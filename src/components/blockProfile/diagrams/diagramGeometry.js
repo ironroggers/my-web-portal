@@ -100,7 +100,7 @@ export const nodeTitle = (node) => titleCase(node?.name) || node?.code || "Node"
 export const nodeKey = (node) => (node ? `${node.type}:${node.code}` : "");
 
 /**
- * Layered layout of the block network from the BHQ: each column is one hop further.
+ * Layered layout of the block network from the block router: each column is one hop further.
  * nodes: [{ key, type, code, name, … }], sections with fromNode / toNode.
  * Returns { columns: [[key]], unlinked: [key] }.
  */
@@ -116,7 +116,7 @@ export const layerNodes = (nodes, sections, rootKey) => {
   }
   const level = new Map();
   const roots = adj.has(rootKey) ? [rootKey] : [];
-  // Start from the BHQ; then any other connected part from its first node
+  // Start from the block router; then any other connected part from its first node
   for (const n of nodes) if (!roots.includes(n.key) && adj.get(n.key).size) roots.push(n.key);
   for (const root of roots) {
     if (level.has(root)) continue;

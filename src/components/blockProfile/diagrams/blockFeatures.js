@@ -14,8 +14,9 @@ const mid = (a, b) => ({ lat: (a.lat + b.lat) / 2, lng: (a.lng + b.lng) / 2 });
 
 export const buildFeatures = (blockProfile, data) => {
   const nodes = [];
-  if (blockProfile.bhq?.latitude != null) {
-    nodes.push({ key: `BHQ:${blockProfile.bhq.code}`, type: "BHQ", code: blockProfile.bhq.code, name: blockProfile.bhq.name, p: { lat: blockProfile.bhq.latitude, lng: blockProfile.bhq.longitude } });
+  const router = blockProfile.blockRouter;
+  if (router?.latitude != null && router?.longitude != null) {
+    nodes.push({ key: `ROUTER:${blockProfile.blockCode}`, type: "ROUTER", code: blockProfile.blockCode, name: "Block router", p: { lat: router.latitude, lng: router.longitude } });
   }
   for (const gp of blockProfile.gps || []) {
     if (gp.latitude != null && gp.longitude != null) nodes.push({ key: `GP:${gp.lgdCode}`, type: "GP", code: gp.lgdCode, name: gp.name, p: { lat: gp.latitude, lng: gp.longitude } });

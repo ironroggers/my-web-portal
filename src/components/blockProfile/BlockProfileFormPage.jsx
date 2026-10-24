@@ -20,27 +20,22 @@ import blockProfileService from "../../services/blockProfileService.jsx";
 import { useBlockPermissions } from "../../hooks/useBlockPermissions";
 import PageHeader from "../common/PageHeader";
 import SectionCard from "../common/SectionCard";
-import { BLOCK_STATUSES, SITE_TYPES } from "./blockProfileConstants";
+import { SITE_TYPES } from "./blockProfileConstants";
 
-const TEXT_FIELDS = ["state", "stateCode", "district", "districtCode", "districtCensusCode", "block", "blockCode", "remarks"];
+// District Census code and number of racks aren't on the form; saved values stay as they are
+const TEXT_FIELDS = ["state", "stateCode", "district", "districtCode", "block", "blockCode", "remarks"];
 
 const EMPTY_FORM = {
   state: "",
   stateCode: "",
   district: "",
   districtCode: "",
-  districtCensusCode: "",
   block: "",
   blockCode: "",
-  siteType: "",
   numberOfGps: "",
-  numberOfRacks: "",
-  startDate: "",
-  endDate: "",
-  status: "ACTIVE",
   remarks: "",
-  bhq: { name: "", code: "", latitude: "", longitude: "" },
-  blockRouter: { latitude: "", longitude: "", address: "" },
+  // The block router is the block's head node: sections start here
+  blockRouter: { siteType: "", address: "", latitude: "", longitude: "" },
 };
 
 // rowId is only a React key; it isn't sent to the server
@@ -55,19 +50,9 @@ const newGpRow = (gp = {}) => ({
 
 const toForm = (profile) => ({
   ...Object.fromEntries(TEXT_FIELDS.map((key) => [key, profile[key] || ""])),
-  siteType: profile.siteType || "",
   numberOfGps: profile.numberOfGps ?? "",
-  numberOfRacks: profile.numberOfRacks ?? "",
-  startDate: profile.startDate ? profile.startDate.slice(0, 10) : "",
-  endDate: profile.endDate ? profile.endDate.slice(0, 10) : "",
-  status: profile.status || "ACTIVE",
-  bhq: {
-    name: profile.bhq?.name || "",
-    code: profile.bhq?.code || "",
-    latitude: profile.bhq?.latitude ?? "",
-    longitude: profile.bhq?.longitude ?? "",
-  },
   blockRouter: {
+    siteType: profile.blockRouter?.siteType || "",
     latitude: profile.blockRouter?.latitude ?? "",
     longitude: profile.blockRouter?.longitude ?? "",
     address: profile.blockRouter?.address || "",
@@ -96,12 +81,7 @@ const validate = (form, gps) => {
   if (isBlank(form.blockCode)) errors.blockCode = "Required";
   if (isBlank(form.numberOfGps)) errors.numberOfGps = "Required";
   else if (!isWholeNumber(form.numberOfGps) || Number(form.numberOfGps) < 1) errors.numberOfGps = "Enter a whole number of 1 or more";
-  if (!isBlank(form.numberOfRacks) && !isWholeNumber(form.numberOfRacks)) errors.numberOfRacks = "Enter a whole number";
-  if (form.startDate && form.endDate && form.endDate < form.startDate) errors.endDate = "Can't be before the start date";
 
-  if (isBlank(form.bhq.name)) errors["bhq.name"] = "Required";
-  if (isBlank(form.bhq.code)) errors["bhq.code"] = "Required";
-  validateCoordinates(errors, "bhq", form.bhq);
   validateCoordinates(errors, "blockRouter", form.blockRouter);
 
   const codeCounts = {};
@@ -119,27 +99,18 @@ const validate = (form, gps) => {
 };
 
 const toPayload = (form, gps) => {
-  const { latitude, longitude, address } = form.blockRouter;
+  const { siteType, latitude, longitude, address } = form.blockRouter;
   const hasRouterPoint = hasPoint(form.blockRouter);
   return {
     ...Object.fromEntries(TEXT_FIELDS.map((key) => [key, form[key].trim()])),
-    siteType: form.siteType || null,
     numberOfGps: Number(form.numberOfGps),
-    numberOfRacks: isBlank(form.numberOfRacks) ? null : Number(form.numberOfRacks),
-    startDate: form.startDate || null,
-    endDate: form.endDate || null,
-    status: form.status,
-    bhq: {
-      name: form.bhq.name.trim(),
-      code: form.bhq.code.trim(),
-      ...(hasPoint(form.bhq) && { latitude: Number(form.bhq.latitude), longitude: Number(form.bhq.longitude) }),
-    },
     gps: gps.map((gp) => ({
       name: gp.name.trim(),
       lgdCode: gp.lgdCode.trim(),
       ...(hasPoint(gp) && { latitude: Number(gp.latitude), longitude: Number(gp.longitude) }),
     })),
     blockRouter: {
+      siteType: siteType || null,
       latitude: hasRouterPoint ? Number(latitude) : null,
       longitude: hasRouterPoint ? Number(longitude) : null,
       address: address.trim(),
@@ -216,7 +187,7 @@ const BlockProfileFormPage = () => {
     clearServerError(key);
   };
 
-  // Fields of a nested object: blockRouter or bhq
+  // Fields of the block router
   const updateGroup = (group, key) => (event) => {
     const { value } = event.target;
     setForm((previous) => ({ ...previous, [group]: { ...previous[group], [key]: value } }));
@@ -322,7 +293,6 @@ const BlockProfileFormPage = () => {
   }
 
   const declared = isWholeNumber(form.numberOfGps) && Number(form.numberOfGps) >= 1 ? Number(form.numberOfGps) : null;
-  const statusOptions = Object.entries(BLOCK_STATUSES).filter(([value]) => value !== "INACTIVE" || form.status === "INACTIVE");
 
   return (
     <Box>
@@ -336,8 +306,6 @@ const BlockProfileFormPage = () => {
               {textField("blockCode", "Block LGD code", { required: true })}
               {textField("district", "District")}
               {textField("districtCode", "District LGD code")}
-              {textField("districtCensusCode", "District Census code", { helperText: "Used in BBNL asset codes" })}
-              <Box sx={{ display: { xs: "none", sm: "block" } }} />
               {textField("state", "State")}
               {textField("stateCode", "State LGD code")}
             </Box>
@@ -345,58 +313,50 @@ const BlockProfileFormPage = () => {
         </Grid>
 
         <Grid size={{ xs: 12, lg: 6 }}>
-          <SectionCard title="Site" sx={{ height: "100%" }}>
+          <SectionCard title="Block router" subtitle="The block's head node: sections start here. Coordinates put it on the block map." sx={{ height: "100%" }}>
             <Box sx={fieldGrid}>
-              {textField("siteType", "Site type", {
-                select: true,
-                children: [
-                  <MenuItem key="none" value="">
-                    <Typography component="span" variant="body2" sx={{ color: "text.secondary" }}>
-                      Not specified
-                    </Typography>
-                  </MenuItem>,
-                  ...Object.entries(SITE_TYPES).map(([value, label]) => (
-                    <MenuItem key={value} value={value}>
-                      {label}
-                    </MenuItem>
-                  )),
-                ],
-              })}
-              {textField("numberOfRacks", "Number of racks", { type: "number", slotProps: { htmlInput: { min: 0, step: 1 } } })}
-              {textField("startDate", "Start date", { type: "date", slotProps: { inputLabel: { shrink: true } } })}
-              {textField("endDate", "End date", { type: "date", slotProps: { inputLabel: { shrink: true } } })}
-              {textField("status", "Status", {
-                select: true,
-                children: statusOptions.map(([value, status]) => (
+              <TextField
+                select
+                label="Site type"
+                value={form.blockRouter.siteType}
+                onChange={updateGroup("blockRouter", "siteType")}
+                error={Boolean(fieldError("blockRouter.siteType"))}
+                helperText={fieldError("blockRouter.siteType")}
+                size="small"
+                sx={{ gridColumn: "1 / -1" }}
+              >
+                <MenuItem value="">
+                  <Typography component="span" variant="body2" sx={{ color: "text.secondary" }}>
+                    Not specified
+                  </Typography>
+                </MenuItem>
+                {Object.entries(SITE_TYPES).map(([value, label]) => (
                   <MenuItem key={value} value={value}>
-                    {status.label}
+                    {label}
                   </MenuItem>
-                )),
-              })}
-            </Box>
-          </SectionCard>
-        </Grid>
-
-        <Grid size={12}>
-          <SectionCard title="Block HQ (BHQ)" subtitle="Coordinates put the BHQ on the block map">
-            <Box sx={gpFieldGrid}>
-              {[
-                { key: "name", label: "BHQ name", required: true },
-                { key: "code", label: "BHQ code", required: true },
-                { key: "latitude", label: "Latitude", inputMode: "decimal" },
-                { key: "longitude", label: "Longitude", inputMode: "decimal" },
-              ].map(({ key, label, required, inputMode }) => (
+                ))}
+              </TextField>
+              <TextField
+                label="Address"
+                value={form.blockRouter.address}
+                onChange={updateGroup("blockRouter", "address")}
+                size="small"
+                multiline
+                minRows={2}
+                sx={{ gridColumn: "1 / -1" }}
+              />
+              {["latitude", "longitude"].map((key) => (
                 <TextField
                   key={key}
-                  label={label}
-                  value={form.bhq[key]}
-                  onChange={updateGroup("bhq", key)}
-                  onBlur={touch(`bhq.${key}`)}
-                  error={Boolean(fieldError(`bhq.${key}`))}
-                  helperText={fieldError(`bhq.${key}`)}
+                  label={key === "latitude" ? "Latitude" : "Longitude"}
+                  value={form.blockRouter[key]}
+                  onChange={updateGroup("blockRouter", key)}
+                  onBlur={touch(`blockRouter.${key}`)}
+                  error={Boolean(fieldError(`blockRouter.${key}`))}
+                  helperText={fieldError(`blockRouter.${key}`)}
+                  placeholder={key === "latitude" ? "e.g. 9.9816" : "e.g. 76.2999"}
                   size="small"
-                  required={required}
-                  slotProps={inputMode ? { htmlInput: { inputMode } } : undefined}
+                  slotProps={{ htmlInput: { inputMode: "decimal" } }}
                 />
               ))}
             </Box>
@@ -505,45 +465,15 @@ const BlockProfileFormPage = () => {
           </SectionCard>
         </Grid>
 
-        <Grid size={{ xs: 12, lg: 6 }}>
-          <SectionCard title="Block router" sx={{ height: "100%" }}>
-            <Box sx={fieldGrid}>
-              {["latitude", "longitude"].map((key) => (
-                <TextField
-                  key={key}
-                  label={key === "latitude" ? "Latitude" : "Longitude"}
-                  value={form.blockRouter[key]}
-                  onChange={updateGroup("blockRouter", key)}
-                  onBlur={touch(`blockRouter.${key}`)}
-                  error={Boolean(fieldError(`blockRouter.${key}`))}
-                  helperText={fieldError(`blockRouter.${key}`)}
-                  placeholder={key === "latitude" ? "e.g. 9.9816" : "e.g. 76.2999"}
-                  size="small"
-                  slotProps={{ htmlInput: { inputMode: "decimal" } }}
-                />
-              ))}
-              <TextField
-                label="Address"
-                value={form.blockRouter.address}
-                onChange={updateGroup("blockRouter", "address")}
-                size="small"
-                multiline
-                minRows={2}
-                sx={{ gridColumn: "1 / -1" }}
-              />
-            </Box>
-          </SectionCard>
-        </Grid>
-
-        <Grid size={{ xs: 12, lg: 6 }}>
-          <SectionCard title="Remarks" sx={{ height: "100%" }}>
+        <Grid size={12}>
+          <SectionCard title="Remarks">
             <TextField
               label="Remarks"
               value={form.remarks}
               onChange={updateField("remarks")}
               size="small"
               multiline
-              minRows={4}
+              minRows={3}
               fullWidth
             />
           </SectionCard>

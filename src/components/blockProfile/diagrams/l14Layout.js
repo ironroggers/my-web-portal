@@ -67,7 +67,7 @@ export const buildL14 = (features) => {
   const rowOf = ranks(ys, spanY * 0.07);
   const taken = new Set();
   const cell = new Map();
-  for (const n of [...nodes].sort((a, b) => (a.type === "BHQ" ? -1 : b.type === "BHQ" ? 1 : 0))) {
+  for (const n of [...nodes].sort((a, b) => (a.type === "ROUTER" ? -1 : b.type === "ROUTER" ? 1 : 0))) {
     let c = colOf(w.get(n.key).x);
     const r = rowOf(w.get(n.key).y);
     while (taken.has(`${c},${r}`)) c += 1;

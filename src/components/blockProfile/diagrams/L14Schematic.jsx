@@ -23,7 +23,7 @@ const L14Schematic = forwardRef(({ blockProfile, features, onSelect }, ref) => {
   const l14 = useMemo(() => buildL14(features), [features]);
 
   const nodeLabel = (n, x, y, dir) => {
-    const name = n.type === "BHQ" ? `${titleCase(n.name)}` : titleCase(n.name);
+    const name = titleCase(n.name);
     const [dx, dy] = STEP[dir] || [0, 1];
     const tx = x + dx * 16;
     const ty = y + dy * 22 + (dy === 0 ? 4 : dy > 0 ? 4 : 0);
@@ -73,12 +73,12 @@ const L14Schematic = forwardRef(({ blockProfile, features, onSelect }, ref) => {
       {l14.nodes.map((n) => {
         const free = FREE.filter((d) => !n.sides.has(d));
         const select = () => onSelect({ kind: "node", node: { type: n.type, code: n.code, name: n.name } });
-        if (n.type === "BHQ") {
+        if (n.type === "ROUTER") {
           // Label on a free side (above first), else diagonally up-left, clear of every line
           const labelDir = free.includes("up") ? "up" : free[0];
           return (
             <g key={n.key} onClick={select} style={{ cursor: "pointer" }}>
-              <title>{`Exchange: ${n.name}`}</title>
+              <title>{`Exchange · ${n.name}`}</title>
               <rect x={n.x - 16} y={n.y - 11} width={32} height={22} fill="#fff" stroke="#111827" strokeWidth={2} />
               <line x1={n.x - 10} x2={n.x + 10} y1={n.y - 3} y2={n.y - 3} stroke="#111827" strokeWidth={2} />
               <line x1={n.x - 10} x2={n.x + 10} y1={n.y + 3} y2={n.y + 3} stroke="#111827" strokeWidth={1} />
@@ -146,7 +146,7 @@ const L14Schematic = forwardRef(({ blockProfile, features, onSelect }, ref) => {
         </text>
         <rect x={19} y={160} width={20} height={14} fill="#fff" stroke="#111827" strokeWidth={1.6} />
         <text x={54} y={172} fontSize={11.5} fill="#0f172a">
-          Exchange (BHQ)
+          Exchange (block router)
         </text>
       </g>
       <text x={16} y={H - 16} fontSize={10.5} fill="#64748b">

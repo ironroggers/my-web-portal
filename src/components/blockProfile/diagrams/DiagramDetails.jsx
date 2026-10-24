@@ -92,11 +92,11 @@ export const MediaList = ({ items }) => {
   );
 };
 
-/** BHQ or GP: where it is, its infra capture and the sections that touch it */
+/** Block router or GP: where it is, its infra capture and the sections that touch it */
 export const NodeDetail = ({ node, infra, sections, media, onSection }) => (
   <Box>
-    <Row label="Type">{node.type === "BHQ" ? "Block HQ (BHQ)" : "Gram Panchayat"}</Row>
-    <Row label={node.type === "BHQ" ? "Code" : "LGD code"}>{node.code}</Row>
+    <Row label="Type">{node.type === "ROUTER" ? "Block router" : "Gram Panchayat"}</Row>
+    <Row label={node.type === "ROUTER" ? "Block LGD code" : "LGD code"}>{node.code}</Row>
     <Row label="Coordinates">{node.lat != null ? fmtLatLong(node.lat, node.lng) : "Not set"}</Row>
     <Row label="Infra">
       {infra ? `Captured · ${infra.photoCount} ${infra.photoCount === 1 ? "photo" : "photos"} · ${fmtDateTime(infra.updatedAt)}` : "Not captured"}

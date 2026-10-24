@@ -332,8 +332,8 @@ const BlockProfilesPage = () => {
                       </TableCell>
                       <TableCell sx={{ fontVariantNumeric: "tabular-nums" }}>{profile.blockCode}</TableCell>
                       <TableCell sx={{ color: profile.district ? "text.primary" : "text.disabled" }}>{profile.district || "—"}</TableCell>
-                      <TableCell sx={{ color: profile.siteType ? "text.primary" : "text.disabled", whiteSpace: "nowrap" }}>
-                        {SITE_TYPES[profile.siteType] || "—"}
+                      <TableCell sx={{ color: profile.blockRouter?.siteType ? "text.primary" : "text.disabled", whiteSpace: "nowrap" }}>
+                        {SITE_TYPES[profile.blockRouter?.siteType] || "—"}
                       </TableCell>
                       <TableCell>
                         <GpCount profile={profile} />

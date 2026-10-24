@@ -51,14 +51,14 @@ const BlockDiagramsPanel = ({ blockProfile }) => {
 
   // ---- lookups for the detail panels
   const infraFor = useCallback(
-    (node) => (data?.infra || []).find((i) => (node.type === "BHQ" ? i.level === "BLOCK" : i.level === "GP" && i.gpLgdCode === node.code)),
+    (node) => (data?.infra || []).find((i) => (node.type === "ROUTER" ? i.level === "BLOCK" : i.level === "GP" && i.gpLgdCode === node.code)),
     [data]
   );
   const nodeInfo = useCallback((node) => ({ infra: infraFor(node) }), [infraFor]);
   const fullNode = (node) => {
-    if (node.type === "BHQ") {
-      const b = blockProfile.bhq || {};
-      return { type: "BHQ", code: b.code, name: b.name, lat: b.latitude, lng: b.longitude };
+    if (node.type === "ROUTER") {
+      const r = blockProfile.blockRouter || {};
+      return { type: "ROUTER", code: blockProfile.blockCode, name: "Block router", lat: r.latitude, lng: r.longitude };
     }
     const gp = (blockProfile.gps || []).find((g) => g.lgdCode === node.code) || {};
     return { type: "GP", code: node.code, name: gp.name || node.name, lat: gp.latitude, lng: gp.longitude };
@@ -70,7 +70,7 @@ const BlockDiagramsPanel = ({ blockProfile }) => {
       ? navigate(`/subsections/${sub._id}/trenching`, { state: blockState })
       : navigate(`/subsections/${sub._id}`, { state: { ...blockState, sectionId: sub.sectionId, sectionName: sub.sectionName, subSectionId: sub._id, subSectionName: sub.name } });
   const openInfra = (node) =>
-    navigate(node.type === "BHQ" ? `/block-profiles/${blockProfileId}/infra` : `/block-profiles/${blockProfileId}/gps/${encodeURIComponent(node.code)}/infra`, { state: blockState });
+    navigate(node.type === "ROUTER" ? `/block-profiles/${blockProfileId}/infra` : `/block-profiles/${blockProfileId}/gps/${encodeURIComponent(node.code)}/infra`, { state: blockState });
 
   const panel = (() => {
     if (!selected) return null;
@@ -78,10 +78,10 @@ const BlockDiagramsPanel = ({ blockProfile }) => {
       const node = fullNode(selected.node);
       const key = nodeKey(node);
       const touching = sections.filter((s) => nodeKey(s.fromNode) === key || nodeKey(s.toNode) === key);
-      const media = (data?.media || []).filter((m) => (node.type === "BHQ" ? m.kind === "BLOCK_INFRA" : m.kind === "GP_INFRA" && m.gpLgdCode === node.code));
+      const media = (data?.media || []).filter((m) => (node.type === "ROUTER" ? m.kind === "BLOCK_INFRA" : m.kind === "GP_INFRA" && m.gpLgdCode === node.code));
       return {
         title: nodeTitle(node),
-        subtitle: node.type === "BHQ" ? "Block HQ" : `GP · LGD ${node.code}`,
+        subtitle: node.type === "ROUTER" ? `Block router · ${blockProfile.blockCode}` : `GP · LGD ${node.code}`,
         body: <NodeDetail node={node} infra={infraFor(node)} sections={touching} media={media} onSection={(s) => setSelected({ kind: "section", section: s })} />,
         actions: <OpenButton label={infraFor(node) ? "Open infra" : "Capture infra"} onClick={() => openInfra(node)} />,
       };

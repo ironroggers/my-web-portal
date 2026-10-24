@@ -38,8 +38,8 @@ const NodeBox = ({ x, y, align, node, infra, onClick }) => {
   const left = align === "left" ? x - w - 8 : x + 8;
   return (
     <g onClick={onClick} style={{ cursor: "pointer" }} role="button" aria-label={`${node.type} ${node.name}`}>
-      <title>{`${node.type === "BHQ" ? "Block HQ" : "GP"}: ${node.name}`}</title>
-      <rect x={left} y={y - 22} width={w} height={44} rx={6} fill={node.type === "BHQ" ? "#1e3a8a" : "#7c3aed"} />
+      <title>{`${node.type === "ROUTER" ? "Block router" : "GP"}: ${node.name}`}</title>
+      <rect x={left} y={y - 22} width={w} height={44} rx={6} fill={node.type === "ROUTER" ? "#1e3a8a" : "#7c3aed"} />
       <text x={left + w / 2} y={y - 5} textAnchor="middle" fill="#fff" fontSize={11} fontWeight={700}>
         {shorten(node.name || node.code || "", 17)}
       </text>
