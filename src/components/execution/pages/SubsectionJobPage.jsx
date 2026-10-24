@@ -241,18 +241,33 @@ const SubsectionJobPage = ({ approvalView = false }) => {
               duct
                 ? [
                     ["Terrain", ic.terrain],
-                    ["Crossing", ic.crossing || "None"],
+                    ["Crossings", ic.crossing || "None"],
                     ["OFC side", ic.ofcSide],
                     ["Road", ic.roadFeatures],
                     ["Authority", ic.authorityName],
                     ["Note", ic.remarks],
+                    ["Captured", [fmtDateTime(ic.capturedAt), sub.createdBy?.name].filter(Boolean).join(" · ")],
                   ]
-                : [["Note", ic.remarks]]
+                : [
+                    ["Note", ic.remarks],
+                    ["Captured", [fmtDateTime(ic.capturedAt), sub.createdBy?.name].filter(Boolean).join(" · ")],
+                  ]
             }
           />
-          <Box sx={{ mt: 1 }}>
-            <MediaStrip media={ic} />
-          </Box>
+          {/* Before photos (older subsections) and the crossings' photos */}
+          {(ic.photos?.length > 0 || ic.video) && (
+            <Box sx={{ mt: 1 }}>
+              <MediaStrip media={ic} />
+            </Box>
+          )}
+          {ic.crossingPhotos?.length > 0 && (
+            <Box sx={{ mt: 1.5 }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
+                Crossing photos
+              </Typography>
+              <MediaStrip media={{ photos: ic.crossingPhotos }} />
+            </Box>
+          )}
         </Box>
       ),
     },

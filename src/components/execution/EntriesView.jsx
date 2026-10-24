@@ -117,7 +117,12 @@ const EntriesView = ({ sub, editable, onDelete }) => {
   cols.push(["Offset", (e) => dash(e.offset, 1)], ["Side", (e) => dash(e.side)]);
   if (type !== "HDD") cols.push(["Protection", (e) => dash(e.protection)]);
   if (type === "CLAMP") cols.push(["Clamp on", (e) => dash(e.clampOn)], ["Method", (e) => dash(e.clampMethod)]);
-  cols.push(["Landmark", (e) => dash(e.landmark)], ["Lat, long", (e) => fmtLatLong(e.latitude, e.longitude)]);
+  cols.push(
+    ["Landmark", (e) => dash(e.landmark)],
+    ["Lat, long", (e) => fmtLatLong(e.latitude, e.longitude)],
+    ["GPS ±", (e) => (e.accuracy != null ? `${Number(e.accuracy).toFixed(1)} m` : "—")],
+    ["Captured", (e) => [fmtDateTime(e.capturedAt), e.createdBy?.name].filter(Boolean).join(" · ") || "—"]
+  );
 
   let dist = 0;
   const rows = entries.map((e) => {

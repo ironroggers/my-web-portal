@@ -65,7 +65,7 @@ export const PointView = ({ point }) => {
             </React.Fragment>
           ))
         : null}
-      {point.remarks && <KV rows={[["Note", point.remarks]]} />}
+      <KV rows={[["Recorded", [fmtDateTime(point.at), point.by?.name].filter(Boolean).join(" · ")], ["Note", point.remarks]].filter(([, v]) => v)} />
       <Box sx={{ mt: 1 }}>
         <MediaStrip media={point} />
       </Box>
