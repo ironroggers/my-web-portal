@@ -97,9 +97,10 @@ export const EQUIPMENT_FORMS = {
           { key: "managementIp", label: "Management IP", type: "ip" },
           { key: "macId", label: "MAC ID", type: "mac" },
           { key: "serialNo", label: "Serial no.", type: "text" },
-          { key: "ports1g", label: "1G ports available", type: "int" },
-          { key: "ports10g", label: "10G ports available", type: "int" },
-          { key: "ports10g1g", label: "10G/1G ports available", type: "int" },
+          { key: "ports10g10km", label: "10G (10 km)", type: "int" },
+          { key: "ports10g40km", label: "10G (40 km)", type: "int" },
+          { key: "ports10g80km", label: "10G (80 km)", type: "int" },
+          { key: "ports1g10km", label: "1G (10 km)", type: "int" },
         ],
       },
       {
