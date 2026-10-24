@@ -2,9 +2,10 @@
 // point has its own colour and shape so nothing on the map needs a click to tell apart.
 
 export const GP_COLOR = "#7c3aed";
-export const BHQ_COLOR = "#1e3a8a";
+// The block router is the block's head node
+export const ROUTER_COLOR = "#1e3a8a";
 
-// GPs are diamonds and the BHQ a square, so they read apart from the round router
+// GPs are diamonds and the block router a square
 export const DIAMOND_PATH = "M 0 -9 L 9 0 L 0 9 L -9 0 z";
 export const SQUARE_PATH = "M -8 -8 L 8 -8 L 8 8 L -8 8 z";
 // Map pin with its tip on the point, for infra captures

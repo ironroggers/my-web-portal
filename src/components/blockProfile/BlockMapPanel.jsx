@@ -17,7 +17,6 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { useTheme } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
 import { GoogleMap, InfoWindow, Marker, Polyline, useJsApiLoader } from "@react-google-maps/api";
 import UploadFileOutlinedIcon from "@mui/icons-material/UploadFileOutlined";
@@ -29,6 +28,8 @@ import executionService from "../../services/executionService.jsx";
 import { useExecutionConfig } from "../../hooks/useExecutionConfig";
 import { fmtDateTime, fmtDistance } from "../../utils/executionFormat";
 import KMLLayer from "../mapViewPage/mapComponents/KMLLayer";
+import { initiallyHiddenLayers, kmlLayers } from "../mapViewPage/utils/kmlUtils";
+import KmlLayerList from "./KmlLayerList";
 import { GOOGLE_MAPS_LOADER_OPTIONS } from "../mapViewPage/utils/googleMapsLoader";
 import SectionCard from "../common/SectionCard";
 import ConfirmDeleteDialog from "../common/ConfirmDeleteDialog";
@@ -36,12 +37,12 @@ import ExecMediaViewer from "../execution/ExecMediaViewer";
 import { posterSrc, mediaSrc } from "../execution/mediaItems";
 import { titleCase } from "../execution/execConstants";
 import { useLoader } from "../execution/useLoader";
-import { formatDate } from "./blockProfileConstants";
+import { SITE_TYPES, formatDate } from "./blockProfileConstants";
 import EquipmentDetails from "./EquipmentDetails";
 import { MISC_TYPE_TAGS } from "./equipmentForms";
 import {
   BADGE_PATH,
-  BHQ_COLOR,
+  ROUTER_COLOR,
   DIAMOND_PATH,
   EQUIPMENT_COLORS,
   GP_COLOR,
@@ -60,6 +61,7 @@ import {
   isFlagged,
   symbol,
 } from "./blockMapLayers";
+import { buildRoadPaths, midpointOf, pathLength } from "./roadPaths";
 
 // Same starting view as the Locations map; the map fits to the block's data once it loads
 const DEFAULT_CENTER = { lat: 9.31, lng: 76.45 };
@@ -108,25 +110,25 @@ const toggleIn = (set, key) => {
   return next;
 };
 
-// ---- legend swatches
+// ---- legend swatches (the master map uses them too)
 
-const Dot = ({ color, size = 12, ring }) => (
+export const Dot = ({ color, size = 12, ring }) => (
   <Box sx={{ width: size, height: size, borderRadius: "50%", bgcolor: color, border: `2px solid ${ring || "#fff"}`, boxShadow: "0 0 0 1px rgba(0,0,0,0.2)" }} />
 );
-const Square = ({ color, size = 13 }) => <Box sx={{ width: size, height: size, bgcolor: color, border: "2px solid #fff", boxShadow: "0 0 0 1px rgba(0,0,0,0.2)" }} />;
-const Diamond = ({ color }) => (
+export const Square = ({ color, size = 13 }) => <Box sx={{ width: size, height: size, bgcolor: color, border: "2px solid #fff", boxShadow: "0 0 0 1px rgba(0,0,0,0.2)" }} />;
+export const Diamond = ({ color }) => (
   <Box sx={{ width: 11, height: 11, bgcolor: color, transform: "rotate(45deg)", border: "2px solid #fff", boxShadow: "0 0 0 1px rgba(0,0,0,0.2)" }} />
 );
-const Pin = ({ color }) => (
+export const Pin = ({ color }) => (
   <Box component="svg" viewBox="-10 -26 20 27" sx={{ width: 14, height: 19 }}>
     <path d={PIN_PATH} fill={color} stroke="#fff" strokeWidth="2" />
   </Box>
 );
-const Line = ({ color, dashed, thick }) => (
+export const Line = ({ color, dashed, thick }) => (
   <Box sx={{ width: 22, height: 0, borderTop: `${thick ? 5 : 3}px ${dashed ? "dashed" : "solid"} ${color}`, opacity: thick ? 0.5 : 1 }} />
 );
 
-const Badge = ({ color, text }) => (
+export const Badge = ({ color, text }) => (
   <Box
     sx={{
       minWidth: 22,
@@ -161,7 +163,7 @@ const Key = ({ swatch, children, action }) => (
 );
 
 /** Heading over a group of layers */
-const GroupHeading = ({ children }) => (
+export const GroupHeading = ({ children }) => (
   <Typography
     variant="overline"
     component="div"
@@ -190,7 +192,7 @@ const LayerRow = ({ swatch, label, count, checked, onChange, children, disabled 
   </Box>
 );
 
-const FilterChip = ({ label, count, color, on, onClick, square }) => (
+export const FilterChip = ({ label, count, color, on, onClick, square }) => (
   <Chip
     size="small"
     variant={on ? "filled" : "outlined"}
@@ -208,7 +210,7 @@ const FilterChip = ({ label, count, color, on, onClick, square }) => (
 
 // ---- info window bodies
 
-const InfoTitle = ({ children, sub }) => (
+export const InfoTitle = ({ children, sub }) => (
   <>
     <Typography variant="subtitle2" sx={{ pr: 2 }}>
       {children}
@@ -221,14 +223,14 @@ const InfoTitle = ({ children, sub }) => (
   </>
 );
 
-const Line2 = ({ children }) =>
+export const Line2 = ({ children }) =>
   children ? (
     <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
       {children}
     </Typography>
   ) : null;
 
-// One line per thing recorded at a site (BHQ or GP), with a link to open it
+// One line per thing recorded at a site (block router or GP), with a link to open it
 const SiteLine = ({ label, done, text, onOpen }) => (
   <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, py: 0.25 }}>
     <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: done ? "success.main" : "text.disabled", flexShrink: 0 }} />
@@ -275,13 +277,12 @@ export const MediaRow = ({ m, limit, onOpen }) => {
 };
 
 /**
- * Block map on Google Maps, by layer: network (router, BHQ, GPs), KML files, block and
+ * Block map on Google Maps, by layer: network (block router and GPs), KML files, block and
  * GP infra, sections (by restoration state), subsections (planned line, pits, reference
  * points and the executed path, by status) and every geotagged photo or video (by where
  * it was captured, photo / video, flagged only). Upload and remove KML need `canManageKml`.
  */
 const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileChange }) => {
-  const theme = useTheme();
   const navigate = useNavigate();
   const { config } = useExecutionConfig();
   const limit = config?.accuracyLimitM ?? 1;
@@ -298,6 +299,8 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
   // fileId -> { status: "ready" | "error", features }, reported by each file's KMLLayer
   const [kmlState, setKmlState] = useState({});
   const [hidden, setHidden] = useState(() => new Set());
+  // fileId -> Set of the KML layer (folder) ids switched off; files start as their KML says
+  const [hiddenLayers, setHiddenLayers] = useState({});
   const lastFitKeyRef = useRef("");
 
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
@@ -340,8 +343,10 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
       Object.fromEntries(
         kmlFiles.map((file) => [
           file._id,
-          ({ features, failed }) =>
-            setKmlState((previous) => ({ ...previous, [file._id]: { status: failed.length ? "error" : "ready", features } })),
+          ({ features, failed }) => {
+            setKmlState((previous) => ({ ...previous, [file._id]: { status: failed.length ? "error" : "ready", features } }));
+            setHiddenLayers((previous) => (previous[file._id] ? previous : { ...previous, [file._id]: new Set(initiallyHiddenLayers(features)) }));
+          },
         ])
       ),
     [kmlFiles]
@@ -350,9 +355,6 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
   const routerLat = blockProfile.blockRouter?.latitude;
   const routerLng = blockProfile.blockRouter?.longitude;
   const router = useMemo(() => toPoint(routerLat, routerLng), [routerLat, routerLng]);
-  const bhqLat = blockProfile.bhq?.latitude;
-  const bhqLng = blockProfile.bhq?.longitude;
-  const bhqPoint = useMemo(() => toPoint(bhqLat, bhqLng), [bhqLat, bhqLng]);
   const gpPoints = useMemo(
     () =>
       (blockProfile.gps || [])
@@ -365,22 +367,22 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
   const equipment = useMemo(() => (data?.equipment || []).filter((e) => Number.isFinite(e.lat)), [data]);
   const visibleEquipment = equipment.filter((e) => equipmentForms.has(e.form));
 
-  // Where a ring node is: its equipment sheet's location, else the BHQ / GP coordinates
+  // Where a ring node is: its equipment sheet's location, else the router / GP coordinates
   const nodePosition = useCallback(
     (code) => {
-      if (code === blockProfile.bhq?.code) {
+      if (code === blockProfile.blockCode) {
         const e = equipment.find((x) => x.form === "block");
-        return e ? { lat: e.lat, lng: e.lng } : bhqPoint;
+        return e ? { lat: e.lat, lng: e.lng } : router;
       }
       const e = equipment.find((x) => x.form === "gp" && x.gpLgdCode === code);
       if (e) return { lat: e.lat, lng: e.lng };
       return gpPoints.find(({ gp }) => gp.lgdCode === code)?.point || null;
     },
-    [equipment, bhqPoint, gpPoints, blockProfile.bhq?.code]
+    [equipment, router, gpPoints, blockProfile.blockCode]
   );
   const nodeName = useCallback(
-    (code) => (code === blockProfile.bhq?.code ? blockProfile.bhq.name : (blockProfile.gps || []).find((g) => g.lgdCode === code)?.name || code),
-    [blockProfile.bhq, blockProfile.gps]
+    (code) => (code === blockProfile.blockCode ? "Block router" : (blockProfile.gps || []).find((g) => g.lgdCode === code)?.name || code),
+    [blockProfile.blockCode, blockProfile.gps]
   );
 
   // Ring links from the GP sheets' previous / next node, once per direction
@@ -410,6 +412,10 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
   const subsections = useMemo(() => data?.subsections || [], [data]);
   const allMedia = useMemo(() => data?.media || [], [data]);
 
+  // Sections and subsections follow the road in the KML files; straight where there's none
+  const kmlFeatures = useMemo(() => kmlFiles.flatMap((file) => kmlState[file._id]?.features || []), [kmlFiles, kmlState]);
+  const roadPaths = useMemo(() => buildRoadPaths(sections, subsections, kmlFeatures), [sections, subsections, kmlFeatures]);
+
   const subKey = (s) => (s.legacy ? "LEGACY" : s.executionStatus);
   const visibleSubs = subsections.filter((s) => subStatuses.has(subKey(s)));
   const visibleMedia = useMemo(
@@ -423,7 +429,6 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
   const points = useMemo(
     () => [
       ...(router ? [router] : []),
-      ...(bhqPoint ? [bhqPoint] : []),
       ...gpPoints.map(({ point }) => point),
       ...kmlFiles.flatMap((file) => (kmlState[file._id]?.features || []).flatMap(featurePoints)),
       ...infra.map((i) => ({ lat: i.lat, lng: i.lng })),
@@ -432,11 +437,10 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
       ...subsections.flatMap((s) => [s.from, s.to, s.start, s.end, ...s.entries].filter(Boolean).map((p) => ({ lat: p.lat, lng: p.lng }))),
       ...allMedia.map((m) => ({ lat: m.lat, lng: m.lng })),
     ],
-    [router, bhqPoint, gpPoints, kmlFiles, kmlState, infra, equipment, sections, subsections, allMedia]
+    [router, gpPoints, kmlFiles, kmlState, infra, equipment, sections, subsections, allMedia]
   );
   const fitKey = [
     router ? formatPoint(router) : "",
-    bhqPoint ? formatPoint(bhqPoint) : "",
     gpPoints.length,
     loadedKmlIds.join(","),
     data ? `${infra.length}/${equipment.length}/${sections.length}/${subsections.length}/${allMedia.length}` : "",
@@ -454,6 +458,9 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
     points.forEach((point) => bounds.extend(point));
     map.fitBounds(bounds, 48);
   }, [map, points, fitKey]);
+
+  // Each file's KML layers (folders), for the list under it
+  const layersByFile = useMemo(() => Object.fromEntries(Object.entries(kmlState).map(([id, st]) => [id, kmlLayers(st.features)])), [kmlState]);
 
   const toggleVisible = (fileId) => setHidden((previous) => toggleIn(previous, fileId));
 
@@ -491,7 +498,6 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
     }
   };
 
-  const routerColor = theme.palette.secondary.main;
   const showNames = layers.names && zoom >= NAME_ZOOM;
   // A name under a network point, with a white halo (.block-map-name) so it reads on any map tile
   const nameLabel = (text) =>
@@ -519,12 +525,15 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
   const gpPath = (code) => `/block-profiles/${blockProfileId}/gps/${encodeURIComponent(code)}`;
   const go = (path) => navigate(path, { state: blockState });
 
-  // BHQ or GP: what's recorded there, so one click answers "what is this and how far along is it"
-  const infoSite = (position, { name, kind, code, infraOf, sheets }) => {
+  // Block router or GP: what's recorded there, so one click answers "what is this and how far along is it"
+  const infoSite = (position, { name, kind, code, infraOf, sheets, lines = [] }) => {
     const capture = (data?.infra || []).find(infraOf);
     select(position, (
       <Box sx={{ width: 260 }}>
         <InfoTitle sub={`${kind} · ${code}`}>{titleCase(name)}</InfoTitle>
+        {lines.filter(Boolean).map((line) => (
+          <Line2 key={line}>{line}</Line2>
+        ))}
         <Line2>{formatPoint(position)}</Line2>
         <Box sx={{ mt: 0.75 }}>
           <SiteLine
@@ -567,11 +576,12 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
       },
     });
 
-  const infoBhq = () =>
-    infoSite(bhqPoint, {
-      name: blockProfile.bhq.name,
-      kind: "Block HQ · code",
-      code: blockProfile.bhq.code,
+  const infoRouter = () =>
+    infoSite(router, {
+      name: "Block router",
+      kind: "Block LGD code",
+      code: blockProfile.blockCode,
+      lines: [SITE_TYPES[blockProfile.blockRouter?.siteType], blockProfile.blockRouter?.address],
       infraOf: (i) => i.level === "BLOCK",
       sheets: {
         gpLgdCode: null,
@@ -625,6 +635,7 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
         <InfoTitle sub={[s.fromName, s.toName].filter(Boolean).join(" → ")}>{s.name}</InfoTitle>
         <Line2>{[fmtDistance(s.sectionLength), `${s.total} ${s.total === 1 ? "subsection" : "subsections"}`].join(" · ")}</Line2>
         <Line2>Restoration: {restorationLabel(s.restorationStatus)}</Line2>
+        <Line2>{roadPaths.sections.has(s._id) ? `Road from the KML: ${fmtDistance(pathLength(roadPaths.sections.get(s._id)))}` : "No road for it in the KML files; drawn straight"}</Line2>
         <Link component="button" variant="caption" onClick={() => openSection(s._id, s.name)}>
           Open section
         </Link>
@@ -668,14 +679,15 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
   const renderSubsection = (s) => {
     const color = STATUS_COLORS[subKey(s)] || STATUS_COLORS.NOT_STARTED;
     const executed = [s.start, ...s.entries, s.end].filter(Boolean).map((p) => ({ lat: p.lat, lng: p.lng }));
-    const mid = s.from && s.to ? { lat: (s.from.lat + s.to.lat) / 2, lng: (s.from.lng + s.to.lng) / 2 } : executed[0];
+    const planned = roadPaths.subsections.get(s._id) || (s.from && s.to ? [s.from, s.to] : null);
+    const mid = planned ? midpointOf(planned) : executed[0];
     const pitA = config?.types?.[s.typeOfWork]?.pitA || "Start";
     const pitB = config?.types?.[s.typeOfWork]?.pitB || "End";
     return (
       <React.Fragment key={s._id}>
-        {s.from && s.to && (
+        {planned && (
           <Polyline
-            path={[s.from, s.to]}
+            path={planned}
             options={{ strokeOpacity: 0, strokeColor: color, icons: DASH.map((d) => ({ ...d, icon: { ...d.icon, strokeColor: color } })), zIndex: 3 }}
             onClick={() => infoSub(s, mid, "Planned line")}
           />
@@ -747,19 +759,35 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
     >
       {kmlFiles.map((file, index) =>
         hidden.has(file._id) ? null : (
-          <KMLLayer key={file._id} loadedKMLs={kmlSources[file._id]} map={map} color={kmlColor(index)} onLoad={kmlLoadHandlers[file._id]} />
+          <KMLLayer
+            key={file._id}
+            loadedKMLs={kmlSources[file._id]}
+            map={map}
+            color={kmlColor(index)}
+            onLoad={kmlLoadHandlers[file._id]}
+            hiddenLayers={hiddenLayers[file._id]}
+          />
         )
       )}
 
       {layers.sections &&
-        sections.map((s) => (
-          <Polyline
-            key={s._id}
-            path={[s.from, s.to]}
-            options={{ strokeColor: RESTORATION_COLORS[s.restorationStatus] || RESTORATION_COLORS.LOCKED, strokeWeight: 8, strokeOpacity: 0.35, zIndex: 1 }}
-            onClick={(e) => infoSection(s, e.latLng.toJSON())}
-          />
-        ))}
+        sections.map((s) => {
+          const color = RESTORATION_COLORS[s.restorationStatus] || RESTORATION_COLORS.LOCKED;
+          const road = roadPaths.sections.get(s._id);
+          // Along the road as a wide band; straight and dashed when the KML has no road for it
+          return (
+            <Polyline
+              key={s._id}
+              path={road || [s.from, s.to]}
+              options={
+                road
+                  ? { strokeColor: color, strokeWeight: 8, strokeOpacity: 0.35, zIndex: 1 }
+                  : { strokeOpacity: 0, icons: DASH.map((d) => ({ ...d, icon: { ...d.icon, strokeColor: color, strokeOpacity: 0.6, scale: 4 } })), zIndex: 1 }
+              }
+              onClick={(e) => infoSection(s, e.latLng.toJSON())}
+            />
+          );
+        })}
 
       {layers.subsections && visibleSubs.map(renderSubsection)}
 
@@ -785,24 +813,14 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
             onClick={() => infoGp(gp, point)}
           />
         ))}
-      {layers.network && bhqPoint && (
-        <Marker
-          position={bhqPoint}
-          title={`BHQ: ${titleCase(blockProfile.bhq.name)}`}
-          icon={symbol(SQUARE_PATH, BHQ_COLOR, { labelBelow: 20 })}
-          label={nameLabel(`${blockProfile.bhq.name} (BHQ)`)}
-          zIndex={10}
-          onClick={infoBhq}
-        />
-      )}
       {layers.network && router && (
         <Marker
           position={router}
           title="Block router"
-          icon={circleSymbol(routerColor, 9, { labelBelow: 2.4 })}
+          icon={symbol(SQUARE_PATH, ROUTER_COLOR, { labelBelow: 20 })}
           label={nameLabel("Block router")}
           zIndex={10}
-          onClick={() => infoNode(router, "Block router", [blockProfile.blockRouter?.address, formatPoint(router)])}
+          onClick={infoRouter}
         />
       )}
 
@@ -890,15 +908,14 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
             <GroupHeading>Network</GroupHeading>
             <LayerRow
               swatch={<Diamond color={GP_COLOR} />}
-              label="BHQ, GPs and block router"
-              count={gpPoints.length + (bhqPoint ? 1 : 0) + (router ? 1 : 0)}
+              label="Block router and GPs"
+              count={gpPoints.length + (router ? 1 : 0)}
               checked={layers.network}
               onChange={() => toggleLayer("network")}
             >
               <Stack spacing={0.25}>
-                <Key swatch={<Square color={BHQ_COLOR} size={11} />}>{bhqPoint ? "Block HQ (BHQ)" : "Block HQ (no coordinates)"}</Key>
+                <Key swatch={<Square color={ROUTER_COLOR} size={11} />}>{router ? "Block router (head node)" : "Block router (no coordinates)"}</Key>
                 <Key swatch={<Diamond color={GP_COLOR} />}>Gram Panchayat</Key>
-                <Key swatch={<Dot color={routerColor} />}>{router ? "Block router" : "Block router (not set)"}</Key>
                 <Key
                   swatch={
                     <Typography variant="caption" sx={{ fontWeight: 700 }}>
@@ -915,7 +932,7 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
                   </Typography>
                 )}
                 <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                  Click a BHQ or GP to see its infra capture and equipment sheets.
+                  Click the block router or a GP to see its infra capture and equipment sheets.
                 </Typography>
               </Stack>
             </LayerRow>
@@ -969,7 +986,7 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
             <GroupHeading>Work</GroupHeading>
             <LayerRow swatch={<Line color={RESTORATION_COLORS.APPROVED} thick />} label="Sections" count={sections.length} checked={layers.sections} onChange={() => toggleLayer("sections")}>
               <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
-                Wide band from node to node, coloured by restoration
+                Wide band along the road from the KML files, coloured by restoration. Dashed and straight where no KML line runs between its nodes.
               </Typography>
               <Stack direction="row" useFlexGap spacing={1} sx={{ flexWrap: "wrap" }}>
                 {Object.entries(RESTORATION_COLORS).map(([key, color]) => (
@@ -992,7 +1009,7 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
                   ))}
               </Stack>
               <Stack spacing={0.25}>
-                <Key swatch={<Line color="#475569" dashed />}>Planned line, from → to</Key>
+                <Key swatch={<Line color="#475569" dashed />}>Planned line, along the road from → to</Key>
                 <Key swatch={<Line color="#475569" />}>Executed path through the entries</Key>
                 <Key swatch={<Dot color="#15803d" size={14} />}>A · start pit / point</Key>
                 <Key swatch={<Dot color="#b91c1c" size={14} />}>B · end pit / point</Key>
@@ -1065,37 +1082,49 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
                   : state.status === "error"
                     ? "Couldn't load this file"
                     : `${state.features.length} ${state.features.length === 1 ? "feature" : "features"}`;
+                const layers = layersByFile[file._id] || [];
                 return (
-                  <Box
-                    key={file._id}
-                    sx={{ display: "flex", alignItems: "center", gap: 1.5, px: 2.5, py: 1.25, "&:not(:last-of-type)": { borderBottom: 1, borderColor: "divider" } }}
-                  >
-                    <Box sx={{ width: 12, height: 12, borderRadius: 0.5, bgcolor: kmlColor(index), flexShrink: 0, opacity: visible ? 1 : 0.35 }} />
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography variant="body2" noWrap sx={{ fontWeight: 600 }} title={file.name}>
-                        {file.name}
-                      </Typography>
-                      <Typography variant="caption" component="div" sx={{ color: state?.status === "error" ? "error.main" : "text.secondary" }}>
-                        {[status, formatSize(file.sizeBytes), formatDate(file.uploadedAt)].filter(Boolean).join(" · ")}
-                      </Typography>
-                    </Box>
-                    <Tooltip title={visible ? "Hide on map" : "Show on map"}>
-                      <Switch size="small" checked={visible} onChange={() => toggleVisible(file._id)} slotProps={{ input: { "aria-label": `Show ${file.name} on map` } }} />
-                    </Tooltip>
-                    {canManageKml && (
-                      <Tooltip title="Remove file">
-                        <IconButton
-                          size="small"
-                          aria-label={`Remove ${file.name}`}
-                          onClick={() => {
-                            setRemoveError("");
-                            setRemoveTarget(file);
-                          }}
-                          sx={{ "&:hover": { color: "error.main" } }}
-                        >
-                          <DeleteOutlineIcon fontSize="small" />
-                        </IconButton>
+                  <Box key={file._id} sx={{ px: 2.5, py: 1.25, "&:not(:last-of-type)": { borderBottom: 1, borderColor: "divider" } }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                      <Box sx={{ width: 12, height: 12, borderRadius: 0.5, bgcolor: kmlColor(index), flexShrink: 0, opacity: visible ? 1 : 0.35 }} />
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="body2" noWrap sx={{ fontWeight: 600 }} title={file.name}>
+                          {file.name}
+                        </Typography>
+                        <Typography variant="caption" component="div" sx={{ color: state?.status === "error" ? "error.main" : "text.secondary" }}>
+                          {[status, layers.length ? `${layers.length} ${layers.length === 1 ? "layer" : "layers"}` : "", formatSize(file.sizeBytes), formatDate(file.uploadedAt)]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </Typography>
+                      </Box>
+                      <Tooltip title={visible ? "Hide on map" : "Show on map"}>
+                        <Switch size="small" checked={visible} onChange={() => toggleVisible(file._id)} slotProps={{ input: { "aria-label": `Show ${file.name} on map` } }} />
                       </Tooltip>
+                      {canManageKml && (
+                        <Tooltip title="Remove file">
+                          <IconButton
+                            size="small"
+                            aria-label={`Remove ${file.name}`}
+                            onClick={() => {
+                              setRemoveError("");
+                              setRemoveTarget(file);
+                            }}
+                            sx={{ "&:hover": { color: "error.main" } }}
+                          >
+                            <DeleteOutlineIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
+                    {visible && layers.length > 0 && (
+                      <Box sx={{ pl: 3.5, pt: 0.75 }}>
+                        <KmlLayerList
+                          layers={layers}
+                          hidden={hiddenLayers[file._id] || new Set()}
+                          onChange={(next) => setHiddenLayers((previous) => ({ ...previous, [file._id]: next }))}
+                          fileName={file.name}
+                        />
+                      </Box>
                     )}
                   </Box>
                 );
