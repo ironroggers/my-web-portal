@@ -11,6 +11,8 @@ const BACKHAUL = { key: "backhaul", label: "Backhaul", type: "enum", options: op
 const REMARKS = { key: "remarks", label: "Remarks", type: "text", multiline: true, full: true };
 const ASSET_CODE = { key: "assetCode", label: "Asset code", type: "assetCode", required: true, full: true };
 const GP_SITE_TYPES = opts({ SCHOOL: "School", COLLEGE: "College", AANGANWADI: "Aanganwadi", GRAM_PANCHAYAT_BHAVAN: "Gram Panchayat Bhavan" });
+// Where misc equipment is: the GP site types, or a BSNL exchange
+const MISC_LOCATION_TYPES = [...GP_SITE_TYPES, { value: "BSNL_EXCHANGE", label: "BSNL exchange" }];
 
 export const MISC_TYPE_TAGS = { RACK: "RA", FDMS: "FD", FTB: "FT", CCU: "CC", SPV: "SP" };
 // Types of misc equipment, in the order they're offered
@@ -125,7 +127,7 @@ export const EQUIPMENT_FORMS = {
         title: "Equipment",
         fields: [
           PHASE,
-          { key: "locationType", label: "Location type", type: "enum", options: GP_SITE_TYPES },
+          { key: "locationType", label: "Location type", type: "enum", options: MISC_LOCATION_TYPES },
           BACKHAUL,
           { key: "items", label: "Types", type: "miscItems", full: true },
           REMARKS,
