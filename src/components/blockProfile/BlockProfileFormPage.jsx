@@ -23,6 +23,7 @@ import { useBlockPermissions } from "../../hooks/useBlockPermissions";
 import PageHeader from "../common/PageHeader";
 import SectionCard from "../common/SectionCard";
 import { SITE_TYPES } from "./blockProfileConstants";
+import { assetPrefix } from "./equipmentForms";
 
 // District Census code and number of racks aren't on the form; saved values stay as they are
 const TEXT_FIELDS = ["state", "stateCode", "district", "districtCode", "block", "blockCode", "remarks"];
@@ -49,10 +50,12 @@ const newGpRow = (gp = {}) => ({
   lgdCode: gp.lgdCode || "",
   latitude: gp.latitude ?? "",
   longitude: gp.longitude ?? "",
-  ringCode: gp.ringCode || "",
+  // The ring number (A01); the full code is built from the block's codes
+  ringCode: String(gp.ringCode || "").match(/A\d{2}$/)?.[0] || "",
 });
 
-// Ring codes follow the number of rings: A01, A02, … (the server builds the same list)
+// Ring numbers follow the number of rings: A01, A02, …; a ring's code is SSDDDBBBBAAA, the
+// state, district and block LGD codes + its number (the server builds the same codes)
 const MAX_RINGS = 20;
 const ringCodesFor = (count) =>
   /^\d+$/.test(String(count).trim()) && Number(count) <= MAX_RINGS
@@ -98,6 +101,8 @@ const validate = (form, gps) => {
 
   if (!isBlank(form.numberOfRings) && (!isWholeNumber(form.numberOfRings) || Number(form.numberOfRings) > MAX_RINGS)) {
     errors.numberOfRings = `Enter a whole number up to ${MAX_RINGS}`;
+  } else if (Number(form.numberOfRings) > 0 && !assetPrefix(form)) {
+    errors.numberOfRings = "Ring codes need the state, district and block LGD codes";
   }
 
   const codeCounts = {};
@@ -313,6 +318,7 @@ const BlockProfileFormPage = () => {
   }
 
   const rings = ringCodesFor(form.numberOfRings);
+  const ringPrefix = assetPrefix(form);
   const declared = isWholeNumber(form.numberOfGps) && Number(form.numberOfGps) >= 1 ? Number(form.numberOfGps) : null;
 
   return (
@@ -385,7 +391,7 @@ const BlockProfileFormPage = () => {
         </Grid>
 
         <Grid size={12}>
-          <SectionCard title="Rings" subtitle="Ring codes follow the number of rings (A01, A02, …); each GP below says which ring it's on">
+          <SectionCard title="Rings" subtitle="Ring code: state, district and block LGD codes + ring number (A01, A02, …). Each GP below says which ring it's on.">
             {textField("numberOfRings", "Number of rings", {
               type: "number",
               slotProps: { htmlInput: { min: 0, max: MAX_RINGS, step: 1 } },
@@ -398,8 +404,8 @@ const BlockProfileFormPage = () => {
             )}
             {rings.length > 0 && (
               <Stack direction="row" useFlexGap spacing={1} sx={{ flexWrap: "wrap", mt: 2 }}>
-                {rings.map((code) => (
-                  <Chip key={code} label={code} variant="outlined" sx={{ fontFamily: "monospace" }} />
+                {rings.map((number) => (
+                  <Chip key={number} label={ringPrefix + number} variant="outlined" sx={{ fontFamily: "monospace" }} />
                 ))}
               </Stack>
             )}
@@ -506,9 +512,9 @@ const BlockProfileFormPage = () => {
                             Not set
                           </Typography>
                         </MenuItem>
-                        {rings.map((code) => (
-                          <MenuItem key={code} value={code}>
-                            {code}
+                        {rings.map((number) => (
+                          <MenuItem key={number} value={number} sx={{ fontFamily: "monospace" }}>
+                            {ringPrefix + number}
                           </MenuItem>
                         ))}
                       </TextField>
