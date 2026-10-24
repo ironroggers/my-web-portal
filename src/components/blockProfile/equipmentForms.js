@@ -106,7 +106,6 @@ export const EQUIPMENT_FORMS = {
         title: "Ring",
         subtitle: "Previous and next node on the primary ring, clockwise",
         fields: [
-          { key: "ringCount", label: "No. of rings", type: "int", helper: "Rings this GP is part of" },
           { key: "ringCode", label: "Ring code", type: "text", upper: true, helper: "SSDDDBBBBAAA or SSDDDBBBBAAABBB.C" },
           { key: "prevNode", label: "Previous node", type: "node" },
           { key: "prevNodeDistanceM", label: "Distance to previous node", type: "metres", helper: "Optical length" },
