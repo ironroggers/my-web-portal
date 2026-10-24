@@ -1,9 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Autocomplete, Box, Button, ButtonBase, CircularProgress, Grid, InputAdornment, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import { Autocomplete, Box, Button, CircularProgress, Grid, InputAdornment, MenuItem, Stack, TextField, Typography } from "@mui/material";
 import { useNavigate, useParams } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import AddAPhotoOutlinedIcon from "@mui/icons-material/AddAPhotoOutlined";
-import UploadFileIcon from "@mui/icons-material/UploadFile";
+import PhoneAndroidOutlinedIcon from "@mui/icons-material/PhoneAndroidOutlined";
 import CheckIcon from "@mui/icons-material/Check";
 import PageHeader from "../common/PageHeader";
 import SectionCard from "../common/SectionCard";
@@ -11,11 +10,9 @@ import StatusPill from "../common/StatusPill";
 import DetailRow from "../common/DetailRow";
 import executionService from "../../services/executionService.jsx";
 import { usePermissions } from "../../hooks/usePermissions";
-import { useExecutionConfig } from "../../hooks/useExecutionConfig";
 import ExecMediaViewer from "../execution/ExecMediaViewer";
 import { MediaThumb } from "../execution/MediaPicker";
-import { openGeoCamera } from "../execution/geoCamera";
-import { fromSaved, isPending, newMediaItem, toMediaFile, uploadItem } from "../execution/mediaItems";
+import { fromSaved } from "../execution/mediaItems";
 import { PageState, StickyActionBar } from "../execution/execUi";
 import { titleCase } from "../execution/execConstants";
 import { reportError, showToast } from "../execution/toast";
@@ -36,7 +33,10 @@ const toValues = (formKey, source = {}) => ({
   longitude: asText(source.longitude),
 });
 
-/** Block_eqpt (once per block), gp_eqpt (once per GP) and misc_eqpt (once per block and per GP), filled on the web */
+/**
+ * Block_eqpt (once per block), gp_eqpt (once per GP) and misc_eqpt (once per block and per GP),
+ * filled on the web. The geo photo is taken on the mobile app and only shown here.
+ */
 const InfraEquipmentPage = () => {
   const { blockProfileId, lgdCode, form } = useParams();
   const formKey = form || "block";
@@ -45,7 +45,6 @@ const InfraEquipmentPage = () => {
   const spec = allowed.includes(formKey) ? EQUIPMENT_FORMS[formKey] : null;
   const navigate = useNavigate();
   const { can } = usePermissions();
-  const { config } = useExecutionConfig();
   const editable = can("manageInfraEquipment");
   const backTo = `/block-profiles/${blockProfileId}?tab=${lgdCode ? "gps" : "block"}`;
 
@@ -66,7 +65,7 @@ const InfraEquipmentPage = () => {
         : await executionService.getBlockEquipment(blockProfileId, formKey);
       setData(res);
       setValues(toValues(formKey, res.record || res.defaults));
-      setPhoto(fromSaved(res.record?.geoPhoto, "geoPhoto"));
+      setPhoto(fromSaved(res.geoPhoto, "geoPhoto"));
       setErrors({});
     } catch (e) {
       setLoadError(e.message || "Failed to load");
@@ -82,15 +81,6 @@ const InfraEquipmentPage = () => {
     setErrors((e) => ({ ...e, [key]: undefined, ...(key === "latitude" || key === "longitude" ? { location: undefined } : {}) }));
   };
 
-  const addPhoto = async (source) => {
-    const captured = await openGeoCamera({ mode: "photo", source });
-    if (!captured) return;
-    const item = newMediaItem(captured);
-    setPhoto(item);
-    setErrors((e) => ({ ...e, geoPhoto: undefined }));
-    uploadItem(item, (changes) => setPhoto((p) => (p?.key === item.key ? { ...p, ...changes } : p)));
-  };
-
   const save = async () => {
     const e = validateEquipment(formKey, values);
     setErrors(e);
@@ -99,11 +89,8 @@ const InfraEquipmentPage = () => {
       showToast(`${n} ${n === 1 ? "thing needs" : "things need"} attention`, "error");
       return;
     }
-    if (isPending(photo)) {
-      showToast("Wait for the upload to finish", "warning");
-      return;
-    }
-    const body = { ...values, version: data.record?.version, geoPhoto: toMediaFile(photo) || null };
+    // The geo photo isn't sent: the mobile app saves it on its own
+    const body = { ...values, version: data.version };
     try {
       setSaving(true);
       if (lgdCode) await executionService.saveGpEquipment(blockProfileId, lgdCode, formKey, body);
@@ -141,7 +128,7 @@ const InfraEquipmentPage = () => {
 
   const geo = data.geography || {};
   const prefix = assetPrefix(geo);
-  const suggested = prefix ? spec.suggestAssetCode(prefix, values) : "";
+  const suggested = prefix && spec.suggestAssetCode ? spec.suggestAssetCode(prefix, values) : "";
   const nodeOptions = data.nodes || [];
   const nodeLabel = (code) => {
     const node = nodeOptions.find((n) => n.code === code);
@@ -187,7 +174,22 @@ const InfraEquipmentPage = () => {
           value={value || null}
           onChange={(_, v) => set(f.key)(v || "")}
           onInputChange={(_, v, reason) => reason === "input" && set(f.key)(v)}
-          renderInput={(params) => <TextField {...params} label={f.label} size="small" error={common.error} helperText={errors[f.key] || "Pick the BHQ or a GP, or type a code"} />}
+          renderInput={(params) => <TextField {...params} label={f.label} size="small" error={common.error} helperText={errors[f.key] || "Pick the block router or a GP, or type a code"} />}
+        />
+      );
+    }
+    if (f.type === "generatedAssetCode") {
+      return (
+        <TextField
+          {...common}
+          value={data.assetCode || ""}
+          placeholder="Not generated yet"
+          error={Boolean(errors[f.key] || !data.assetCode)}
+          helperText={
+            errors[f.key] ||
+            (data.assetCode ? `Generated: ${spec.assetFormat}` : "Add the state, district and block LGD codes to the block profile to generate it")
+          }
+          slotProps={{ htmlInput: { readOnly: true, style: { fontFamily: "monospace" } } }}
         />
       );
     }
@@ -197,7 +199,7 @@ const InfraEquipmentPage = () => {
           {...common}
           value={value}
           onChange={(e) => set(f.key)(e.target.value.toUpperCase().replace(/\s+/g, ""))}
-          helperText={errors[f.key] || (prefix ? `Format ${spec.assetFormat}` : "Set the state, district Census and block codes on the block profile to get a suggestion")}
+          helperText={errors[f.key] || (prefix ? `Format ${spec.assetFormat}` : "Set the state, district and block LGD codes on the block profile to get a suggestion")}
           slotProps={{
             htmlInput: { style: { fontFamily: "monospace" } },
             input: {
@@ -239,7 +241,7 @@ const InfraEquipmentPage = () => {
           <Stack spacing={3}>
             <SectionCard title="Block" subtitle="From the block profile">
               <DetailRow label="State">{[geo.state, geo.stateCode && `LGD ${geo.stateCode}`].filter(Boolean).join(" · ") || "—"}</DetailRow>
-              <DetailRow label="District">{[geo.district, geo.districtCensusCode && `Census ${geo.districtCensusCode}`].filter(Boolean).join(" · ") || "—"}</DetailRow>
+              <DetailRow label="District">{[geo.district, geo.districtCode && `LGD ${geo.districtCode}`].filter(Boolean).join(" · ") || "—"}</DetailRow>
               <DetailRow label="Block">{[geo.block, geo.blockCode && `LGD ${geo.blockCode}`].filter(Boolean).join(" · ") || "—"}</DetailRow>
               {lgdCode && <DetailRow label="GP">{`${titleCase(data.target.name)} · LGD ${data.target.code}`}</DetailRow>}
             </SectionCard>
@@ -268,56 +270,16 @@ const InfraEquipmentPage = () => {
             </SectionCard>
             <SectionCard
               title="Geo photo"
-              subtitle="Photo with geo-location"
-              action={<StatusPill label={photo ? "Added" : "Optional"} tone={photo ? "success" : "default"} />}
+              subtitle="Taken on the Locus app, from Block infra or GP infra"
+              action={<StatusPill label={photo ? "Taken" : "Not taken yet"} tone={photo ? "success" : "default"} />}
             >
-              <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
-                {photo ? (
-                  <MediaThumb
-                    media={photo}
-                    onClick={() =>
-                      photo.uploadStatus === "failed"
-                        ? uploadItem(photo, (c) => setPhoto((p) => (p?.key === photo.key ? { ...p, ...c } : p)))
-                        : setViewing(true)
-                    }
-                  />
-                ) : (
-                  editable && (
-                    <ButtonBase
-                      onClick={() => addPhoto("camera")}
-                      sx={{
-                        width: 88,
-                        height: 88,
-                        borderRadius: 1,
-                        border: "1px dashed",
-                        borderColor: errors.geoPhoto ? "error.main" : "primary.main",
-                        color: errors.geoPhoto ? "error.main" : "primary.main",
-                        flexDirection: "column",
-                        gap: 0.5,
-                        fontSize: 12,
-                        fontWeight: 600,
-                      }}
-                    >
-                      <AddAPhotoOutlinedIcon />
-                      Take photo
-                    </ButtonBase>
-                  )
-                )}
-                {editable && !photo && config?.allowMediaUpload !== false && (
-                  <Button size="small" startIcon={<UploadFileIcon />} onClick={() => addPhoto("library")}>
-                    Upload photo
-                  </Button>
-                )}
-                {!editable && !photo && (
-                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                    No photo
-                  </Typography>
-                )}
-              </Stack>
-              {errors.geoPhoto && (
-                <Typography variant="caption" sx={{ color: "error.main", display: "block", mt: 0.5 }}>
-                  {errors.geoPhoto}
-                </Typography>
+              {photo ? (
+                <MediaThumb media={photo} onClick={() => setViewing(true)} />
+              ) : (
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center", color: "text.secondary" }}>
+                  <PhoneAndroidOutlinedIcon fontSize="small" />
+                  <Typography variant="body2">The field team takes this photo on the mobile app.</Typography>
+                </Stack>
               )}
             </SectionCard>
           </Stack>
@@ -343,28 +305,7 @@ const InfraEquipmentPage = () => {
           </Button>
         </StickyActionBar>
       )}
-      {viewing && photo && (
-        <ExecMediaViewer
-          media={photo}
-          onClose={() => setViewing(false)}
-          onRemove={
-            editable
-              ? () => {
-                  setPhoto(null);
-                  setViewing(false);
-                }
-              : undefined
-          }
-          onRetake={
-            editable
-              ? () => {
-                  setViewing(false);
-                  addPhoto("camera");
-                }
-              : undefined
-          }
-        />
-      )}
+      {viewing && photo && <ExecMediaViewer media={photo} onClose={() => setViewing(false)} />}
     </Box>
   );
 };
