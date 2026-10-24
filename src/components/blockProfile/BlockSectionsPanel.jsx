@@ -51,12 +51,24 @@ const EMPTY_FORM = {
   description: "",
   fromNode: "",
   toNode: "",
-  sectionLength: "",
+  mainPathLength: "",
+  sharingPathLength: "",
+  existingIncrementalPathLength: "",
   status: 1,
   routeType: "NEW",
 };
 
 const ROUTE_TYPES = { NEW: "New route", EXISTING: "Existing route" };
+
+// The section's length is the sum of these three (the server adds them up the same way)
+const PATH_LENGTHS = [
+  { key: "mainPathLength", label: "Main path length (m)" },
+  { key: "sharingPathLength", label: "Sharing path length (m)" },
+  { key: "existingIncrementalPathLength", label: "Existing incremental path length (m)" },
+];
+const lengthOf = (value) => (String(value ?? "").trim() === "" ? 0 : Number(value));
+const badLength = (value) => String(value ?? "").trim() !== "" && !(Number(value) >= 0);
+const totalLength = (form) => Math.round(PATH_LENGTHS.reduce((sum, { key }) => sum + (badLength(form[key]) ? 0 : lengthOf(form[key])), 0) * 100) / 100;
 
 const SEARCH_DEBOUNCE_MS = 400;
 
@@ -221,7 +233,10 @@ const BlockSectionsPanel = ({ blockProfile, canManage = false, onChanged }) => {
       description: section.description || "",
       fromNode: knownNodeValue(section.fromNode),
       toNode: knownNodeValue(section.toNode),
-      sectionLength: section.sectionLength ?? "",
+      // A section saved before the parts existed opens with its length as main path
+      ...(PATH_LENGTHS.some(({ key }) => section[key] != null)
+        ? Object.fromEntries(PATH_LENGTHS.map(({ key }) => [key, section[key] ?? ""]))
+        : { mainPathLength: section.sectionLength || "", sharingPathLength: "", existingIncrementalPathLength: "" }),
       status: section.status ?? 1,
       routeType: section.routeType || "NEW",
     });
@@ -250,6 +265,10 @@ const BlockSectionsPanel = ({ blockProfile, canManage = false, onChanged }) => {
       fromNode: form.fromNode ? "" : "Required",
       toNode: form.toNode ? "" : "Required",
     };
+    if (PATH_LENGTHS.some(({ key }) => badLength(form[key]))) {
+      setFormError("Path lengths are in metres, 0 or more.");
+      return;
+    }
     if (!form.name.trim() || missingEnds.fromNode || missingEnds.toNode) {
       setNameError(!form.name.trim());
       setEndErrors(missingEnds);
@@ -262,7 +281,8 @@ const BlockSectionsPanel = ({ blockProfile, canManage = false, onChanged }) => {
       const payload = {
         name: form.name,
         description: form.description,
-        sectionLength: form.sectionLength === "" ? 0 : Number(form.sectionLength),
+        // The server sets the section length to their sum
+        ...Object.fromEntries(PATH_LENGTHS.map(({ key }) => [key, String(form[key]).trim() === "" ? null : Number(form[key])])),
         status: Number(form.status),
         routeType: form.routeType,
         // The server copies the block's names and LGD codes onto the section,
@@ -590,13 +610,25 @@ const BlockSectionsPanel = ({ blockProfile, canManage = false, onChanged }) => {
               </TextField>
             );
           })}
+          {PATH_LENGTHS.map(({ key, label }) => (
+            <TextField
+              key={key}
+              label={label}
+              type="number"
+              value={form[key]}
+              onChange={updateForm(key)}
+              error={badLength(form[key])}
+              helperText={badLength(form[key]) ? "0 or more" : undefined}
+              size="small"
+              slotProps={{ htmlInput: { min: 0, step: "any" } }}
+            />
+          ))}
           <TextField
-            label="Length (m)"
-            type="number"
-            value={form.sectionLength}
-            onChange={updateForm("sectionLength")}
+            label="Total length (m)"
+            value={formatNumber(totalLength(form))}
             size="small"
-            slotProps={{ htmlInput: { min: 0 } }}
+            helperText="Main + sharing + existing incremental path"
+            slotProps={{ htmlInput: { readOnly: true, tabIndex: -1 }, input: { sx: { fontWeight: 600, bgcolor: "action.hover" } } }}
           />
           <TextField
             select
