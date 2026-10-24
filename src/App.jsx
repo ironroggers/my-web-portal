@@ -32,6 +32,7 @@ import LocationSectionsPage from "./components/LocationSectionsPage";
 import TrenchingPage from "./components/TrenchingPage";
 import SummaryManager from "./components/summary/SummaryManager";
 import BlockProfilesPage from "./components/blockProfile/BlockProfilesPage";
+import MasterMapPage from "./components/masterMap/MasterMapPage";
 import BlockProfileFormPage from "./components/blockProfile/BlockProfileFormPage";
 import BlockProfileDetailPage from "./components/blockProfile/BlockProfileDetailPage";
 // OFC execution
@@ -176,6 +177,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <LocationSectionsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/master-map"
+                element={
+                  <ProtectedRoute>
+                    <MasterMapPage />
                   </ProtectedRoute>
                 }
               />

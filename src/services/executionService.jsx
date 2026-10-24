@@ -76,6 +76,10 @@ const executionService = {
   // Everything of a block with a place on the map: infra, sections, subsections, geotagged media
   getBlockMap: (blockId) => request(`/api/block-profiles/${id(blockId)}/map`),
 
+  // ---- master map (read only): one row per block, then a block's layers once it's picked
+  getMasterMapBlocks: () => request("/api/master-map/blocks"),
+  getMasterMapBlock: (blockId) => request(`/api/master-map/blocks/${id(blockId)}`),
+
   // ---- infra
   getBlockInfra: (blockId) => request(`/api/block-profiles/${id(blockId)}/infra`),
   saveBlockInfra: (blockId, body) => request(`/api/block-profiles/${id(blockId)}/infra`, { method: "PUT", body }),

@@ -9,6 +9,7 @@ import EventAvailableOutlinedIcon from "@mui/icons-material/EventAvailableOutlin
 import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
 import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurnedInOutlined";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
+import PublicOutlinedIcon from "@mui/icons-material/PublicOutlined";
 
 /**
  * Sidebar structure. `match` lists every route pattern that should highlight
@@ -45,6 +46,8 @@ export const NAV_GROUPS = [
           "/hoto-details/*",
         ],
       },
+      // Read only and open to every role, so no permission
+      { to: "/master-map", label: "Master Map", Icon: PublicOutlinedIcon, match: ["/master-map"] },
       {
         to: "/block-profiles",
         label: "Block Profile",
@@ -143,6 +146,7 @@ const ROUTE_TRAILS = [
     path: "/hoto-details/:locationId",
     trail: [{ label: "Operations" }, LOCATIONS, { label: "HOTO Details" }],
   },
+  { path: "/master-map", trail: [{ label: "Operations" }, { label: "Master Map" }] },
   { path: "/block-profiles", trail: [{ label: "Operations" }, { label: "Block Profile" }] },
   {
     path: "/block-profiles/new",
