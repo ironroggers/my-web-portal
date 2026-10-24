@@ -33,7 +33,10 @@ const EMPTY = {
   toLatLong: "",
   subSectionLength: "",
   terrain: "",
-  crossing: "",
+  // Several crossings can apply; Others needs crossingOther
+  crossings: [],
+  crossingOther: "",
+  crossingPhotos: [],
   ofcSide: "",
   roadFeatures: "",
   authorityName: "",
@@ -56,15 +59,12 @@ const CHECKS = {
   site: (d) => {
     const e = {};
     if (!d.terrain) e["initialCondition.terrain"] = "Pick the terrain";
+    if (d.crossings.includes("Others") && !d.crossingOther.trim()) e["initialCondition.crossingOther"] = "Describe the other crossing";
     if (!d.ofcSide) e["initialCondition.ofcSide"] = "Pick the OFC side";
     return e;
   },
-  photos: (d) => {
-    const e = {};
-    if (!d.photos.length) e["initialCondition.photos"] = "Take at least one photo of the area";
-    if (!d.video) e["initialCondition.video"] = "Record a short video of the area";
-    return e;
-  },
+  // Before photos and video are optional
+  photos: () => ({}),
 };
 
 const FieldLabel = ({ children, optional }) => (
@@ -86,7 +86,7 @@ const ErrorText = ({ children }) =>
     </Typography>
   ) : null;
 
-/** C7: New subsection — Work & location → Site condition (ducting only) → Photos & video */
+/** C7: New subsection (ducting only) — Work & location → Site condition → Before photos (optional) */
 const SubsectionCreatePage = () => {
   const { sectionId } = useParams();
   const draftKey = `create:${sectionId}`;
@@ -120,7 +120,18 @@ const SubsectionCreatePage = () => {
   useEffect(() => {
     load();
     const saved = loadDraft(draftKey);
-    setD(saved ? { ...EMPTY, ...saved, photos: (saved.photos || []).filter(Boolean), video: saved.video || null } : EMPTY);
+    setD(
+      saved
+        ? {
+            ...EMPTY,
+            ...saved,
+            photos: (saved.photos || []).filter(Boolean),
+            video: saved.video || null,
+            crossings: Array.isArray(saved.crossings) ? saved.crossings : [],
+            crossingPhotos: (saved.crossingPhotos || []).filter(Boolean),
+          }
+        : EMPTY
+    );
     executionService
       .previewName(sectionId)
       .then((r) => setSeq(r.seq))
@@ -134,7 +145,16 @@ const SubsectionCreatePage = () => {
   // Keep the draft as the form changes (uploaded media only)
   useEffect(() => {
     if (!d) return undefined;
-    const timer = setTimeout(() => saveDraft(draftKey, { ...d, photos: d.photos.map(toDraftMedia).filter(Boolean), video: toDraftMedia(d.video) }), 300);
+    const timer = setTimeout(
+      () =>
+        saveDraft(draftKey, {
+          ...d,
+          photos: d.photos.map(toDraftMedia).filter(Boolean),
+          video: toDraftMedia(d.video),
+          crossingPhotos: d.crossingPhotos.map(toDraftMedia).filter(Boolean),
+        }),
+      300
+    );
     return () => clearTimeout(timer);
   }, [d, draftKey]);
 
@@ -175,8 +195,8 @@ const SubsectionCreatePage = () => {
     setErrors((e) => ({ ...e, [errorKey]: undefined }));
   };
 
-  const ducting = isDucting(d.typeOfWork);
-  const steps = d.typeOfWork && !ducting ? ["work", "photos"] : ["work", "site", "photos"];
+  // New subsections are ducting, so every one has a site condition step
+  const steps = ["work", "site", "photos"];
   const labels = steps.map((s) => config?.stepLabels?.[s] || s);
   const index = Math.min(d.step || 0, steps.length - 1);
   const step = steps[index];
@@ -235,7 +255,7 @@ const SubsectionCreatePage = () => {
         return;
       }
     }
-    if (anyPending([...d.photos, d.video])) {
+    if (anyPending([...d.photos, d.video, ...d.crossingPhotos])) {
       showToast("Wait for the uploads to finish", "warning");
       return;
     }
@@ -247,9 +267,13 @@ const SubsectionCreatePage = () => {
       toLatLong: d.toLatLong,
       subSectionLength: Number(d.subSectionLength),
       initialCondition: {
-        ...(ducting
-          ? { terrain: d.terrain, crossing: d.crossing || undefined, ofcSide: d.ofcSide, roadFeatures: d.roadFeatures, authorityName: d.authorityName }
-          : {}),
+        terrain: d.terrain,
+        crossings: d.crossings,
+        crossingOther: d.crossings.includes("Others") ? d.crossingOther.trim() : undefined,
+        crossingPhotos: d.crossingPhotos.map(toMediaFile),
+        ofcSide: d.ofcSide,
+        roadFeatures: d.roadFeatures,
+        authorityName: d.authorityName,
         remarks: d.remarks,
         photos: d.photos.map(toMediaFile),
         video: toMediaFile(d.video),
@@ -309,8 +333,10 @@ const SubsectionCreatePage = () => {
       },
     });
 
-  const typeChips = (kind) =>
-    (config?.typeOrder || []).filter((t) => (typeOf(t)?.kind === "ducting") === (kind === "ducting")).map((t) => ({ value: t, label: typeOf(t).label }));
+  // Only ducting can be created (the server's createTypeOrder)
+  const typeChips = (config?.createTypeOrder || (config?.typeOrder || []).filter(isDucting)).map((t) => ({ value: t, label: typeOf(t).label }));
+  const fromName = section?.fromNode?.name;
+  const toName = section?.toNode?.name;
 
   return (
     <Box>
@@ -333,14 +359,7 @@ const SubsectionCreatePage = () => {
               <SectionCard title={labels[index]} subtitle="Type of work, road and where it runs" contentSx={{ display: "grid", gap: 2.5 }}>
                 <Box>
                   <FieldLabel>Type of work</FieldLabel>
-                  {(config?.typeGroups || []).map((g) => (
-                    <Box key={g.kind} sx={{ mb: 1 }}>
-                      <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
-                        {g.label}
-                      </Typography>
-                      <ChipGroup options={typeChips(g.kind)} value={d.typeOfWork} onChange={(v) => set("typeOfWork", v)} error={Boolean(errors.typeOfWork)} />
-                    </Box>
-                  ))}
+                  <ChipGroup options={typeChips} value={d.typeOfWork} onChange={(v) => set("typeOfWork", v)} error={Boolean(errors.typeOfWork)} />
                   <ErrorText>{errors.typeOfWork}</ErrorText>
                 </Box>
                 <Box>
@@ -402,13 +421,37 @@ const SubsectionCreatePage = () => {
                 <ErrorText>{errors["initialCondition.terrain"]}</ErrorText>
               </Box>
               <Box>
-                <FieldLabel optional>Crossing</FieldLabel>
+                <FieldLabel optional>Crossings</FieldLabel>
+                <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.75 }}>
+                  Pick every crossing on this stretch
+                </Typography>
                 <ChipGroup
+                  multiple
                   options={config?.options?.crossing || []}
-                  value={d.crossing}
-                  onChange={(v) => set("crossing", v, "initialCondition.crossing")}
-                  allowClear
+                  value={d.crossings}
+                  onChange={(v) => set("crossings", v, "initialCondition.crossings")}
                 />
+                {d.crossings.includes("Others") && (
+                  <Box sx={{ mt: 1.5 }}>
+                    {textField("crossingOther", "Other crossing", {
+                      placeholder: "e.g. Canal, pipeline",
+                      error: Boolean(errors["initialCondition.crossingOther"]),
+                      helperText: errors["initialCondition.crossingOther"],
+                      onChange: (e) => set("crossingOther", e.target.value, "initialCondition.crossingOther"),
+                    })}
+                  </Box>
+                )}
+                {d.crossings.length > 0 && (
+                  <Box sx={{ mt: 2 }}>
+                    <MediaPicker
+                      title="Crossing photos (optional)"
+                      rule={config?.mediaRules?.crossing || { minPhotos: 0, maxPhotos: 4, video: "none" }}
+                      value={{ photos: d.crossingPhotos, video: null }}
+                      onUpdate={(fn) => update((prev) => ({ ...prev, crossingPhotos: fn({ photos: prev.crossingPhotos, video: null }).photos }))}
+                      errors={{ photos: errors["initialCondition.crossingPhotos"] }}
+                    />
+                  </Box>
+                )}
               </Box>
               <Box>
                 <FieldLabel>OFC side</FieldLabel>
@@ -420,6 +463,11 @@ const SubsectionCreatePage = () => {
                   error={Boolean(errors["initialCondition.ofcSide"])}
                 />
                 <ErrorText>{errors["initialCondition.ofcSide"]}</ErrorText>
+                <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.75 }}>
+                  {fromName && toName
+                    ? `LHS / RHS as seen going from ${fromName} to ${toName} (GP/BR to GP/BR), the section's start to its end.`
+                    : "LHS / RHS as seen going from the section's start to its end (GP/BR to GP/BR)."}
+                </Typography>
               </Box>
               {textField("roadFeatures", "Road features (optional)", { placeholder: "e.g. Two-lane bitumen road, drain on LHS", multiline: true, minRows: 2 })}
               {textField("authorityName", "Authority name (optional)", { placeholder: "e.g. PWD Roads, Harippad section" })}
@@ -429,10 +477,10 @@ const SubsectionCreatePage = () => {
           {step === "photos" && (
             <SectionCard
               title={labels[index]}
-              subtitle="Photograph and film the area as it is today. The first photo becomes the before picture when the section is restored."
+              subtitle="Optional: photograph and film the area as it is today. The first photo becomes the before picture when the section is restored."
             >
               <MediaPicker
-                rule={config?.mediaRules?.siteCondition || { minPhotos: 1, maxPhotos: 4, video: "required" }}
+                rule={config?.mediaRules?.siteCondition || { minPhotos: 0, maxPhotos: 4, video: "optional" }}
                 value={{ photos: d.photos, video: d.video }}
                 onUpdate={(fn) =>
                   update((prev) => {

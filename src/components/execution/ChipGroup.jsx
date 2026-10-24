@@ -4,8 +4,9 @@ import { Box, Chip, Divider } from "@mui/material";
 /**
  * Chips for picking one value. options: strings or { value, label, count } (or { separator: true }).
  * allowClear: clicking the selected chip again clears it (optional fields).
+ * multiple: value is a list and each chip toggles in or out of it.
  */
-const ChipGroup = ({ options, value, onChange, allowClear = false, error = false, size = "medium", nowrap = false }) => (
+const ChipGroup = ({ options, value, onChange, allowClear = false, multiple = false, error = false, size = "medium", nowrap = false }) => (
   <Box
     sx={{
       display: "flex",
@@ -19,7 +20,11 @@ const ChipGroup = ({ options, value, onChange, allowClear = false, error = false
     {options.map((o, i) => {
       if (o.separator) return <Divider key={`sep${i}`} orientation="vertical" flexItem />;
       const item = typeof o === "string" ? { value: o, label: o } : o;
-      const selected = value === item.value;
+      const selected = multiple ? (value || []).includes(item.value) : value === item.value;
+      const toggle = () =>
+        multiple
+          ? onChange(selected ? value.filter((v) => v !== item.value) : options.map((x) => (typeof x === "string" ? x : x.value)).filter((v) => v === item.value || (value || []).includes(v)))
+          : onChange(selected && allowClear ? "" : item.value);
       return (
         <Chip
           key={String(item.value)}
@@ -27,7 +32,7 @@ const ChipGroup = ({ options, value, onChange, allowClear = false, error = false
           label={item.count !== undefined ? `${item.label}  ${item.count}` : item.label}
           color={selected ? "primary" : "default"}
           variant={selected ? "filled" : "outlined"}
-          onClick={() => onChange(selected && allowClear ? "" : item.value)}
+          onClick={toggle}
           aria-pressed={selected}
           sx={{ flexShrink: 0, ...(error && !selected ? { borderColor: "error.main" } : {}) }}
         />

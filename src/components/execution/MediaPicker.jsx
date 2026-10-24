@@ -99,7 +99,7 @@ const Need = ({ ok, children }) => (
  * One look everywhere media is captured: thumbnails, one "Take photo / Add photo"
  * tile, one "Record video" tile and a counter ("At least 1 · up to 4" → "2 of 4").
  *   value: { photos: [], video }   onUpdate(fn): fn maps the old value to the new one
- *   rule: { minPhotos, maxPhotos, video: "required" | "none" }
+ *   rule: { minPhotos, maxPhotos, video: "required" | "optional" | "none" }
  */
 const MediaPicker = ({ value, onUpdate, rule, title = "Photos", errors = {}, editable = true }) => {
   const { config } = useExecutionConfig();
@@ -159,13 +159,13 @@ const MediaPicker = ({ value, onUpdate, rule, title = "Photos", errors = {}, edi
         </Typography>
       )}
 
-      {rule.video === "required" && (
+      {(rule.video === "required" || rule.video === "optional") && (
         <>
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1, mt: 2 }}>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
               Video
             </Typography>
-            <Need ok={Boolean(video)}>{video ? "Recorded" : "Required"}</Need>
+            <Need ok={Boolean(video)}>{video ? "Recorded" : rule.video === "required" ? "Required" : "Optional"}</Need>
           </Box>
           <Stack direction="row" spacing={1}>
             {video ? (
@@ -189,7 +189,7 @@ const MediaPicker = ({ value, onUpdate, rule, title = "Photos", errors = {}, edi
               Upload photo
             </Button>
           )}
-          {rule.video === "required" && !video && (
+          {(rule.video === "required" || rule.video === "optional") && !video && (
             <Button size="small" startIcon={<UploadFileIcon />} onClick={() => add("video", "library")}>
               Upload video
             </Button>
