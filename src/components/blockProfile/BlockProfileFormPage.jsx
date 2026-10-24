@@ -74,6 +74,12 @@ const toForm = (profile) => ({
   },
 });
 
+// LGD codes are digits only, of a fixed length (the server checks the same)
+const CODE_DIGITS = { stateCode: 2, districtCode: 3, blockCode: 4 };
+const GP_CODE_DIGITS = 6;
+const digitsOnly = (value, length) => String(value).replace(/\D/g, "").slice(0, length);
+const codeError = (value, length) => (/^\d+$/.test(String(value).trim()) && String(value).trim().length === length ? "" : `Enter ${length} digits`);
+
 const isBlank = (value) => String(value ?? "").trim() === "";
 const isWholeNumber = (value) => /^\d+$/.test(String(value).trim());
 const hasPoint = ({ latitude, longitude }) => !isBlank(latitude) && !isBlank(longitude);
@@ -94,6 +100,9 @@ const validate = (form, gps) => {
   const errors = {};
   if (isBlank(form.block)) errors.block = "Required";
   if (isBlank(form.blockCode)) errors.blockCode = "Required";
+  Object.entries(CODE_DIGITS).forEach(([key, length]) => {
+    if (!isBlank(form[key]) && codeError(form[key], length)) errors[key] = codeError(form[key], length);
+  });
   if (isBlank(form.numberOfGps)) errors.numberOfGps = "Required";
   else if (!isWholeNumber(form.numberOfGps) || Number(form.numberOfGps) < 1) errors.numberOfGps = "Enter a whole number of 1 or more";
 
@@ -113,6 +122,7 @@ const validate = (form, gps) => {
   gps.forEach((gp, index) => {
     if (isBlank(gp.name)) errors[`gps.${index}.name`] = "Required";
     if (isBlank(gp.lgdCode)) errors[`gps.${index}.lgdCode`] = "Required";
+    else if (codeError(gp.lgdCode, GP_CODE_DIGITS)) errors[`gps.${index}.lgdCode`] = codeError(gp.lgdCode, GP_CODE_DIGITS);
     else if (codeCounts[gp.lgdCode.trim()] > 1) errors[`gps.${index}.lgdCode`] = "Duplicate LGD code";
     validateCoordinates(errors, `gps.${index}`, gp);
   });
@@ -142,6 +152,9 @@ const toPayload = (form, gps) => {
     },
   };
 };
+
+// A digits-only code input of a fixed length
+const codeInput = (length) => ({ helperText: `${length} digits`, slotProps: { htmlInput: { inputMode: "numeric", maxLength: length } } });
 
 const fieldGrid = {
   display: "grid",
@@ -207,7 +220,7 @@ const BlockProfileFormPage = () => {
   const touch = (key) => () => setTouched((previous) => ({ ...previous, [key]: true }));
 
   const updateField = (key) => (event) => {
-    const { value } = event.target;
+    const value = CODE_DIGITS[key] ? digitsOnly(event.target.value, CODE_DIGITS[key]) : event.target.value;
     setForm((previous) => ({ ...previous, [key]: value }));
     clearServerError(key);
   };
@@ -220,7 +233,7 @@ const BlockProfileFormPage = () => {
   };
 
   const updateGp = (rowId, key) => (event) => {
-    const { value } = event.target;
+    const value = key === "lgdCode" ? digitsOnly(event.target.value, GP_CODE_DIGITS) : event.target.value;
     setGps((previous) => previous.map((gp) => (gp.rowId === rowId ? { ...gp, [key]: value } : gp)));
     clearServerError("gps");
   };
@@ -330,11 +343,11 @@ const BlockProfileFormPage = () => {
           <SectionCard title="Block" subtitle="Names and LGD codes" sx={{ height: "100%" }}>
             <Box sx={fieldGrid}>
               {textField("block", "Block name", { required: true })}
-              {textField("blockCode", "Block LGD code", { required: true })}
+              {textField("blockCode", "Block LGD code", { required: true, ...codeInput(4) })}
               {textField("district", "District")}
-              {textField("districtCode", "District LGD code")}
+              {textField("districtCode", "District LGD code", codeInput(3))}
               {textField("state", "State")}
-              {textField("stateCode", "State LGD code")}
+              {textField("stateCode", "State LGD code", codeInput(2))}
             </Box>
           </SectionCard>
         </Grid>
@@ -476,6 +489,8 @@ const BlockProfileFormPage = () => {
                       />
                       <TextField
                         label="GP LGD code"
+                        placeholder="6 digits"
+                        slotProps={{ htmlInput: { inputMode: "numeric", maxLength: GP_CODE_DIGITS } }}
                         value={gp.lgdCode}
                         onChange={updateGp(gp.rowId, "lgdCode")}
                         onBlur={touch(`gps.${index}.lgdCode`)}

@@ -121,7 +121,7 @@ export const EQUIPMENT_FORMS = {
   misc: {
     title: "Misc equipment",
     sheet: "misc_eqpt",
-    assetFormat: "SSDDDBBBB XX PPPPPP (XX: RA rack, FD FDMS, FT FTB, CC CCU, SP SPV · PPPPPP: the site's LGD code)",
+    assetFormat: "SSDDDBBBB XX + the site's LGD code (XX: RA rack, FD FDMS, FT FTB, CC CCU, SP SPV · the GP's 6 digits, or the block's 4 at block level)",
     sections: [
       {
         title: "Equipment",
@@ -137,10 +137,12 @@ export const EQUIPMENT_FORMS = {
   },
 };
 
-// SSDDDBBBB + the type's tag + the site's LGD code (the GP's, or the block's) in 6 digits
+// SSDDDBBBB + the type's tag + the site's LGD code as it is: the GP's (6 digits), or the
+// block's (4 digits) at block level
 export const miscAssetCode = (geo, lgdCode, type) => {
   const prefix = assetPrefix(geo);
-  return prefix && MISC_TYPE_TAGS[type] ? `${prefix}${MISC_TYPE_TAGS[type]}${pad(lgdCode, 6)}` : "";
+  const site = String(lgdCode ?? "").trim();
+  return prefix && site && MISC_TYPE_TAGS[type] ? `${prefix}${MISC_TYPE_TAGS[type]}${site}` : "";
 };
 
 // A misc record's items; a sheet saved before items existed has one type at the top level
