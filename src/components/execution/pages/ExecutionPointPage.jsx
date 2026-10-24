@@ -33,8 +33,8 @@ const toStoredDraft = (d) => ({
   ...d,
   ...storedMedia(d),
   pit: { ...d.pit, ...storedMedia(d.pit), refs: d.pit.refs.map((r) => ({ ...r, ...storedMedia(r) })) },
-  // A reference point open in the dialog keeps its media in its row
-  sheet: d.sheet ? { ...d.sheet, value: { ...d.sheet.value, photos: undefined, video: undefined } } : null,
+  // A reference point open in the dialog keeps its uploaded media too
+  sheet: d.sheet ? { ...d.sheet, value: { ...d.sheet.value, ...storedMedia(d.sheet.value) } } : null,
 });
 // Media of the pit, its reference points and the step, for "wait for uploads" and the request
 const allMedia = (d) => [...d.photos, d.video, ...(d.pit.photos || []), d.pit.video, ...d.pit.refs.flatMap((r) => [...(r.photos || []), r.video])];
@@ -163,7 +163,9 @@ const ExecutionPointPage = ({ which = "start" }) => {
   const type = typeOf(sub.typeOfWork);
   const ducting = isDucting(sub.typeOfWork);
   const pitLabel = isStart ? type?.pitA : type?.pitB;
-  const steps = ducting ? ["pit", "media"] : ["media"];
+  // Start of ducting is the pit step alone; end adds photos & video; other work has one step
+  const steps = ducting ? (isStart ? ["pit"] : ["pit", "media"]) : ["media"];
+  const mediaRule = config?.mediaRules?.[which] || { minPhotos: 1, maxPhotos: 4, video: "required" };
   const labels = steps.map((s) => (s === "pit" ? pitLabel : config?.stepLabels?.media || "Photos & video"));
   const index = Math.min(d.step || 0, steps.length - 1);
   const step = steps[index];
@@ -183,7 +185,7 @@ const ExecutionPointPage = ({ which = "start" }) => {
   };
 
   const next = () => {
-    const e = checkPointStep(step, d, ducting);
+    const e = checkPointStep(step, d, ducting, mediaRule);
     if (Object.keys(e).length) {
       fail(e);
       return;
@@ -193,7 +195,7 @@ const ExecutionPointPage = ({ which = "start" }) => {
 
   const submit = async () => {
     for (let i = 0; i < steps.length; i++) {
-      const e = checkPointStep(steps[i], d, ducting);
+      const e = checkPointStep(steps[i], d, ducting, mediaRule);
       if (Object.keys(e).length) {
         goTo(i);
         fail(e);
@@ -324,31 +326,30 @@ const ExecutionPointPage = ({ which = "start" }) => {
             sx={{ mb: 3 }}
           >
             {d.pit.refs.map((r, i) => (
-              <React.Fragment key={i}>
-                <RefRow
-                  refPoint={r}
-                  index={i}
-                  bad={["description", "location", "tapeDistanceM"].some((k) => errors[`pit.refs.${i}.${k}`])}
-                  onClick={() => update({ sheet: { index: i, value: { ...r } } })}
-                />
-                {/* The point's own photos and video, saved with the step */}
-                <Box sx={{ pl: 5.25, pb: 1.5 }}>
-                  <MediaPicker
-                    title="Photos (optional)"
-                    rule={config?.mediaRules?.refPoint || { minPhotos: 0, maxPhotos: 2, video: "optional" }}
-                    value={{ photos: r.photos || [], video: r.video || null }}
-                    onUpdate={(fn) =>
-                      update((p) => ({
-                        ...p,
-                        pit: { ...p.pit, refs: p.pit.refs.map((x, j) => (j === i ? { ...x, ...fn({ photos: x.photos || [], video: x.video || null }) } : x)) },
-                      }))
-                    }
-                    errors={{ photos: errors[`pit.refs.${i}.photos`], video: errors[`pit.refs.${i}.video`] }}
-                  />
-                </Box>
-              </React.Fragment>
+              <RefRow
+                key={i}
+                refPoint={r}
+                index={i}
+                bad={["description", "location", "tapeDistanceM", "photos", "video"].some((k) => errors[`pit.refs.${i}.${k}`])}
+                onClick={() => update({ sheet: { index: i, value: { ...r } } })}
+              />
             ))}
           </SectionCard>
+          {/* Start has no photos step, so its note is here */}
+          {isStart && (
+            <SectionCard title="Note" sx={{ mb: 3 }}>
+              <TextField
+                fullWidth
+                multiline
+                minRows={2}
+                size="small"
+                label="Note (optional)"
+                value={d.remarks}
+                onChange={(e) => update({ remarks: e.target.value })}
+                placeholder="e.g. Pit opened, machine positioned"
+              />
+            </SectionCard>
+          )}
           {autoStamp}
         </>
       )}
@@ -381,9 +382,12 @@ const ExecutionPointPage = ({ which = "start" }) => {
               />
             </SectionCard>
           )}
-          <SectionCard title={config?.stepLabels?.media || "Photos & video"} subtitle="At least one photo and a video, then an optional note">
+          <SectionCard
+            title={config?.stepLabels?.media || "Photos & video"}
+            subtitle={mediaRule.minPhotos > 0 ? "At least one photo and a video, then an optional note" : "Optional photos and video, and a note"}
+          >
             <MediaPicker
-              rule={config?.mediaRules?.[which] || { minPhotos: 1, maxPhotos: 4, video: "required" }}
+              rule={mediaRule}
               value={{ photos: d.photos, video: d.video }}
               onUpdate={(fn) =>
                 update((prev) => {
@@ -435,14 +439,35 @@ const ExecutionPointPage = ({ which = "start" }) => {
         index={d.sheet?.index ?? 0}
         value={d.sheet?.value}
         onChange={(value) => update((p) => ({ ...p, sheet: { ...p.sheet, value } }))}
+        mediaRule={config?.mediaRules?.refPoint}
+        onUpdateMedia={(fn) => {
+          const i = d.sheet?.index;
+          update((p) => {
+            const apply = (h) => ({ ...h, ...fn({ photos: h.photos || [], video: h.video || null }) });
+            // An upload that finishes after the point was saved still lands in the saved point
+            // (only on items it already has; additions and removals wait for Save)
+            const settle = (r) => {
+              const next = apply(r);
+              return {
+                ...r,
+                photos: (r.photos || []).map((m) => next.photos.find((x) => x.key === m.key) || m),
+                video: r.video && next.video?.key === r.video.key ? next.video : r.video,
+              };
+            };
+            return {
+              ...p,
+              sheet: p.sheet && p.sheet.index === i ? { ...p.sheet, value: apply(p.sheet.value) } : p.sheet,
+              pit: { ...p.pit, refs: p.pit.refs.map((r, j) => (j === i ? settle(r) : r)) },
+            };
+          });
+        }}
         pit={d.pit}
         pitLabel={pitLabel}
         subName={sub.name}
         onClose={() => update({ sheet: null })}
         onSave={(value) => {
           const i = d.sheet.index;
-          // The point's photos and video live in its row, so they stay as they are
-          update((p) => ({ ...p, sheet: null, pit: { ...p.pit, refs: p.pit.refs.map((r, j) => (j === i ? { ...value, photos: r.photos, video: r.video } : r)) } }));
+          update((p) => ({ ...p, sheet: null, pit: { ...p.pit, refs: p.pit.refs.map((r, j) => (j === i ? value : r)) } }));
           setErrors((e) => ({
             ...e,
             [`pit.refs.${i}.description`]: undefined,

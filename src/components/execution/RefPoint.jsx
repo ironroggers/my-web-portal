@@ -22,6 +22,7 @@ import GpsFixedIcon from "@mui/icons-material/GpsFixed";
 import { useExecutionConfig } from "../../hooks/useExecutionConfig";
 import { distanceM, fmtDistance, pointOf, tapeMismatch } from "../../utils/executionFormat";
 import ChipGroup from "./ChipGroup";
+import MediaPicker from "./MediaPicker";
 import GpsField from "./GpsField";
 import { refDone, refMissing, validateRef } from "./executionLogic";
 import { showToast } from "./toast";
@@ -104,8 +105,9 @@ export const RefRow = ({ refPoint, index, onClick, bad }) => {
 /**
  * One reference point at a time (a dialog; a right-side drawer on wide screens).
  * Saving checks only this point. value / onChange: the point being edited.
+ * Its optional photos and video: mediaRule, and onUpdateMedia(fn) (fn maps { photos, video }).
  */
-export const RefPointDialog = ({ open, index, value, onChange, pit, pitLabel, subName, onSave, onClose }) => {
+export const RefPointDialog = ({ open, index, value, onChange, onUpdateMedia, mediaRule, pit, pitLabel, subName, onSave, onClose }) => {
   const theme = useTheme();
   const wide = useMediaQuery(theme.breakpoints.up("md"));
   const { config } = useExecutionConfig();
@@ -168,6 +170,16 @@ export const RefPointDialog = ({ open, index, value, onChange, pit, pitLabel, su
       <Box sx={{ mt: 0.75 }}>
         <GpsHint pit={pit} refPoint={r} />
       </Box>
+      {onUpdateMedia && (
+        <Box sx={{ mt: 2.5 }}>
+          <MediaPicker
+            title="Photos & video (optional)"
+            rule={mediaRule || { minPhotos: 0, maxPhotos: 2, video: "optional" }}
+            value={{ photos: r.photos || [], video: r.video || null }}
+            onUpdate={onUpdateMedia}
+          />
+        </Box>
+      )}
     </>
   );
   const actions = (

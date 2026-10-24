@@ -87,8 +87,8 @@ export const validateRef = (r = {}) => {
   return e;
 };
 
-// Start / end, one step at a time
-export const checkPointStep = (step, d, ducting) => {
+// Start / end, one step at a time. rule: the step's media rule (start needs none, end does)
+export const checkPointStep = (step, d, ducting, rule = { minPhotos: 1, video: "required" }) => {
   const e = {};
   if (step === "pit") {
     if (!pointOf(d.pit)) e["pit.location"] = "Capture the pit location";
@@ -100,8 +100,8 @@ export const checkPointStep = (step, d, ducting) => {
   }
   if (step === "media") {
     if (!ducting && !d.location) e.location = "Capture the location";
-    if (!d.photos.length) e.photos = "Take at least one photo";
-    if (!d.video) e.video = "Record a video";
+    if (rule.minPhotos > 0 && !d.photos.length) e.photos = "Take at least one photo";
+    if (rule.video === "required" && !d.video) e.video = "Record a video";
   }
   return e;
 };
