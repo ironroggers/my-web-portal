@@ -40,8 +40,6 @@ const EMPTY = {
   ofcSide: "",
   roadFeatures: "",
   authorityName: "",
-  photos: [],
-  video: null,
   remarks: "",
 };
 
@@ -63,8 +61,6 @@ const CHECKS = {
     if (!d.ofcSide) e["initialCondition.ofcSide"] = "Pick the OFC side";
     return e;
   },
-  // Before photos and video are optional
-  photos: () => ({}),
 };
 
 const FieldLabel = ({ children, optional }) => (
@@ -86,7 +82,7 @@ const ErrorText = ({ children }) =>
     </Typography>
   ) : null;
 
-/** C7: New subsection (ducting only) — Work & location → Site condition → Before photos (optional) */
+/** C7: New subsection (ducting only) — Work & location → Site condition */
 const SubsectionCreatePage = () => {
   const { sectionId } = useParams();
   const draftKey = `create:${sectionId}`;
@@ -125,8 +121,6 @@ const SubsectionCreatePage = () => {
         ? {
             ...EMPTY,
             ...saved,
-            photos: (saved.photos || []).filter(Boolean),
-            video: saved.video || null,
             crossings: Array.isArray(saved.crossings) ? saved.crossings : [],
             crossingPhotos: (saved.crossingPhotos || []).filter(Boolean),
           }
@@ -149,8 +143,6 @@ const SubsectionCreatePage = () => {
       () =>
         saveDraft(draftKey, {
           ...d,
-          photos: d.photos.map(toDraftMedia).filter(Boolean),
-          video: toDraftMedia(d.video),
           crossingPhotos: d.crossingPhotos.map(toDraftMedia).filter(Boolean),
         }),
       300
@@ -195,8 +187,8 @@ const SubsectionCreatePage = () => {
     setErrors((e) => ({ ...e, [errorKey]: undefined }));
   };
 
-  // New subsections are ducting, so every one has a site condition step
-  const steps = ["work", "site", "photos"];
+  // New subsections are ducting, so every one has a site condition step; no before photos
+  const steps = ["work", "site"];
   const labels = steps.map((s) => config?.stepLabels?.[s] || s);
   const index = Math.min(d.step || 0, steps.length - 1);
   const step = steps[index];
@@ -255,7 +247,7 @@ const SubsectionCreatePage = () => {
         return;
       }
     }
-    if (anyPending([...d.photos, d.video, ...d.crossingPhotos])) {
+    if (anyPending(d.crossingPhotos)) {
       showToast("Wait for the uploads to finish", "warning");
       return;
     }
@@ -275,8 +267,6 @@ const SubsectionCreatePage = () => {
         roadFeatures: d.roadFeatures,
         authorityName: d.authorityName,
         remarks: d.remarks,
-        photos: d.photos.map(toMediaFile),
-        video: toMediaFile(d.video),
       },
     };
     try {
@@ -335,8 +325,10 @@ const SubsectionCreatePage = () => {
 
   // Only ducting can be created (the server's createTypeOrder)
   const typeChips = (config?.createTypeOrder || (config?.typeOrder || []).filter(isDucting)).map((t) => ({ value: t, label: typeOf(t).label }));
-  const fromName = section?.fromNode?.name;
-  const toName = section?.toNode?.name;
+  // A section end as "Karuvatta (GP)" or "Block router (BR)"
+  const endName = (node) => (node?.name ? `${node.name} (${node.type === "GP" ? "GP" : "BR"})` : "");
+  const fromName = endName(section?.fromNode);
+  const toName = endName(section?.toNode);
 
   return (
     <Box>
@@ -464,41 +456,21 @@ const SubsectionCreatePage = () => {
                 />
                 <ErrorText>{errors["initialCondition.ofcSide"]}</ErrorText>
                 <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.75 }}>
-                  {fromName && toName
-                    ? `LHS / RHS as seen going from ${fromName} to ${toName} (GP/BR to GP/BR), the section's start to its end.`
-                    : "LHS / RHS as seen going from the section's start to its end (GP/BR to GP/BR)."}
+                  {fromName && toName ? (
+                    <>
+                      LHS / RHS as seen going from <b>{fromName}</b> to <b>{toName}</b>.
+                    </>
+                  ) : (
+                    "LHS / RHS as seen going from the section's start (GP/BR) to its end (GP/BR)."
+                  )}
                 </Typography>
               </Box>
               {textField("roadFeatures", "Road features (optional)", { placeholder: "e.g. Two-lane bitumen road, drain on LHS", multiline: true, minRows: 2 })}
               {textField("authorityName", "Authority name (optional)", { placeholder: "e.g. PWD Roads, Harippad section" })}
+              {textField("remarks", "Condition note (optional)", { placeholder: "e.g. Bitumen surface intact, no existing damage", multiline: true, minRows: 2 })}
             </SectionCard>
           )}
 
-          {step === "photos" && (
-            <SectionCard
-              title={labels[index]}
-              subtitle="Optional: photograph and film the area as it is today. The first photo becomes the before picture when the section is restored."
-            >
-              <MediaPicker
-                rule={config?.mediaRules?.siteCondition || { minPhotos: 0, maxPhotos: 4, video: "optional" }}
-                value={{ photos: d.photos, video: d.video }}
-                onUpdate={(fn) =>
-                  update((prev) => {
-                    const nextMedia = fn({ photos: prev.photos, video: prev.video });
-                    return { ...prev, photos: nextMedia.photos, video: nextMedia.video };
-                  })
-                }
-                errors={{ photos: errors["initialCondition.photos"], video: errors["initialCondition.video"] }}
-              />
-              <Box sx={{ mt: 2.5 }}>
-                {textField("remarks", "Condition note (optional)", {
-                  placeholder: "e.g. Bitumen surface intact, no existing damage",
-                  multiline: true,
-                  minRows: 2,
-                })}
-              </Box>
-            </SectionCard>
-          )}
         </Grid>
         <Grid size={{ xs: 12, lg: 4 }}>
           <SectionCard title="Subsection name" subtitle="Generated from the road, type of work and the next number">
