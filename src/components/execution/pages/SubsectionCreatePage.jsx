@@ -175,6 +175,28 @@ const SubsectionCreatePage = () => {
   // Continuity follows the duct route, so prefer the last ducting subsection
   const previous = ductSubs[ductSubs.length - 1] || existing[existing.length - 1];
 
+  // Back to back: the new subsection starts where the previous one ended (its recorded end
+  // pit, else its planned To) and takes its road and site details. Only empty fields are
+  // filled, so nothing typed is lost.
+  const previousEnd = (() => {
+    const p = previous?.end?.pit || previous?.end;
+    return p?.latitude != null && p?.longitude != null ? `${Number(p.latitude).toFixed(6)}, ${Number(p.longitude).toFixed(6)}` : previous?.toLatLong || "";
+  })();
+  const continueFrom = () => {
+    const ic = previous.initialCondition || {};
+    update((f) => ({
+      ...f,
+      fromLatLong: previousEnd || f.fromLatLong,
+      roadName: f.roadName.trim() ? f.roadName : previous.roadName || "",
+      terrain: f.terrain || ic.terrain || "",
+      ofcSide: f.ofcSide || ic.ofcSide || "",
+      roadFeatures: f.roadFeatures || ic.roadFeatures || "",
+      authorityName: f.authorityName || ic.authorityName || "",
+    }));
+    setErrors((e) => ({ ...e, fromLatLong: undefined, roadName: undefined, "initialCondition.terrain": undefined, "initialCondition.ofcSide": undefined }));
+    showToast(`Continuing from ${previous.name}: From, road and site details filled`, "info");
+  };
+
   const fail = (e) => {
     setErrors(e);
     showToast(attentionMessage(e), "error");
@@ -337,11 +359,11 @@ const SubsectionCreatePage = () => {
                 </Box>
                 <Box>
                   {latLongField("fromLatLong", "From (lat, long)", "9.280830, 76.458600")}
-                  {previous?.toLatLong && (
+                  {previous && previousEnd && (
                     <Chip
                       icon={<LinkIcon />}
-                      label={`Continue from ${previous.name}`}
-                      onClick={() => set("fromLatLong", previous.toLatLong)}
+                      label={`Continue from ${previous.name} · ${previous.end ? "its end pit" : "its planned To"}, road and site details`}
+                      onClick={continueFrom}
                       color="primary"
                       variant="outlined"
                       size="small"

@@ -42,8 +42,9 @@ const ExecutionPointPage = ({ which = "start" }) => {
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  // A nearby subsection's end pit this start can copy, offered, never filled in by itself
-  const [startSuggestion, setStartSuggestion] = useState(null);
+  // A neighbour's pit this start / end can copy (its end pit for a start, its start pit for
+  // an end), with reference points, photos and video; offered, never filled in by itself
+  const [suggestion, setSuggestion] = useState(null);
   const go = useExecContext(contextOfSub(sub));
   const jobUrl = `/subsections/${subSectionId}`;
 
@@ -60,8 +61,8 @@ const ExecutionPointPage = ({ which = "start" }) => {
   };
 
   // The form starts empty each time (nothing is kept on leaving it). End after "Fix and
-  // resubmit" opens with the end that was sent; a start can be filled from a nearby end
-  // pit, but only when asked (startSuggestion)
+  // resubmit" opens with the end that was sent; otherwise a start or end can be filled from
+  // a neighbouring subsection's pit, but only when asked (suggestion)
   useEffect(() => {
     let active = true;
     (async () => {
@@ -72,10 +73,10 @@ const ExecutionPointPage = ({ which = "start" }) => {
         return;
       }
       setD(EMPTY_POINT_DRAFT);
-      if (isStart && card.typeOfWork) {
+      if (card.typeOfWork) {
         try {
-          const { suggestion } = await executionService.getStartPitSuggestion(subSectionId);
-          if (active) setStartSuggestion(suggestion || null);
+          const result = await executionService.getPitSuggestion(subSectionId, isStart ? "start" : "end");
+          if (active) setSuggestion(result.suggestion || null);
         } catch {
           // no suggestion (or not ducting)
         }
@@ -87,10 +88,10 @@ const ExecutionPointPage = ({ which = "start" }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subSectionId, which, attempt]);
 
-  // Fills the pit and its reference points from the suggested end pit
+  // Fills the pit, its reference points and their photos and video from the suggested pit
   const applySuggestion = () => {
-    const prefill = draftFromPoint({ pit: startSuggestion.pit });
-    update((p) => ({ ...p, pit: { ...prefill.pit, copiedFrom: startSuggestion.subSection, copiedFromName: startSuggestion.name } }));
+    const prefill = draftFromPoint({ pit: suggestion.pit });
+    update((p) => ({ ...p, pit: { ...prefill.pit, copiedFrom: suggestion.subSection, copiedFromName: suggestion.name, copiedFromLabel: suggestion.pitLabel } }));
   };
 
   const title = isStart ? "Start execution" : "End execution";
@@ -276,12 +277,12 @@ const ExecutionPointPage = ({ which = "start" }) => {
               value={pointOf(d.pit) ? d.pit : null}
               onChange={(fix) => {
                 // A fresh fix replaces the copied pit
-                update((p) => ({ ...p, pit: { ...p.pit, ...fix, copiedFrom: undefined, copiedFromName: undefined } }));
+                update((p) => ({ ...p, pit: { ...p.pit, ...fix, copiedFrom: undefined, copiedFromName: undefined, copiedFromLabel: undefined } }));
                 clearError("pit.location");
               }}
               error={errors["pit.location"]}
             />
-            {startSuggestion && !d.pit.copiedFrom && !pointOf(d.pit) && (
+            {suggestion && !d.pit.copiedFrom && !pointOf(d.pit) && (
               <Alert
                 severity="info"
                 icon={<AutoAwesomeIcon fontSize="inherit" />}
@@ -292,7 +293,7 @@ const ExecutionPointPage = ({ which = "start" }) => {
                 }
                 sx={{ mt: 1.5 }}
               >
-                The end pit of {startSuggestion.name} is {fmtDistance(startSuggestion.distanceM)} from here. Use it as this start, with its reference points?
+                {suggestion.name}&apos;s {(suggestion.pitLabel || (isStart ? "end pit" : "start pit")).toLowerCase()} is {fmtDistance(suggestion.distanceM)} from here. Use it as this {isStart ? "start" : "end"}, with its 3 reference points, photos and video?
               </Alert>
             )}
             {d.pit.copiedFrom && (
@@ -305,7 +306,7 @@ const ExecutionPointPage = ({ which = "start" }) => {
                   </Button>
                 }
               >
-                Copied from the end pit of {d.pit.copiedFromName}. Check it on site.
+                Copied from {d.pit.copiedFromName ? `${d.pit.copiedFromName}'s ${(d.pit.copiedFromLabel || "pit").toLowerCase()}` : "another subsection"}: location, reference points, photos and video. Check it on site.
               </Alert>
             )}
             <Box sx={{ mt: 2 }}>

@@ -105,6 +105,7 @@ const executionService = {
     request("/api/subsections/next-name", { query: { section: sectionId, roadName, typeOfWork } }),
   createSubsection: (body) => request("/api/subsections", { method: "POST", body }),
   getSubsection: (subId) => request(`/api/subsections/${id(subId)}`),
+  getPitSuggestion: (subId, which) => request(`/api/subsections/${id(subId)}/pit-suggestion`, { query: { which } }),
   getStartPitSuggestion: (subId) => request(`/api/subsections/${id(subId)}/start-pit-suggestion`),
   startSubsection: (subId, body) => request(`/api/subsections/${id(subId)}/start`, { method: "POST", body }),
   addEntry: (subId, body) => request(`/api/subsections/${id(subId)}/entries`, { method: "POST", body }),
