@@ -13,8 +13,10 @@ const MERGE_DEG = 1e-5;
 // A route this many times longer than the straight distance went the long way round the
 // ring, past a gap in the KML, so it isn't the section's road
 const MAX_DETOUR = 5;
-// A section's road that comes within this of where another node meets the road goes through it
-const PASS_M = 30;
+// A section's road that passes this close to the spot where another node meets the road
+// goes through that node. Only that spot counts, so nodes close together on a short ring
+// don't count as passed just because the road runs near them.
+const ON_ROUTE_M = 3;
 
 // Metres on a flat local plane: plenty accurate over a block
 const toXY = (p, lat0) => ({ x: p.lng * 111320 * Math.cos((lat0 * Math.PI) / 180), y: p.lat * 110540 });
@@ -273,15 +275,17 @@ export const buildRoadPaths = (sections, subsections, network) => {
     if (!key || stops.has(key)) continue;
     // How far the node is from the road: it may stand back from it
     const onRoad = network?.segments.length ? nearestSegment(network, point, ROAD_TOLERANCE_M) : null;
-    if (onRoad) stops.set(key, { point, name, offM: onRoad.distM });
+    if (onRoad) stops.set(key, { key, name, snap: onRoad.point });
   }
   for (const s of sections || []) {
     const id = String(s._id);
     const result = routeAlongRoads(network, s.from, s.to, [s.fromName || "The from node", s.toName || "The to node"]);
+    const ownKeys = [s.from, s.to].filter(isPoint).map((p) => `${p.lat},${p.lng}`);
+    const ends = result.path ? [result.path[0], result.path[result.path.length - 1]] : [];
     const passed = result.path
       ? [...stops.values()]
-          .filter(({ point }) => distM(point, s.from) > PASS_M && distM(point, s.to) > PASS_M)
-          .filter(({ point, offM }) => projectOnPath(result.path, point).distM <= offM + PASS_M)
+          .filter(({ key, snap }) => !ownKeys.includes(key) && ends.every((e) => distM(snap, e) > ON_ROUTE_M))
+          .filter(({ snap }) => projectOnPath(result.path, snap).distM <= ON_ROUTE_M)
           .map(({ name }) => name || "another node")
       : [];
     if (passed.length) problems.set(id, `The KML road between its nodes runs through ${passed.join(", ")}: the ring KML likely has a gap here.`);
