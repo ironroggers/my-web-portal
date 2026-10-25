@@ -1,5 +1,6 @@
 import { matchPath } from "react-router-dom";
 import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
+import InsightsOutlinedIcon from "@mui/icons-material/InsightsOutlined";
 import TableChartOutlinedIcon from "@mui/icons-material/TableChartOutlined";
 import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
 import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
@@ -26,6 +27,13 @@ export const NAV_GROUPS = [
         label: "Dashboard",
         Icon: DashboardOutlinedIcon,
         match: ["/", "/dashboard", "/old-dashboard"],
+      },
+      {
+        to: "/execution-dashboard",
+        label: "Execution Dashboard",
+        Icon: InsightsOutlinedIcon,
+        match: ["/execution-dashboard"],
+        permission: "viewExecution",
       },
       { to: "/summary", label: "Summary", Icon: TableChartOutlinedIcon, match: ["/summary"] },
     ],
@@ -122,6 +130,7 @@ const blockCrumb = (params, state, tab) => ({
 const ROUTE_TRAILS = [
   { path: "/", trail: [{ label: "Overview" }, { label: "Dashboard" }] },
   { path: "/dashboard", trail: [{ label: "Overview" }, { label: "Dashboard" }] },
+  { path: "/execution-dashboard", trail: [{ label: "Overview" }, { label: "Execution Dashboard" }] },
   { path: "/old-dashboard", trail: [{ label: "Overview" }, { label: "Classic Dashboard" }] },
   { path: "/summary", trail: [{ label: "Overview" }, { label: "Summary" }] },
   { path: "/surveys", trail: [{ label: "Operations" }, { label: "Surveys" }] },

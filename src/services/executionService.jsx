@@ -80,6 +80,10 @@ const executionService = {
   getMasterMapBlocks: () => request("/api/master-map/blocks"),
   getMasterMapBlock: (blockId) => request(`/api/master-map/blocks/${id(blockId)}`),
 
+  // ---- execution dashboard (read only): totals, trend, team, districts and blocks in one read
+  getExecutionDashboard: ({ state, district, blockProfile, status, days } = {}) =>
+    request("/api/execution-dashboard", { query: { state, district, blockProfile, status, days } }),
+
   // ---- infra
   getBlockInfra: (blockId) => request(`/api/block-profiles/${id(blockId)}/infra`),
   saveBlockInfra: (blockId, body) => request(`/api/block-profiles/${id(blockId)}/infra`, { method: "PUT", body }),

@@ -20,6 +20,7 @@ import AboutPage from "./components/AboutPage";
 import { SUPPORT_PAGES_ENABLED } from "./config/featureFlags";
 import LandingPage from "./components/LandingPage"; // Keep for backward compatibility
 import AnalyticsDashboard from "./components/AnalyticsDashboard";
+import ExecutionDashboardPage from "./components/executionDashboard/ExecutionDashboardPage";
 import LoginPage from "./components/auth/LoginPage";
 import RegisterPage from "./components/auth/RegisterPage";
 import ProfilePage from "./components/ProfilePage";
@@ -80,6 +81,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <AnalyticsDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/execution-dashboard"
+                element={
+                  <ProtectedRoute>
+                    <ExecutionDashboardPage />
                   </ProtectedRoute>
                 }
               />
