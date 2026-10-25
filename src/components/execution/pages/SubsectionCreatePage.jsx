@@ -352,6 +352,11 @@ const SubsectionCreatePage = () => {
                 {latLongField("toLatLong", "To (lat, long)", "9.281700, 76.457900")}
                 <Box>
                   {textField("subSectionLength", "Length (m)", { placeholder: "e.g. 120", slotProps: { htmlInput: { inputMode: "decimal" } } })}
+                  {straight != null && Number(d.subSectionLength) > 0 && Number(d.subSectionLength) !== straight && (
+                    <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.75 }}>
+                      Entered {fmtDistance(Number(d.subSectionLength))} · calculated from the points {fmtDistance(straight)}. Both are kept.
+                    </Typography>
+                  )}
                   {straight != null ? (
                     <Chip
                       icon={<StraightenIcon />}
@@ -454,7 +459,8 @@ const SubsectionCreatePage = () => {
               <DetailRow label="Section">{section?.name}</DetailRow>
               <DetailRow label="Type of work">{type?.full}</DetailRow>
               <DetailRow label="Road">{d.roadName.trim()}</DetailRow>
-              <DetailRow label="Length">{Number(d.subSectionLength) > 0 ? `${d.subSectionLength} m` : null}</DetailRow>
+              <DetailRow label="Entered length">{Number(d.subSectionLength) > 0 ? `${d.subSectionLength} m` : null}</DetailRow>
+              <DetailRow label="Calculated length">{straight != null ? `${fmtDistance(straight)} (straight line, From → To)` : null}</DetailRow>
             </Box>
           </SectionCard>
         </Grid>

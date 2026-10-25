@@ -350,7 +350,12 @@ const SubsectionJobPage = ({ approvalView = false }) => {
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid size={{ xs: 6, md: 3 }}>
-          <StatTile label="Planned" value={Math.round(sub.subSectionLength || 0)} suffix=" m" caption={sub.roadName} />
+          <StatTile
+            label="Planned (entered)"
+            value={Math.round(sub.subSectionLength || 0)}
+            suffix=" m"
+            caption={sub.calculatedLength != null ? `Calculated from the points: ${fmtDistance(sub.calculatedLength)}` : "No calculated length: From or To missing"}
+          />
         </Grid>
         {duct && (
           <Grid size={{ xs: 6, md: 3 }}>

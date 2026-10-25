@@ -115,7 +115,7 @@ const MasterMapInfo = ({ selected, data, roads, config, limit, onSelect, onZoom,
         <InfoTitle sub={[selected.what, item.sectionName].filter(Boolean).join(" · ")}>{item.name || "Subsection"}</InfoTitle>
         <Line2>{[config?.types?.[item.typeOfWork]?.label, statusLabel(subKey(item)), item.roadName].filter(Boolean).join(" · ")}</Line2>
         <Line2>
-          {fmtDistance(item.subSectionLength)} planned · {item.entries.length} {item.entries.length === 1 ? "entry" : "entries"}
+          {fmtDistance(item.subSectionLength)} entered{item.calculatedLength != null ? ` · ${fmtDistance(item.calculatedLength)} calculated` : ""} · {item.entries.length} {item.entries.length === 1 ? "entry" : "entries"}
         </Line2>
         {item.crossing && <Line2>Crossing: {item.crossing}</Line2>}
         {roads?.problems.has(String(item._id)) && <Line2>{`Planned line not drawn: ${roads.problems.get(String(item._id))}`}</Line2>}

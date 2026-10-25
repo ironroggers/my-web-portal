@@ -654,7 +654,7 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
         <Line2>
           {[config?.types?.[s.typeOfWork]?.label, statusLabel(subKey(s)), s.roadName].filter(Boolean).join(" · ")}
         </Line2>
-        <Line2>{fmtDistance(s.subSectionLength)} planned · {s.entries.length} {s.entries.length === 1 ? "entry" : "entries"}</Line2>
+        <Line2>{fmtDistance(s.subSectionLength)} entered{s.calculatedLength != null ? ` · ${fmtDistance(s.calculatedLength)} calculated` : ""} · {s.entries.length} {s.entries.length === 1 ? "entry" : "entries"}</Line2>
         {roadPaths.problems.has(String(s._id)) && <Line2>{`Planned line not drawn: ${roadPaths.problems.get(String(s._id))}`}</Line2>}
         <Link component="button" variant="caption" onClick={() => (s.legacy ? navigate(`/subsections/${s._id}/trenching`, { state: blockState }) : openSub(s))}>
           {s.legacy ? "Open trenching" : "Open job card"}
