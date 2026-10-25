@@ -20,6 +20,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { GoogleMap, InfoWindow, Marker, Polyline, useJsApiLoader } from "@react-google-maps/api";
 import UploadFileOutlinedIcon from "@mui/icons-material/UploadFileOutlined";
+import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
@@ -61,6 +62,7 @@ import {
   isFlagged,
   symbol,
 } from "./blockMapLayers";
+import { exportBlockKml } from "../masterMap/masterMapExport";
 import { ROAD_TOLERANCE_M, buildRoadNetwork, buildRoadPaths, midpointOf, pathLength } from "./roadPaths";
 
 // Same starting view as the Locations map; the map fits to the block's data once it loads
@@ -393,6 +395,16 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
   const kmlFeatures = useMemo(() => kmlFiles.flatMap((file) => kmlState[file._id]?.features || []), [kmlFiles, kmlState]);
   const roadNetwork = useMemo(() => buildRoadNetwork(kmlFeatures), [kmlFeatures]);
   const roadPaths = useMemo(() => buildRoadPaths(data?.sections || [], subsections, roadNetwork), [data, subsections, roadNetwork]);
+
+  // The final KML: the uploaded files with their layers, plus everything recorded on the block.
+  // Waits for the block's work and every KML file, so nothing is missing from it.
+  const kmlLoaded = kmlFiles.every((file) => kmlState[file._id]);
+  const exportKml = () =>
+    exportBlockKml(
+      { profile: { ...blockProfile, gps: blockProfile.gps || [], kmlFiles }, ...data },
+      Object.fromEntries(kmlFiles.map((file) => [file._id, kmlState[file._id]?.features || []])),
+      { config, roads: roadPaths }
+    );
 
   // Ring links from the GP sheets' previous / next node, once per direction, along the KML
   // road between the two nodes (path null when there's none)
@@ -1081,16 +1093,25 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
             subtitle={`${kmlFiles.length} ${kmlFiles.length === 1 ? "file" : "files"}`}
             contentSx={{ p: 0 }}
             action={
-              canManageKml && (
-                <Button
-                  size="small"
-                  startIcon={uploading ? <CircularProgress size={14} color="inherit" /> : <UploadFileOutlinedIcon />}
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                >
-                  {uploading ? "Uploading…" : "Upload"}
-                </Button>
-              )
+              <Stack direction="row" spacing={0.5}>
+                <Tooltip title={!data || !kmlLoaded ? "Loading the block's work and KML…" : "The uploaded KML with its layers, plus the network, sections, subsections, infra, equipment and attachments"}>
+                  <span>
+                    <Button size="small" startIcon={<FileDownloadOutlinedIcon />} onClick={exportKml} disabled={!data || !kmlLoaded}>
+                      Export KML
+                    </Button>
+                  </span>
+                </Tooltip>
+                {canManageKml && (
+                  <Button
+                    size="small"
+                    startIcon={uploading ? <CircularProgress size={14} color="inherit" /> : <UploadFileOutlinedIcon />}
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    {uploading ? "Uploading…" : "Upload"}
+                  </Button>
+                )}
+              </Stack>
             }
           >
             {kmlError && (

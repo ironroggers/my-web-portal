@@ -2,7 +2,7 @@
 // and filters that are on. The zoom doesn't matter; a layer that's on exports in full.
 import * as XLSX from "xlsx";
 import { titleCase } from "../execution/execConstants";
-import { MEDIA_KIND, RESTORATION_COLORS, STATUS_COLORS, ROUTER_COLOR, GP_COLOR, INFRA_COLORS, EQUIPMENT_COLORS } from "../blockProfile/blockMapLayers";
+import { MEDIA_KIND, RESTORATION_COLORS, STATUS_COLORS, ROUTER_COLOR, GP_COLOR, INFRA_COLORS, EQUIPMENT_COLORS, REF_COLOR, RING_COLOR } from "../blockProfile/blockMapLayers";
 import { SITE_TYPES } from "../blockProfile/blockProfileConstants";
 import { kmlStyleOf } from "../mapViewPage/utils/kmlUtils";
 import { EQUIPMENT_FORMS, formFields, miscItemsOf, miscTypeLabel } from "../blockProfile/equipmentForms";
@@ -253,6 +253,13 @@ const coords = (points) => points.map((p) => `${p.lng},${p.lat},0`).join(" ");
 // alpha byte for an opacity 0..1
 const alphaOf = (opacity) => Math.round(Math.min(1, Math.max(0, opacity)) * 255).toString(16).padStart(2, "0");
 
+// One "Label: value" line per value that's set, for a placemark's description
+const lines = (pairs) =>
+  pairs
+    .filter(([, v]) => v !== undefined && v !== null && v !== "")
+    .map(([k, v]) => (k ? `${k}: ${v}` : String(v)))
+    .join("\n");
+
 const placemark = ({ name, description, style, inlineStyle, point, path, polygon }) => {
   const geometry = point
     ? `<Point><coordinates>${coords([point])}</coordinates></Point>`
@@ -262,7 +269,11 @@ const placemark = ({ name, description, style, inlineStyle, point, path, polygon
   return `<Placemark><name>${esc(name)}</name>${description ? `<description>${esc(description)}</description>` : ""}${style ? `<styleUrl>#${style}</styleUrl>` : ""}${inlineStyle || ""}${geometry}</Placemark>`;
 };
 
-const folder = (name, items) => (items.length ? `<Folder><name>${esc(name)}</name>${items.join("")}</Folder>` : "");
+// A folder; `open` shows its contents in Google Earth's list straight away
+const folder = (name, items, { open = false, description } = {}) =>
+  items.filter(Boolean).length
+    ? `<Folder><name>${esc(name)}</name>${open ? "<open>1</open>" : ""}${description ? `<description>${esc(description)}</description>` : ""}${items.filter(Boolean).join("")}</Folder>`
+    : "";
 
 // KML features nested in their layers (folders) again, from feature.layerInfo
 const layerFolders = (features, render, depth = 0) => {
@@ -284,108 +295,75 @@ const lineStyle = (id, color, width, alpha = "ff") => `<Style id="${id}"><LineSt
 const pointStyle = (id, color, scale = 0.9) =>
   `<Style id="${id}"><IconStyle><color>${kmlHex(color)}</color><scale>${scale}</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle></Style>`;
 
-export const exportMasterMapKml = (blocks, kml, { layers, filters, config, roadsByBlock = {} }) => {
-  const on = include(blocks, { layers, filters });
+const PIT_COLORS = { A: "#15803d", B: "#b91c1c" };
+
+// Shared by every export: one style per kind of thing
+const baseStyles = () => [
+  pointStyle("gp", GP_COLOR),
+  pointStyle("router", ROUTER_COLOR, 1.1),
+  pointStyle("infra-BLOCK", INFRA_COLORS.BLOCK),
+  pointStyle("infra-GP", INFRA_COLORS.GP),
+  pointStyle("equipment-router", EQUIPMENT_COLORS.router),
+  pointStyle("equipment-misc", EQUIPMENT_COLORS.misc),
+  pointStyle("pit-A", PIT_COLORS.A, 1),
+  pointStyle("pit-B", PIT_COLORS.B, 1),
+  pointStyle("ref", REF_COLOR, 0.6),
+  lineStyle("ref-line", REF_COLOR, 1.5, "b3"),
+  lineStyle("ring", RING_COLOR, 3),
+  ...Object.entries(RESTORATION_COLORS).map(([key, color]) => lineStyle(`section-${key}`, color, 6, "99")),
+  ...Object.entries(STATUS_COLORS).flatMap(([key, color]) => [lineStyle(`sub-${key}`, color, 3), pointStyle(`entry-${key}`, color, 0.5)]),
+  ...Object.entries(MEDIA_KIND).map(([key, k]) => pointStyle(`media-${key}`, k.color, 0.7)),
+];
+
+/** Ring links from the GP equipment sheets (previous → next node), along the KML road */
+const ringLinksOf = (data, roads) => {
+  const { profile } = data;
+  const equipment = (data.equipment || []).filter((e) => Number.isFinite(e.lat));
+  const router = toPoint(profile.blockRouter?.latitude, profile.blockRouter?.longitude);
+  const position = (code) => {
+    if (code === profile.blockCode) {
+      const e = equipment.find((x) => x.form === "block");
+      return e ? { lat: e.lat, lng: e.lng } : router;
+    }
+    const e = equipment.find((x) => x.form === "gp" && x.gpLgdCode === code);
+    if (e) return { lat: e.lat, lng: e.lng };
+    const gp = (profile.gps || []).find((g) => g.lgdCode === code);
+    return gp ? toPoint(gp.latitude, gp.longitude) : null;
+  };
+  const nameOf = (code) => (code === profile.blockCode ? "Block router" : titleCase((profile.gps || []).find((g) => g.lgdCode === code)?.name || code));
+  const links = new Map();
+  const add = (from, to, distanceM) => {
+    if (!from || !to || from === to || links.has(`${from}>${to}`)) return;
+    const path = roads?.route(position(from), position(to));
+    if (path) links.set(`${from}>${to}`, { name: `${nameOf(from)} → ${nameOf(to)}`, path, distanceM });
+  };
+  equipment
+    .filter((e) => e.form === "gp")
+    .forEach((e) => {
+      add(e.prevNode, e.gpLgdCode, e.prevNodeDistanceM);
+      add(e.gpLgdCode, e.nextNode, e.nextNodeDistanceM);
+    });
+  return [...links.values()];
+};
+
+/**
+ * One block as a KML folder: its uploaded KML files with their own layers, then the
+ * network, ring links, sections (each with its subsections, pits, entries and reference
+ * points), infra, equipment and attachments. `on` says which of them go in.
+ */
+const blockFolder = (data, kml, { on, config, roads, styles, kmlStyles }) => {
+  const { profile } = data;
   const statusLabel = (key) => (key === "LEGACY" ? "Older (trenching)" : config?.statuses?.[key]?.label || key);
+  const restorationLabel = (key) => config?.restorationStates?.[key]?.label || key || "";
+  const typeLabel = (key) => config?.types?.[key]?.full || key || "";
+  const router = toPoint(profile.blockRouter?.latitude, profile.blockRouter?.longitude);
+  const parts = [];
 
-  const styles = [
-    pointStyle("gp", GP_COLOR),
-    pointStyle("router", ROUTER_COLOR, 1.1),
-    pointStyle("infra-BLOCK", INFRA_COLORS.BLOCK),
-    pointStyle("infra-GP", INFRA_COLORS.GP),
-    pointStyle("equipment-router", EQUIPMENT_COLORS.router),
-    pointStyle("equipment-misc", EQUIPMENT_COLORS.misc),
-    ...Object.entries(RESTORATION_COLORS).map(([key, color]) => lineStyle(`section-${key}`, color, 6, "99")),
-    ...Object.entries(STATUS_COLORS).map(([key, color]) => lineStyle(`sub-${key}`, color, 3)),
-    ...Object.entries(MEDIA_KIND).map(([key, k]) => pointStyle(`media-${key}`, k.color, 0.7)),
-  ];
-  const kmlStyles = new Set();
-
-  const blockFolders = blocks.map((data) => {
-    const { profile } = data;
-    const roads = roadsByBlock[profile._id];
-    const router = toPoint(profile.blockRouter?.latitude, profile.blockRouter?.longitude);
-    const parts = [];
-
-    if (layers.router && router) {
-      const description = [SITE_TYPES[profile.blockRouter?.siteType], profile.blockRouter?.address].filter(Boolean).join(" · ");
-      parts.push(placemark({ name: "Block router", description, style: "router", point: router }));
-    }
-    if (on.gps) {
-      parts.push(
-        folder(
-          "GPs",
-          profile.gps
-            .map((gp) => ({ gp, point: toPoint(gp.latitude, gp.longitude) }))
-            .filter(({ point }) => point)
-            .map(({ gp, point }) => placemark({ name: titleCase(gp.name), description: `LGD ${gp.lgdCode}`, style: "gp", point }))
-        )
-      );
-    }
-    if (on.sections) {
-      parts.push(
-        folder(
-          "Sections",
-          (data.sections || [])
-            .filter((s) => roadOf(roads, "sections", s))
-            .map((s) =>
-              placemark({
-                name: s.name,
-                description: [`${s.fromName || ""} → ${s.toName || ""}`, s.sectionLength ? `${s.sectionLength} m` : ""].filter(Boolean).join(" · "),
-                style: `section-${s.restorationStatus || "LOCKED"}`,
-                path: roadOf(roads, "sections", s),
-              })
-            )
-        )
-      );
-    }
-    if (on.subsections) {
-      parts.push(
-        folder(
-          "Subsections",
-          on.subs(data).flatMap((s) => {
-            const style = `sub-${subKey(s) || "NOT_STARTED"}`;
-            const description = [config?.types?.[s.typeOfWork]?.full, statusLabel(subKey(s)), s.roadName].filter(Boolean).join(" · ");
-            const executed = [s.start, ...s.entries, s.end].filter(Boolean);
-            const planned = roadOf(roads, "subsections", s);
-            return [
-              planned ? placemark({ name: `${s.name} (planned)`, description, style, path: planned }) : "",
-              executed.length > 1 ? placemark({ name: `${s.name} (executed)`, description, style, path: executed }) : "",
-            ].filter(Boolean);
-          })
-        )
-      );
-    }
-    if (on.infra) {
-      parts.push(
-        folder(
-          "Infra captures",
-          (data.infra || [])
-            .filter((i) => Number.isFinite(i.lat) && on.infraLevel(i.level))
-            .map((i) => placemark({ name: titleCase(i.name), description: `${i.level === "BLOCK" ? "Block" : "GP"} infra · ${i.photoCount} photos`, style: `infra-${i.level}`, point: i }))
-        )
-      );
-    }
-    if (on.equipmentForms.length) {
-      parts.push(
-        folder(
-          "Equipment",
-          (data.equipment || [])
-            .filter((e) => Number.isFinite(e.lat) && on.equipmentForms.includes(e.form))
-            .map((e) =>
-              placemark({
-                name: [EQUIPMENT_FORMS[e.form].title, titleCase(e.name)].join(" · "),
-                description: e.assetCode,
-                style: e.form === "misc" ? "equipment-misc" : "equipment-router",
-                point: e,
-              })
-            )
-        )
-      );
-    }
-    if (on.kml) {
-      parts.push(
-        ...profile.kmlFiles.map((file, index) => {
+  if (on.kml) {
+    parts.push(
+      folder(
+        "Uploaded KML",
+        profile.kmlFiles.map((file, index) => {
           const style = `kml-${index % 6}`;
           if (!kmlStyles.has(style)) {
             kmlStyles.add(style);
@@ -409,27 +387,211 @@ export const exportMasterMapKml = (blocks, kml, { layers, filters, config, roads
           // The file's own layers (folders) stay as folders
           return folder(file.name, layerFolders(kml[file._id] || [], render));
         })
-      );
-    }
-    if (on.media) {
-      parts.push(
+      )
+    );
+  }
+
+  const network = [];
+  if (on.router && router) {
+    network.push(placemark({ name: "Block router", description: lines([["", SITE_TYPES[profile.blockRouter?.siteType]], ["", profile.blockRouter?.address], ["Block LGD", profile.blockCode]]), style: "router", point: router }));
+  }
+  if (on.gps) {
+    network.push(
+      folder(
+        "Gram Panchayats",
+        profile.gps
+          .map((gp) => ({ gp, point: toPoint(gp.latitude, gp.longitude) }))
+          .filter(({ point }) => point)
+          .map(({ gp, point }) => placemark({ name: titleCase(gp.name), description: lines([["LGD", gp.lgdCode], ["Ring", gp.ringCode]]), style: "gp", point }))
+      )
+    );
+  }
+  parts.push(folder("Network", network));
+
+  if (on.rings) {
+    parts.push(
+      folder(
+        "Ring links",
+        ringLinksOf(data, roads).map((link) =>
+          placemark({ name: link.name, description: link.distanceM != null ? `Optical length ${metres(link.distanceM)} m` : "Optical length not entered", style: "ring", path: link.path })
+        )
+      )
+    );
+  }
+
+  // A subsection: planned line, executed path, pits, entries and reference points
+  const subFolder = (s) => {
+    const key = subKey(s) || "NOT_STARTED";
+    const description = lines([
+      ["Type of work", typeLabel(s.typeOfWork)],
+      ["Status", statusLabel(subKey(s))],
+      ["Road", s.roadName],
+      ["Entered length", s.subSectionLength ? `${metres(s.subSectionLength)} m` : ""],
+      ["Calculated length", s.calculatedLength != null ? `${s.calculatedLength} m` : ""],
+      ["Executed", `${metres(s.entries.reduce((n, e) => n + (Number(e.length) || 0), 0))} m in ${s.entries.length} ${s.entries.length === 1 ? "entry" : "entries"}`],
+    ]);
+    const planned = roads?.subsections.get(String(s._id));
+    const executed = [s.start, ...s.entries, s.end].filter(Boolean);
+    const pitTitle = (which) => config?.types?.[s.typeOfWork]?.[which === "A" ? "pitA" : "pitB"] || (which === "A" ? "Start" : "End");
+    const pits = [
+      ["A", s.start],
+      ["B", s.end],
+    ].filter(([, pit]) => pit);
+    const refs = pits.flatMap(([which, pit]) =>
+      pit.refs.map((r, i) => [
+        placemark({
+          name: `${which} · ${r.description || `Reference ${i + 1}`}`,
+          description: lines([["Tape", r.tapeDistanceM != null ? `${r.tapeDistanceM} m` : ""], ["GPS", r.gpsDistanceM != null ? `${r.gpsDistanceM} m` : ""]]),
+          style: "ref",
+          point: r,
+        }),
+        placemark({ name: `${which} · ${r.description || `Reference ${i + 1}`} (tape)`, style: "ref-line", path: [pit, r] }),
+      ]).flat()
+    );
+    let run = 0;
+    return folder(
+      s.name || "Subsection",
+      [
+        planned ? placemark({ name: "Planned line (along the KML road)", description, style: `sub-${key}`, path: planned }) : "",
+        executed.length > 1 ? placemark({ name: "Executed path", description, style: `sub-${key}`, path: executed }) : "",
+        ...pits.map(([which, pit]) => placemark({ name: `${which} · ${pitTitle(which)}`, description: lines([["At", pit.at ? new Date(pit.at).toLocaleString("en-IN") : ""]]), style: `pit-${which}`, point: pit })),
         folder(
-          "Attachments",
-          on.mediaOf(data).map((m) =>
-            placemark({ name: m.label || MEDIA_KIND[m.kind]?.label, description: `${m.fileType === "VIDEO" ? "Video" : "Photo"} · ${m.url}`, style: `media-${m.kind}`, point: m })
+          "Entries",
+          s.entries.map((e, i) => {
+            run += Number(e.length) || 0;
+            return placemark({
+              name: `#${i + 1} · ${metres(run)} m`,
+              description: lines([
+                ["Length", e.length != null ? `${e.length} m` : ""],
+                ["Depth", e.depth != null ? `${e.depth} m` : ""],
+                ["Offset", e.offset != null ? `${e.offset} m` : ""],
+                ["Side", e.side],
+                ["Protection", e.protection],
+                ["Landmark", e.landmark],
+                ["Remarks", e.remarks],
+                ["Captured", e.capturedAt ? new Date(e.capturedAt).toLocaleString("en-IN") : ""],
+              ]),
+              style: `entry-${key}`,
+              point: e,
+            });
+          })
+        ),
+        folder("Reference points", refs),
+      ],
+      { description }
+    );
+  };
+
+  const subs = on.subsections ? on.subs(data) : [];
+  if (on.sections || on.subsections) {
+    const sectionIds = new Set((data.sections || []).map((s) => String(s._id)));
+    const sectionFolders = (data.sections || []).map((s) => {
+      const road = roads?.sections.get(String(s._id));
+      const description = lines([
+        ["", `${s.fromName || ""} → ${s.toName || ""}`],
+        ["Length", s.sectionLength ? `${metres(s.sectionLength)} m` : ""],
+        ["Road length from the KML", road ? `${metres(pathLengthM(road))} m` : ""],
+        ["Not on the KML road", road ? "" : roads?.problems.get(String(s._id))],
+        ["Restoration", restorationLabel(s.restorationStatus)],
+      ]);
+      const mine = subs.filter((sub) => String(sub.sectionId) === String(s._id));
+      return folder(
+        s.name,
+        [on.sections && road ? placemark({ name: "Route (along the KML road)", description, style: `section-${s.restorationStatus || "LOCKED"}`, path: road }) : "", folder("Subsections", mine.map(subFolder))],
+        { description }
+      );
+    });
+    const orphans = subs.filter((sub) => !sectionIds.has(String(sub.sectionId)));
+    parts.push(folder("Sections", [...sectionFolders, folder("Other subsections", orphans.map(subFolder))]));
+  }
+
+  if (on.infra) {
+    const infra = (data.infra || []).filter((i) => Number.isFinite(i.lat) && on.infraLevel(i.level));
+    const infraMark = (i) => placemark({ name: titleCase(i.name), description: lines([["Photos", i.photoCount], ["GP LGD", i.gpLgdCode]]), style: `infra-${i.level}`, point: i });
+    parts.push(folder("Infra captures", [folder("Block", infra.filter((i) => i.level === "BLOCK").map(infraMark)), folder("GPs", infra.filter((i) => i.level === "GP").map(infraMark))]));
+  }
+  if (on.equipmentForms.length) {
+    const equipment = (data.equipment || []).filter((e) => Number.isFinite(e.lat) && on.equipmentForms.includes(e.form));
+    parts.push(
+      folder(
+        "Equipment",
+        on.equipmentForms.map((form) =>
+          folder(
+            EQUIPMENT_FORMS[form].title,
+            equipment
+              .filter((e) => e.form === form)
+              .map((e) => placemark({ name: titleCase(e.name), description: lines([["Asset code", e.assetCode], ["GP LGD", e.gpLgdCode]]), style: form === "misc" ? "equipment-misc" : "equipment-router", point: e }))
           )
         )
-      );
-    }
+      )
+    );
+  }
+  if (on.media) {
+    const media = on.mediaOf(data);
+    parts.push(
+      folder(
+        "Attachments",
+        Object.entries(MEDIA_KIND).map(([kind, k]) =>
+          folder(
+            k.label,
+            media
+              .filter((m) => m.kind === kind)
+              .map((m) =>
+                placemark({
+                  name: m.label || k.label,
+                  description: lines([["", m.fileType === "VIDEO" ? "Video" : "Photo"], ["Captured", m.capturedAt ? new Date(m.capturedAt).toLocaleString("en-IN") : ""], ["", m.url]]),
+                  style: `media-${kind}`,
+                  point: m,
+                })
+              )
+          )
+        )
+      )
+    );
+  }
 
-    return folder(`${titleCase(profile.block)} (${profile.blockCode})`, parts.filter(Boolean));
-  });
+  return folder(`${titleCase(profile.block)} (${profile.blockCode})`, parts, { open: true });
+};
 
+const downloadKml = (name, body, styles, fileName) => {
   const document = `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Master Map ${today()}</name>${styles.join("")}${blockFolders.join("")}</Document></kml>`;
-
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${esc(name)}</name>${styles.join("")}${body}</Document></kml>`;
   const url = URL.createObjectURL(new Blob([document], { type: "application/vnd.google-earth.kml+xml" }));
-  const link = Object.assign(window.document.createElement("a"), { href: url, download: `master-map_${today()}.kml` });
+  const link = Object.assign(window.document.createElement("a"), { href: url, download: fileName });
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+export const exportMasterMapKml = (blocks, kml, { layers, filters, config, roadsByBlock = {} }) => {
+  const on = { ...include(blocks, { layers, filters }), router: layers.router, rings: layers.rings };
+  const styles = baseStyles();
+  const kmlStyles = new Set();
+  const body = blocks.map((data) => blockFolder(data, kml, { on, config, roads: roadsByBlock[data.profile._id], styles, kmlStyles })).join("");
+  downloadKml(`Master Map ${today()}`, body, styles, `master-map_${today()}.kml`);
+};
+
+/**
+ * The block's final KML: the KML files as uploaded, with their own layers (folders) and
+ * styles, plus everything recorded on the block, each kind in its own folder. Every layer
+ * goes in, whatever is switched on in the map's panel.
+ */
+export const exportBlockKml = (data, kml, { config, roads }) => {
+  const on = {
+    router: true,
+    gps: true,
+    rings: true,
+    sections: true,
+    subsections: true,
+    infra: true,
+    infraLevel: () => true,
+    equipmentForms: EQUIPMENT_FORMS_ON_MAP.map((f) => f.key),
+    kml: true,
+    media: true,
+    subs: (d) => d.subsections || [],
+    mediaOf: (d) => d.media || [],
+  };
+  const styles = baseStyles();
+  const body = blockFolder(data, kml, { on, config, roads, styles, kmlStyles: new Set() });
+  const slug = `${data.profile.block || "block"}-${data.profile.blockCode || ""}`.replace(/[^\w-]+/g, "_");
+  downloadKml(`${titleCase(data.profile.block)} (${data.profile.blockCode}) · ${today()}`, body, styles, `${slug}_${today()}.kml`);
 };
