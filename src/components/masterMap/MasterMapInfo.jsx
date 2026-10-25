@@ -107,7 +107,7 @@ const MasterMapInfo = ({ selected, data, roads, config, limit, onSelect, onZoom,
         <InfoTitle sub={[item.fromName, item.toName].filter(Boolean).join(" → ")}>{item.name}</InfoTitle>
         <Line2>{[fmtDistance(item.sectionLength), `${item.total} ${item.total === 1 ? "subsection" : "subsections"}`, item.routeType === "EXISTING" ? "Existing route" : "New route"].join(" · ")}</Line2>
         <Line2>Restoration: {restorationLabel(item.restorationStatus)}</Line2>
-        <Line2>{roads?.sections.has(item._id) ? `Road from the KML: ${fmtDistance(pathLength(roads.sections.get(item._id)))}` : "No road for it in the KML files; drawn straight"}</Line2>
+        {roads?.sections.has(String(item._id)) && <Line2>{`Road from the KML: ${fmtDistance(pathLength(roads.sections.get(String(item._id))))}`}</Line2>}
       </>
     ),
     subsection: () => (
@@ -118,6 +118,7 @@ const MasterMapInfo = ({ selected, data, roads, config, limit, onSelect, onZoom,
           {fmtDistance(item.subSectionLength)} planned · {item.entries.length} {item.entries.length === 1 ? "entry" : "entries"}
         </Line2>
         {item.crossing && <Line2>Crossing: {item.crossing}</Line2>}
+        {roads?.problems.has(String(item._id)) && <Line2>{`Planned line not drawn: ${roads.problems.get(String(item._id))}`}</Line2>}
       </>
     ),
     ref: () => (

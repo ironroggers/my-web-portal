@@ -62,7 +62,7 @@ export const layerDefs = () => [
     label: "Ring links",
     minZoom: 10,
     on: true,
-    legend: [{ shape: "line", color: RING_COLOR, dashed: true, label: "Ring link, previous → next node" }],
+    legend: [{ shape: "line", color: RING_COLOR, dashed: true, label: "Ring link along the KML road, previous → next node" }],
   },
   {
     key: "kml",
@@ -78,10 +78,7 @@ export const layerDefs = () => [
     label: "Sections",
     minZoom: 0,
     on: true,
-    legend: [
-      ...Object.entries(RESTORATION_COLORS).map(([key, color]) => ({ shape: "line", color, thick: true, restoration: key })),
-      { shape: "line", color: RESTORATION_COLORS.LOCKED, dashed: true, label: "No road in the KML: drawn straight" },
-    ],
+    legend: Object.entries(RESTORATION_COLORS).map(([key, color]) => ({ shape: "line", color, thick: true, restoration: key })),
   },
   {
     key: "subsections",

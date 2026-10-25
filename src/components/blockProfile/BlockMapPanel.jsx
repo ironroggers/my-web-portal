@@ -61,7 +61,7 @@ import {
   isFlagged,
   symbol,
 } from "./blockMapLayers";
-import { buildRoadPaths, midpointOf, pathLength } from "./roadPaths";
+import { ROAD_TOLERANCE_M, buildRoadNetwork, buildRoadPaths, midpointOf, pathLength } from "./roadPaths";
 
 // Same starting view as the Locations map; the map fits to the block's data once it loads
 const DEFAULT_CENTER = { lat: 9.31, lng: 76.45 };
@@ -385,7 +385,17 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
     [blockProfile.blockCode, blockProfile.gps]
   );
 
-  // Ring links from the GP sheets' previous / next node, once per direction
+  const sections = useMemo(() => (data?.sections || []).filter((s) => s.from && s.to), [data]);
+  const subsections = useMemo(() => data?.subsections || [], [data]);
+  const allMedia = useMemo(() => data?.media || [], [data]);
+
+  // Sections, subsections and ring links follow the road in the KML files, never a straight line
+  const kmlFeatures = useMemo(() => kmlFiles.flatMap((file) => kmlState[file._id]?.features || []), [kmlFiles, kmlState]);
+  const roadNetwork = useMemo(() => buildRoadNetwork(kmlFeatures), [kmlFeatures]);
+  const roadPaths = useMemo(() => buildRoadPaths(data?.sections || [], subsections, roadNetwork), [data, subsections, roadNetwork]);
+
+  // Ring links from the GP sheets' previous / next node, once per direction, along the KML
+  // road between the two nodes (path null when there's none)
   const ringLinks = useMemo(() => {
     const links = new Map();
     const add = (from, to, distanceM) => {
@@ -398,7 +408,7 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
       }
       const a = nodePosition(from);
       const b = nodePosition(to);
-      if (a && b) links.set(key, { key, from, to, a, b, distanceM });
+      if (a && b) links.set(key, { key, from, to, path: roadPaths.route(a, b), distanceM });
     };
     equipment
       .filter((e) => e.form === "gp")
@@ -407,14 +417,9 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
         add(e.gpLgdCode, e.nextNode, e.nextNodeDistanceM);
       });
     return [...links.values()];
-  }, [equipment, nodePosition]);
-  const sections = useMemo(() => (data?.sections || []).filter((s) => s.from && s.to), [data]);
-  const subsections = useMemo(() => data?.subsections || [], [data]);
-  const allMedia = useMemo(() => data?.media || [], [data]);
-
-  // Sections and subsections follow the road in the KML files; straight where there's none
-  const kmlFeatures = useMemo(() => kmlFiles.flatMap((file) => kmlState[file._id]?.features || []), [kmlFiles, kmlState]);
-  const roadPaths = useMemo(() => buildRoadPaths(sections, subsections, kmlFeatures), [sections, subsections, kmlFeatures]);
+  }, [equipment, nodePosition, roadPaths]);
+  const offRoadSections = (data?.sections || []).filter((s) => !roadPaths.sections.has(String(s._id)));
+  const offRoadRings = ringLinks.filter((l) => !l.path).length;
 
   const subKey = (s) => (s.legacy ? "LEGACY" : s.executionStatus);
   const visibleSubs = subsections.filter((s) => subStatuses.has(subKey(s)));
@@ -635,7 +640,7 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
         <InfoTitle sub={[s.fromName, s.toName].filter(Boolean).join(" → ")}>{s.name}</InfoTitle>
         <Line2>{[fmtDistance(s.sectionLength), `${s.total} ${s.total === 1 ? "subsection" : "subsections"}`].join(" · ")}</Line2>
         <Line2>Restoration: {restorationLabel(s.restorationStatus)}</Line2>
-        <Line2>{roadPaths.sections.has(s._id) ? `Road from the KML: ${fmtDistance(pathLength(roadPaths.sections.get(s._id)))}` : "No road for it in the KML files; drawn straight"}</Line2>
+        {roadPaths.sections.has(String(s._id)) && <Line2>{`Road from the KML: ${fmtDistance(pathLength(roadPaths.sections.get(String(s._id))))}`}</Line2>}
         <Link component="button" variant="caption" onClick={() => openSection(s._id, s.name)}>
           Open section
         </Link>
@@ -650,6 +655,7 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
           {[config?.types?.[s.typeOfWork]?.label, statusLabel(subKey(s)), s.roadName].filter(Boolean).join(" · ")}
         </Line2>
         <Line2>{fmtDistance(s.subSectionLength)} planned · {s.entries.length} {s.entries.length === 1 ? "entry" : "entries"}</Line2>
+        {roadPaths.problems.has(String(s._id)) && <Line2>{`Planned line not drawn: ${roadPaths.problems.get(String(s._id))}`}</Line2>}
         <Link component="button" variant="caption" onClick={() => (s.legacy ? navigate(`/subsections/${s._id}/trenching`, { state: blockState }) : openSub(s))}>
           {s.legacy ? "Open trenching" : "Open job card"}
         </Link>
@@ -679,7 +685,8 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
   const renderSubsection = (s) => {
     const color = STATUS_COLORS[subKey(s)] || STATUS_COLORS.NOT_STARTED;
     const executed = [s.start, ...s.entries, s.end].filter(Boolean).map((p) => ({ lat: p.lat, lng: p.lng }));
-    const planned = roadPaths.subsections.get(s._id) || (s.from && s.to ? [s.from, s.to] : null);
+    // Along the road from the KML; without one only the field work shows
+    const planned = roadPaths.subsections.get(String(s._id));
     const mid = planned ? midpointOf(planned) : executed[0];
     const pitA = config?.types?.[s.typeOfWork]?.pitA || "Start";
     const pitB = config?.types?.[s.typeOfWork]?.pitB || "End";
@@ -773,29 +780,25 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
       {layers.sections &&
         sections.map((s) => {
           const color = RESTORATION_COLORS[s.restorationStatus] || RESTORATION_COLORS.LOCKED;
-          const road = roadPaths.sections.get(s._id);
-          // Along the road as a wide band; straight and dashed when the KML has no road for it
-          return (
+          const road = roadPaths.sections.get(String(s._id));
+          // A wide band along the road from the KML; a section is never the straight line between its nodes
+          return road ? (
             <Polyline
               key={s._id}
-              path={road || [s.from, s.to]}
-              options={
-                road
-                  ? { strokeColor: color, strokeWeight: 8, strokeOpacity: 0.35, zIndex: 1 }
-                  : { strokeOpacity: 0, icons: DASH.map((d) => ({ ...d, icon: { ...d.icon, strokeColor: color, strokeOpacity: 0.6, scale: 4 } })), zIndex: 1 }
-              }
+              path={road}
+              options={{ strokeColor: color, strokeWeight: 8, strokeOpacity: 0.35, zIndex: 1 }}
               onClick={(e) => infoSection(s, e.latLng.toJSON())}
             />
-          );
+          ) : null;
         })}
 
       {layers.subsections && visibleSubs.map(renderSubsection)}
 
       {layers.rings &&
-        ringLinks.map((link) => (
+        ringLinks.filter((link) => link.path).map((link) => (
           <Polyline
             key={link.key}
-            path={[link.a, link.b]}
+            path={link.path}
             options={{ strokeOpacity: 0, icons: ringIcons(RING_COLOR), zIndex: 2 }}
             onClick={(e) => infoRing(link, e.latLng.toJSON())}
           />
@@ -974,20 +977,48 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
             <LayerRow
               swatch={<Line color={RING_COLOR} dashed />}
               label="Ring links"
-              count={ringLinks.length}
+              count={ringLinks.length - offRoadRings}
               checked={layers.rings}
               onChange={() => toggleLayer("rings")}
             >
               <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                Previous → next node from the GP equipment sheets; the arrow points clockwise. Click a link for its optical length.
+                Previous → next node from the GP equipment sheets, along the KML road; the arrow points clockwise. Click a link for its optical length.
               </Typography>
+              {offRoadRings > 0 && (
+                <Typography variant="caption" component="div" sx={{ color: "warning.dark", mt: 0.5 }}>
+                  {offRoadRings} {offRoadRings === 1 ? "link isn't" : "links aren't"} drawn: no KML road runs between {offRoadRings === 1 ? "its" : "their"} nodes.
+                </Typography>
+              )}
             </LayerRow>
 
             <GroupHeading>Work</GroupHeading>
-            <LayerRow swatch={<Line color={RESTORATION_COLORS.APPROVED} thick />} label="Sections" count={sections.length} checked={layers.sections} onChange={() => toggleLayer("sections")}>
+            <LayerRow
+              swatch={<Line color={RESTORATION_COLORS.APPROVED} thick />}
+              label="Sections"
+              count={(data?.sections?.length || 0) - offRoadSections.length}
+              checked={layers.sections}
+              onChange={() => toggleLayer("sections")}
+            >
               <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
-                Wide band along the road from the KML files, coloured by restoration. Dashed and straight where no KML line runs between its nodes.
+                Wide band along the road from the block&apos;s KML, from node to node, coloured by restoration. Each node snaps to the nearest KML road within {ROAD_TOLERANCE_M} m.
               </Typography>
+              {data && kmlFiles.every((file) => kmlState[file._id]) && offRoadSections.length > 0 && (
+                <Alert severity="warning" sx={{ mb: 1, py: 0, "& .MuiAlert-message": { py: 0.75 } }}>
+                  <Typography variant="caption" component="div" sx={{ fontWeight: 700 }}>
+                    {offRoadSections.length} {offRoadSections.length === 1 ? "section isn't" : "sections aren't"} on the map
+                  </Typography>
+                  {offRoadSections.slice(0, 5).map((s) => (
+                    <Typography key={s._id} variant="caption" component="div">
+                      <b>{s.name}:</b> {roadPaths.problems.get(String(s._id))}
+                    </Typography>
+                  ))}
+                  {offRoadSections.length > 5 && (
+                    <Typography variant="caption" component="div">
+                      and {offRoadSections.length - 5} more
+                    </Typography>
+                  )}
+                </Alert>
+              )}
               <Stack direction="row" useFlexGap spacing={1} sx={{ flexWrap: "wrap" }}>
                 {Object.entries(RESTORATION_COLORS).map(([key, color]) => (
                   <Box key={key} sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>

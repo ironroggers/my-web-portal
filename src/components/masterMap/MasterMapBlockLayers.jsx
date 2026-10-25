@@ -58,9 +58,10 @@ const MasterMapBlockLayers = ({ data, kml, roads, show, filters, thick, names, l
   const infra = useMemo(() => (data.infra || []).filter((i) => Number.isFinite(i.lat)), [data.infra]);
   const sections = useMemo(() => (data.sections || []).filter((s) => s.from && s.to), [data.sections]);
 
-  // Where a ring node is: its equipment sheet's location, else the router / GP coordinates
+  // Where a ring node is: its equipment sheet's location, else the router / GP coordinates.
+  // A link runs along the KML road between its nodes; without one it isn't drawn.
   const ringLinks = useMemo(() => {
-    if (!show.rings) return [];
+    if (!show.rings || !roads) return [];
     const position = (code) => {
       if (code === profile.blockCode) {
         const e = equipment.find((x) => x.form === "block");
@@ -80,9 +81,8 @@ const MasterMapBlockLayers = ({ data, kml, roads, show, filters, thick, names, l
         if (existing.distanceM == null) existing.distanceM = distanceM;
         return;
       }
-      const a = position(from);
-      const b = position(to);
-      if (a && b) links.set(key, { key, a, b, fromName: nameOf(from), toName: nameOf(to), distanceM });
+      const path = roads.route(position(from), position(to));
+      if (path) links.set(key, { key, path, fromName: nameOf(from), toName: nameOf(to), distanceM });
     };
     equipment
       .filter((e) => e.form === "gp")
@@ -91,7 +91,7 @@ const MasterMapBlockLayers = ({ data, kml, roads, show, filters, thick, names, l
         add(e.gpLgdCode, e.nextNode, e.nextNodeDistanceM);
       });
     return [...links.values()];
-  }, [show.rings, equipment, gps, router, profile.blockCode, profile.gps]);
+  }, [show.rings, roads, equipment, gps, router, profile.blockCode, profile.gps]);
 
   const mediaGroups = useMemo(() => {
     if (!show.media) return [];
@@ -104,8 +104,8 @@ const MasterMapBlockLayers = ({ data, kml, roads, show, filters, thick, names, l
   const renderSubsection = (s) => {
     const color = STATUS_COLORS[subKey(s)] || STATUS_COLORS.NOT_STARTED;
     const executed = [s.start, ...s.entries, s.end].filter(Boolean).map((p) => ({ lat: p.lat, lng: p.lng }));
-    // The planned line follows the section's road from the KML; straight without one
-    const planned = roads?.subsections.get(s._id) || (s.from && s.to ? [s.from, s.to] : null);
+    // The planned line follows the road from the KML; without one only the field work shows
+    const planned = roads?.subsections.get(String(s._id));
     const mid = planned ? midpointOf(planned) : executed[0];
     const sub = (what, position) => pick("subsection", position, { item: s, what });
     return (
@@ -183,26 +183,22 @@ const MasterMapBlockLayers = ({ data, kml, roads, show, filters, thick, names, l
       {show.sections &&
         sections.map((s) => {
           const color = RESTORATION_COLORS[s.restorationStatus] || RESTORATION_COLORS.LOCKED;
-          const road = roads?.sections.get(s._id);
-          // Along the road; straight and dashed when the KML has no road for it
-          return (
+          const road = roads?.sections.get(String(s._id));
+          // Only along the road from the KML: a section is never the straight line between its nodes
+          return road ? (
             <Polyline
               key={s._id}
-              path={road || [s.from, s.to]}
-              options={
-                road
-                  ? { strokeColor: color, strokeWeight: thick ? 8 : 3, strokeOpacity: thick ? 0.35 : 0.6, zIndex: 1 }
-                  : { strokeOpacity: 0, icons: DASH(color, thick ? 4 : 2), zIndex: 1 }
-              }
+              path={road}
+              options={{ strokeColor: color, strokeWeight: thick ? 8 : 3, strokeOpacity: thick ? 0.35 : 0.6, zIndex: 1 }}
               onClick={(e) => pick("section", at(e), { item: s })}
             />
-          );
+          ) : null;
         })}
 
       {show.subsections && (data.subsections || []).filter((s) => filters.subStatuses.has(subKey(s))).map(renderSubsection)}
 
       {ringLinks.map((link) => (
-        <Polyline key={link.key} path={[link.a, link.b]} options={{ strokeOpacity: 0, icons: ringIcons(RING_COLOR), zIndex: 2 }} onClick={(e) => pick("ring", at(e), { item: link })} />
+        <Polyline key={link.key} path={link.path} options={{ strokeOpacity: 0, icons: ringIcons(RING_COLOR), zIndex: 2 }} onClick={(e) => pick("ring", at(e), { item: link })} />
       ))}
 
       {show.gps &&

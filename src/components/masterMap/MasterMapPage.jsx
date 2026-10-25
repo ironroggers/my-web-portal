@@ -46,7 +46,7 @@ import MasterMapBlockLayers from "./MasterMapBlockLayers";
 import MasterMapBlockTree from "./MasterMapBlockTree";
 import MasterMapInfo from "./MasterMapInfo";
 import { exportMasterMapExcel, exportMasterMapKml } from "./masterMapExport";
-import { buildRoadPaths } from "../blockProfile/roadPaths";
+import { buildRoadNetwork, buildRoadPaths } from "../blockProfile/roadPaths";
 import {
   EQUIPMENT_FORMS_ON_MAP,
   LAYER_GROUPS,
@@ -89,6 +89,17 @@ const loadKml = (url) => {
     kmlCache.set(url, request);
   }
   return kmlCache.get(url);
+};
+
+// A block's road paths, rebuilt only when its data or one of its KML files changes: the
+// road network of a big ring KML takes a moment to build
+const roadsCache = new WeakMap();
+const roadsOf = (data, files) => {
+  const hit = roadsCache.get(data);
+  if (hit && hit.files.length === files.length && hit.files.every((f, i) => f === files[i])) return hit.roads;
+  const roads = buildRoadPaths(data.sections, data.subsections, buildRoadNetwork(files.flatMap((f) => f || [])));
+  roadsCache.set(data, { files, roads });
+  return roads;
 };
 
 const toggleIn = (set, key) => {
@@ -275,11 +286,8 @@ const MasterMapPage = () => {
     [ready, visibleKml]
   );
   const kmlByBlock = useMemo(() => Object.fromEntries(ready.map((data) => [data.profile._id, kmlOf(data)])), [ready, kmlOf]);
-  // Each block's sections and subsections along the road from its KML
-  const roadsByBlock = useMemo(
-    () => Object.fromEntries(ready.map((data) => [data.profile._id, buildRoadPaths(data.sections, data.subsections, Object.values(kmlByBlock[data.profile._id] || {}).flat())])),
-    [ready, kmlByBlock]
-  );
+  // Each block's sections, subsections and ring links along the road from its KML
+  const roadsByBlock = useMemo(() => Object.fromEntries(ready.map((data) => [data.profile._id, roadsOf(data, data.profile.kmlFiles.map((f) => kml[f._id]))])), [ready, kml]);
 
   // Where each picked block is: everything it draws, else its router / first GP from the list
   const blockBounds = useMemo(() => {
@@ -431,7 +439,16 @@ const MasterMapPage = () => {
 
   // The picked blocks' KML files that have layers (folders), with their layer switches
   const kmlWithLayers = ready.flatMap((data) => data.profile.kmlFiles.filter((f) => kmlLayersByFile[f._id]?.length).map((file) => ({ file, block: data.profile.block })));
+  // Sections are drawn only along a KML road, never straight
+  const offRoad = countWhere((d) => (d.sections || []).filter((s) => !roadsByBlock[d.profile._id]?.sections.has(String(s._id))).length);
   const layerFilters = {
+    sections: (
+      <Typography variant="caption" component="div" sx={{ color: offRoad ? "warning.dark" : "text.secondary" }}>
+        {offRoad
+          ? `${offRoad} ${offRoad === 1 ? "section isn't" : "sections aren't"} drawn: no KML road runs between ${offRoad === 1 ? "its" : "their"} nodes. The block's Map tab says why.`
+          : "Every section follows the road in its block's KML."}
+      </Typography>
+    ),
     kml: kmlWithLayers.length ? (
       <Stack spacing={1.25} sx={{ mt: 0.5 }}>
         {kmlWithLayers.map(({ file, block }) => (

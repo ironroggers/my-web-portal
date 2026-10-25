@@ -8,8 +8,8 @@ import { kmlStyleOf } from "../mapViewPage/utils/kmlUtils";
 import { EQUIPMENT_FORMS, formFields, miscItemsOf, miscTypeLabel } from "../blockProfile/equipmentForms";
 import { EQUIPMENT_FORMS_ON_MAP, kmlColor, pathLengthM, subKey, toPoint } from "./masterMapLayers";
 
-// A section or subsection along its road from the KML, else straight from → to
-const roadOf = (roads, kind, item) => roads?.[kind].get(item._id) || (item.from && item.to ? [item.from, item.to] : null);
+// A section or subsection along its road from the KML; one without a road isn't exported as a line
+const roadOf = (roads, kind, item) => roads?.[kind].get(String(item._id)) || null;
 
 const today = () => new Date().toISOString().slice(0, 10);
 const round = (n, digits = 6) => (Number.isFinite(Number(n)) ? Number(Number(n).toFixed(digits)) : "");
@@ -88,7 +88,8 @@ export const exportMasterMapExcel = (blocks, kml, { layers, filters, config, roa
           "Main path (m)": metres(s.mainPathLength),
           "Sharing path (m)": metres(s.sharingPathLength),
           "Existing incremental path (m)": metres(s.existingIncrementalPathLength),
-          "Road length from KML (m)": roadsByBlock[data.profile._id]?.sections.has(s._id) ? metres(pathLengthM(roadsByBlock[data.profile._id].sections.get(s._id))) : "",
+          "Road length from KML (m)": roadOf(roadsByBlock[data.profile._id], "sections", s) ? metres(pathLengthM(roadOf(roadsByBlock[data.profile._id], "sections", s))) : "",
+          "Not on the KML road because": roadsByBlock[data.profile._id]?.problems.get(String(s._id)) || "",
           Route: s.routeType === "EXISTING" ? "Existing" : "New",
           Subsections: s.total,
           Restoration: restorationLabel(s.restorationStatus),
@@ -326,7 +327,7 @@ export const exportMasterMapKml = (blocks, kml, { layers, filters, config, roads
         folder(
           "Sections",
           (data.sections || [])
-            .filter((s) => s.from && s.to)
+            .filter((s) => roadOf(roads, "sections", s))
             .map((s) =>
               placemark({
                 name: s.name,
@@ -346,8 +347,9 @@ export const exportMasterMapKml = (blocks, kml, { layers, filters, config, roads
             const style = `sub-${subKey(s) || "NOT_STARTED"}`;
             const description = [config?.types?.[s.typeOfWork]?.full, statusLabel(subKey(s)), s.roadName].filter(Boolean).join(" · ");
             const executed = [s.start, ...s.entries, s.end].filter(Boolean);
+            const planned = roadOf(roads, "subsections", s);
             return [
-              s.from && s.to ? placemark({ name: `${s.name} (planned)`, description, style, path: roadOf(roads, "subsections", s) }) : "",
+              planned ? placemark({ name: `${s.name} (planned)`, description, style, path: planned }) : "",
               executed.length > 1 ? placemark({ name: `${s.name} (executed)`, description, style, path: executed }) : "",
             ].filter(Boolean);
           })
