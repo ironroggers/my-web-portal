@@ -1,10 +1,9 @@
-import { EXECUTION_URL } from "../API/api-keys.jsx";
+import { AUTH_URL, EXECUTION_URL } from "../API/api-keys.jsx";
 import { executionHeaders } from "./executionService.jsx";
 
 const base = EXECUTION_URL?.replace(/\/$/, "");
 
-// The execution service doesn't check tokens yet; sending one now means nothing changes
-// here once it does. The X-User-* headers say who is asking (the demo block is ADMIN only).
+// The login token says who is asking; the server only returns blocks the user may see
 const headers = () => executionHeaders();
 
 // Errors keep the status and per-field messages so forms can point at the right input
@@ -69,6 +68,29 @@ const blockProfileService = {
       headers: headers(),
     });
     return handle(res);
+  },
+
+  // [{ userId, name, role }]. Admin sets the Zonal Managers, a Zonal Manager the rest.
+  async updateTeam(id, team) {
+    const res = await fetch(`${base}/api/block-profiles/${id}/team`, {
+      method: "PUT",
+      headers: headers(),
+      body: JSON.stringify({ team }),
+    });
+    return handle(res);
+  },
+
+  // Admin only; from then on only Admin can change anything in the block
+  async freeze(id) {
+    const res = await fetch(`${base}/api/block-profiles/${id}/freeze`, { method: "POST", headers: headers() });
+    return handle(res);
+  },
+
+  // Active users of one role, for picking a block's team (from the auth service)
+  async usersWithRole(role) {
+    const res = await fetch(`${AUTH_URL}/api/auth/users?role=${encodeURIComponent(role)}`);
+    const data = await handle(res);
+    return (data.data || []).map((u) => ({ userId: u._id, name: u.username, email: u.email, role }));
   },
 
   // { action: { allowed, scope } } for a role, from the server's permission matrix

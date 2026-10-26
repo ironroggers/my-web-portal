@@ -11,7 +11,9 @@ import ChipGroup from "../ChipGroup";
 import SubRow from "../SubRow";
 import { FlagChips } from "../Flags";
 import { EmptyState, ListCard, PageState, RestorationPill } from "../execUi";
-import { titleCase } from "../execConstants";
+import { REVIEW_ACTIONS, titleCase } from "../execConstants";
+import StatusPill from "../../common/StatusPill";
+import { formatLength, sectionStage } from "../../blockProfile/blockProfileConstants";
 import { setWorkBadges } from "../workBadges";
 import { useExecContext } from "../useExecContext";
 import { useLoader } from "../useLoader";
@@ -26,7 +28,10 @@ const stateOf = (card) => ({
   sectionName: card.section?.name,
 });
 
-/** C16: pending subsections and restorations, oldest first, filterable by district / block / type of work */
+/**
+ * C16: what's waiting for this user, oldest first, filterable by district / block / type of work:
+ * subsections (Cluster Head, GIS Head), sections (Zonal Manager, Admin) and restorations (Admin)
+ */
 const ApprovalsPage = () => {
   const { can, loading: permissionsLoading } = usePermissions();
   const { config, typeOf } = useExecutionConfig();
@@ -63,7 +68,7 @@ const ApprovalsPage = () => {
   const header = (
     <PageHeader
       title="Approvals"
-      subtitle="Subsections and restorations waiting for approval, oldest first"
+      subtitle="Waiting for your review, oldest first"
       actions={
         <Tooltip title="Refresh">
           <IconButton onClick={reload} aria-label="Refresh">
@@ -74,7 +79,7 @@ const ApprovalsPage = () => {
     />
   );
 
-  if (!permissionsLoading && !can("approveExecution")) {
+  if (!permissionsLoading && !can(REVIEW_ACTIONS)) {
     return (
       <Box>
         {header}
@@ -84,9 +89,17 @@ const ApprovalsPage = () => {
   }
 
   const subs = data?.subsections || [];
+  const sections = data?.sections || [];
   const rests = data?.restorations || [];
-  const showSubs = kind !== "restoration";
-  const showRests = kind !== "subsection" && !typeOfWork;
+  const showSubs = !kind || kind === "subsection";
+  const showSections = (!kind || kind === "section") && !typeOfWork;
+  const showRests = (!kind || kind === "restoration") && !typeOfWork;
+  // Only the kinds this role reviews
+  const kindChips = [
+    can("reviewSubsection") && { value: "subsection", label: "Subsections", count: data ? subs.length : undefined },
+    can("reviewSection") && { value: "section", label: "Sections", count: data ? sections.length : undefined },
+    can("approveRestoration") && { value: "restoration", label: "Restorations", count: data ? rests.length : undefined },
+  ].filter(Boolean);
 
   const filters = (
     <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", alignItems: "center", mb: 2 }}>
@@ -95,11 +108,7 @@ const ApprovalsPage = () => {
           nowrap
           value={kind}
           onChange={(v) => setKind(v || "")}
-          options={[
-            { value: "", label: "All", count: data ? subs.length + rests.length : undefined },
-            { value: "subsection", label: "Subsections", count: data ? subs.length : undefined },
-            { value: "restoration", label: "Restorations", count: data ? rests.length : undefined },
-          ]}
+          options={[{ value: "", label: "All", count: data ? subs.length + sections.length + rests.length : undefined }, ...kindChips]}
         />
       </Box>
       <TextField
@@ -163,7 +172,7 @@ const ApprovalsPage = () => {
     );
   }
 
-  const nothing = (showSubs ? subs.length : 0) + (showRests ? rests.length : 0) === 0;
+  const nothing = (showSubs ? subs.length : 0) + (showSections ? sections.length : 0) + (showRests ? rests.length : 0) === 0;
 
   return (
     <Box>
@@ -199,6 +208,43 @@ const ApprovalsPage = () => {
                     </Box>
                   )}
                 </Box>
+              ))}
+            </ListCard>
+          )}
+          {showSections && sections.length > 0 && (
+            <ListCard title="Sections" count={sections.length}>
+              {sections.map((s) => (
+                <ButtonBase
+                  key={s.section?._id}
+                  onClick={() => go(`/sections/${s.section?._id}/subsections`, stateOf(s))}
+                  sx={{
+                    display: "block",
+                    width: "100%",
+                    textAlign: "left",
+                    px: 2,
+                    py: 1.5,
+                    borderBottom: 1,
+                    borderColor: "divider",
+                    "&:last-of-type": { borderBottom: 0 },
+                    "&:hover": { bgcolor: "action.hover" },
+                  }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700, flex: 1, minWidth: 0 }} noWrap>
+                      {s.section?.name}
+                    </Typography>
+                    <StatusPill label={sectionStage({ stage: s.stage }).label} tone={sectionStage({ stage: s.stage }).tone} />
+                  </Box>
+                  <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.5 }}>
+                    {[`${s.subsectionCount} subsections approved by Cluster Head and GIS Head`, s.sectionLength ? formatLength(s.sectionLength) : "", s.stage === "ADMIN" && s.zonal?.by?.name ? `Approved by ${s.zonal.by.name}` : ""]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </Typography>
+                  <Typography variant="caption" noWrap sx={{ color: "text.disabled", display: "block" }}>
+                    {contextOf(s)}
+                    {s.submittedAt ? ` · Sent ${fmtDateTime(s.submittedAt)}` : ""}
+                  </Typography>
+                </ButtonBase>
               ))}
             </ListCard>
           )}

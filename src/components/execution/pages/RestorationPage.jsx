@@ -218,7 +218,7 @@ const RestorationPage = ({ approvalView = false }) => {
       </Button>
     );
   }
-  if (status === "PENDING_APPROVAL" && can("approveExecution")) {
+  if (status === "PENDING_APPROVAL" && can("approveRestoration")) {
     actions.push(
       <ApprovalActions
         key="approval"

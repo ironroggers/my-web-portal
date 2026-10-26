@@ -20,6 +20,7 @@ import { showToast } from "../toast";
 import { useExecContext } from "../useExecContext";
 import { useLoader } from "../useLoader";
 import { tint } from "../execSx";
+import { SectionReviewCard } from "../reviewUi";
 
 const NEEDS_ACTION_RANK = { REJECTED: 0, IN_PROGRESS: 1, NOT_STARTED: 2 };
 
@@ -46,7 +47,7 @@ const Group = ({ title, subs, empty, onOpen }) => (
  */
 const BlockSubsectionsPage = ({ section }) => {
   const sectionId = section._id;
-  const { can } = usePermissions();
+  const { can, role, isAdmin } = usePermissions();
   const { config, typeOf } = useExecutionConfig();
   const [type, setType] = useState("ALL");
   const [query, setQuery] = useState("");
@@ -58,16 +59,27 @@ const BlockSubsectionsPage = ({ section }) => {
   });
 
   const load = useCallback(async () => {
-    const [list, restoration] = await Promise.all([executionService.listSubsections(sectionId), executionService.getRestoration(sectionId)]);
-    return { subs: list.items || [], restoration };
+    const [list, restoration, review] = await Promise.all([
+      executionService.listSubsections(sectionId),
+      executionService.getRestoration(sectionId),
+      executionService.getSectionReview(sectionId),
+    ]);
+    return { subs: list.items || [], restoration, review };
   }, [sectionId]);
   const { data, error, reload } = useLoader(load);
+  const review = data?.review;
 
   const all = useMemo(() => (data?.subs || []).filter((s) => s.typeOfWork), [data]);
   const legacy = useMemo(() => (data?.subs || []).filter((s) => !s.typeOfWork), [data]);
   const restoration = data?.restoration;
   const restStatus = restoration?.status;
-  const canCreate = can("executeSubsection") && Boolean(data) && !["PENDING_APPROVAL", "APPROVED"].includes(restStatus);
+  // New subsections only while the section is in the field stage, and not in a frozen block
+  const canCreate =
+    can("executeSubsection") &&
+    Boolean(data) &&
+    !["PENDING_APPROVAL", "APPROVED"].includes(restStatus) &&
+    review?.stage === "FIELD" &&
+    (isAdmin || !review?.blockFrozen);
   const backTo = `/block-profiles/${section.blockProfile}?tab=sections`;
 
   const header = (
@@ -147,6 +159,25 @@ const BlockSubsectionsPage = ({ section }) => {
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
+      )}
+
+      {review && (
+        <SectionReviewCard
+          review={review}
+          role={role}
+          canReview={can("reviewSection") && (isAdmin || !review.blockFrozen)}
+          onApprove={async () => {
+            await executionService.approveSection(sectionId);
+            showToast("Section approved", "success");
+            reload();
+          }}
+          onReject={async (remark, ids) => {
+            await executionService.rejectSection(sectionId, remark, ids);
+            showToast("Section sent back", "info");
+            reload();
+          }}
+          sx={{ mb: 2 }}
+        />
       )}
 
       <SectionCard title="Progress" subtitle={all.length ? `${all.length} subsections` : undefined} sx={{ mb: 2 }}>

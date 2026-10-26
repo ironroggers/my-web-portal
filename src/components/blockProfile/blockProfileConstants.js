@@ -6,7 +6,6 @@ export const SITE_TYPES = {
   OTHERS: "Others",
 };
 
-// PENDING_APPROVAL joins these once the approval workflow lands
 export const BLOCK_STATUSES = {
   DRAFT: { label: "Draft", tone: "info" },
   ACTIVE: { label: "Active", tone: "success" },
@@ -24,3 +23,13 @@ export const formatDate = (value) =>
 export const routerName = (profile) => String(profile?.blockRouter?.name || "").trim() || "Block router";
 
 export const blockPlace = (profile) => [profile?.district, profile?.state].filter(Boolean).join(", ");
+
+// A block section's review stage (execution-service models/section.model.js)
+export const SECTION_STAGES = {
+  FIELD: { label: "In field review", short: "Field", tone: "default" },
+  ZONAL: { label: "With Zonal Manager", short: "Zonal Manager", tone: "warning" },
+  ADMIN: { label: "With Admin", short: "Admin", tone: "info" },
+  FROZEN: { label: "Frozen", short: "Frozen", tone: "success" },
+};
+export const sectionStage = (section) => SECTION_STAGES[section?.review?.stage || section?.stage || "FIELD"] || SECTION_STAGES.FIELD;
+export const isSectionFrozen = (section) => (section?.review?.stage || section?.stage) === "FROZEN";

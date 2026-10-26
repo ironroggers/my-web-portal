@@ -46,3 +46,13 @@ export const titleCase = (s) =>
   String(s || "")
     .toLowerCase()
     .replace(/(^|[\s(-])([a-z])/g, (m, a, b) => a + b.toUpperCase());
+
+// Anything that puts work in the Approvals inbox
+export const REVIEW_ACTIONS = ["reviewSubsection", "reviewSection", "approveRestoration"];
+
+// The two subsection reviewers (execution-service services/review.service.js)
+export const REVIEW_SLOTS = [
+  { key: "clusterHead", label: "Cluster Head", role: "CLUSTER HEAD" },
+  { key: "gisHead", label: "GIS Head", role: "GIS HEAD" },
+];
+export const slotForRole = (role) => REVIEW_SLOTS.find((s) => s.role === role)?.key;

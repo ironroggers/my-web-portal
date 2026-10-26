@@ -6,6 +6,7 @@ import { countLabel, fmtDistance } from "../../utils/executionFormat";
 import { ExecStatusPill, TypeTag } from "./execUi";
 import { tint } from "./execSx";
 import Meter from "../common/Meter";
+import { ReviewSlots } from "./reviewUi";
 
 /** One subsection: name + status, type and progress, the fix note when sent back */
 const SubRow = ({ sub, onClick, context, right }) => {
@@ -51,6 +52,7 @@ const SubRow = ({ sub, onClick, context, right }) => {
           aria-label={`${sub.name}: ${progress}`}
         />
       )}
+      {sub.executionStatus === "PENDING_APPROVAL" && <ReviewSlots review={sub.review} sx={{ mt: 0.75 }} />}
       {context && (
         <Typography variant="caption" noWrap sx={{ color: "text.disabled", display: "block", mt: 0.5 }}>
           {context}

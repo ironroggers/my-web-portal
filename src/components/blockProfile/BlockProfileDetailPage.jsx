@@ -19,6 +19,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import BlockOutlinedIcon from "@mui/icons-material/BlockOutlined";
+import AcUnitIcon from "@mui/icons-material/AcUnit";
 import blockProfileService from "../../services/blockProfileService.jsx";
 import { useBlockPermissions } from "../../hooks/useBlockPermissions";
 import PageHeader from "../common/PageHeader";
@@ -31,12 +32,13 @@ import BlockSectionsPanel from "./BlockSectionsPanel";
 import BlockMapPanel from "./BlockMapPanel";
 import { BlockInfraPanel, GpInfraPanel } from "./InfraPanels";
 import BlockDiagramsPanel from "./diagrams/BlockDiagramsPanel";
+import BlockTeamPanel from "./BlockTeamPanel";
 import { DemoChip, ResetDemoDialog } from "./DemoBlock";
 import { useIsAdmin } from "../../hooks/useIsAdmin";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import { SITE_TYPES, blockPlace, blockStatus, formatDate } from "./blockProfileConstants";
 
-const TABS = ["overview", "block", "gps", "sections", "map", "diagrams"];
+const TABS = ["overview", "team", "block", "gps", "sections", "map", "diagrams"];
 
 // Tab label with a ✓ once that part of the block is done
 const TabLabel = ({ label, done }) => (
@@ -200,7 +202,7 @@ const BlockProfileDetailPage = () => {
   const { blockProfileId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = TABS.includes(searchParams.get("tab")) ? searchParams.get("tab") : "overview";
-  const { can, userId, loading: permissionsLoading, error: permissionsError } = useBlockPermissions();
+  const { can, canChange, userId, loading: permissionsLoading, error: permissionsError } = useBlockPermissions();
 
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState("");
@@ -211,6 +213,9 @@ const BlockProfileDetailPage = () => {
   const isAdmin = useIsAdmin();
   const [deactivateError, setDeactivateError] = useState("");
   const [deactivating, setDeactivating] = useState(false);
+  const [freezeOpen, setFreezeOpen] = useState(false);
+  const [freezeError, setFreezeError] = useState("");
+  const [freezing, setFreezing] = useState(false);
 
   const loadProfile = useCallback(async () => {
     try {
@@ -245,10 +250,27 @@ const BlockProfileDetailPage = () => {
     }
   };
 
+  const handleFreeze = async () => {
+    try {
+      setFreezing(true);
+      setFreezeError("");
+      setProfile(await blockProfileService.freeze(blockProfileId));
+      setFreezeOpen(false);
+    } catch (e) {
+      setFreezeError(e.message || "Couldn't freeze the block");
+    } finally {
+      setFreezing(false);
+    }
+  };
+
   const selectTab = (event, value) => setSearchParams(value === "overview" ? {} : { tab: value }, { replace: true });
 
-  const canEdit = profile && can("editBlockProfile", profile);
-  const canDeactivate = profile && profile.status !== "INACTIVE" && can("deleteBlockProfile");
+  // A frozen block is read-only for everyone but Admin
+  const frozen = Boolean(profile?.frozen?.at);
+  const lock = { frozen };
+  const canEdit = profile && canChange("editBlockProfile", lock, profile);
+  const canDeactivate = profile && profile.status !== "INACTIVE" && canChange("deleteBlockProfile", lock);
+  const canFreeze = profile && !frozen && can("freezeBlock");
   const status = profile && blockStatus(profile.status);
   const progress = profile?.progress || {};
 
@@ -260,6 +282,7 @@ const BlockProfileDetailPage = () => {
           <Box component="span" sx={{ display: "inline-flex", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
             {[blockPlace(profile), `LGD ${profile.blockCode}`].filter(Boolean).join(" · ")}
             <StatusPill label={status.label} tone={status.tone} />
+            {frozen && <StatusPill label="Frozen" tone="info" />}
             {profile.isDemo && <DemoChip />}
           </Box>
         )
@@ -272,6 +295,18 @@ const BlockProfileDetailPage = () => {
           {canEdit && (
             <Button variant="outlined" startIcon={<EditOutlinedIcon />} onClick={() => navigate(`/block-profiles/${blockProfileId}/edit`)}>
               Edit
+            </Button>
+          )}
+          {canFreeze && (
+            <Button
+              variant="outlined"
+              startIcon={<AcUnitIcon />}
+              onClick={() => {
+                setFreezeError("");
+                setFreezeOpen(true);
+              }}
+            >
+              Freeze block
             </Button>
           )}
           {canDeactivate && (
@@ -353,6 +388,12 @@ const BlockProfileDetailPage = () => {
         }}
       />
 
+      {frozen && (
+        <Alert severity="info" icon={<AcUnitIcon />} sx={{ mb: 3 }}>
+          Frozen by {profile.frozen.by?.name || "Admin"} on {formatDate(profile.frozen.at)}. Only Admin can change this block now.
+        </Alert>
+      )}
+
       {profile.status === "INACTIVE" && (
         <Alert severity="info" sx={{ mb: 3 }}>
           This block profile is inactive.{canEdit && " Edit it and set the status to Active to restore it."}
@@ -361,6 +402,7 @@ const BlockProfileDetailPage = () => {
 
       <Tabs value={tab} onChange={selectTab} variant="scrollable" allowScrollButtonsMobile sx={{ mb: 3, borderBottom: 1, borderColor: "divider" }}>
         <Tab value="overview" label="Overview" />
+        <Tab value="team" label={`Team (${profile.team?.length || 0})`} />
         <Tab value="block" label={<TabLabel label="Block infra" done={progress.infraDone} />} />
         <Tab
           value="gps"
@@ -385,16 +427,32 @@ const BlockProfileDetailPage = () => {
       </Tabs>
 
       {tab === "overview" && <Overview profile={profile} />}
+      {tab === "team" && (
+        <BlockTeamPanel
+          blockProfile={profile}
+          canEdit={canChange("manageTeam", lock)}
+          canEditZonal={can("freezeBlock")}
+          onSaved={setProfile}
+        />
+      )}
       {tab === "block" && (
-        <BlockInfraPanel blockProfile={profile} canCapture={can("captureInfra")} canEditEquipment={can("manageInfraEquipment")} />
+        <BlockInfraPanel
+          blockProfile={profile}
+          canCapture={canChange("captureInfra", lock)}
+          canEditEquipment={canChange("manageInfraEquipment", lock)}
+        />
       )}
       {tab === "gps" && (
-        <GpInfraPanel blockProfile={profile} canCapture={can("captureInfra")} canEditEquipment={can("manageInfraEquipment")} />
+        <GpInfraPanel
+          blockProfile={profile}
+          canCapture={canChange("captureInfra", lock)}
+          canEditEquipment={canChange("manageInfraEquipment", lock)}
+        />
       )}
-      {tab === "sections" && <BlockSectionsPanel blockProfile={profile} canManage={can("createSection")} onChanged={loadProfile} />}
+      {tab === "sections" && <BlockSectionsPanel blockProfile={profile} canManage={canChange("createSection", lock)} onChanged={loadProfile} />}
       {tab === "diagrams" && <BlockDiagramsPanel blockProfile={profile} />}
       {tab === "map" && (
-        <BlockMapPanel blockProfile={profile} canManageKml={can("manageKml")} userId={userId} onProfileChange={setProfile} />
+        <BlockMapPanel blockProfile={profile} canManageKml={canChange("manageKml", lock)} userId={userId} onProfileChange={setProfile} />
       )}
 
       <ConfirmDeleteDialog
@@ -411,6 +469,20 @@ const BlockProfileDetailPage = () => {
         {profile.sectionCount > 0 &&
           ` Its ${profile.sectionCount} ${profile.sectionCount === 1 ? "section stays" : "sections stay"} linked to it.`}{" "}
         You can restore it later by setting the status back to Active.
+      </ConfirmDeleteDialog>
+
+      <ConfirmDeleteDialog
+        open={freezeOpen}
+        title="Freeze this block?"
+        error={freezeError}
+        deleting={freezing}
+        confirmLabel="Freeze block"
+        busyLabel="Freezing…"
+        onCancel={() => setFreezeOpen(false)}
+        onConfirm={handleFreeze}
+      >
+        After this only Admin can change "{profile.block}": its profile, team, sections, subsections, infra and equipment
+        become read-only for everyone else.
       </ConfirmDeleteDialog>
     </Box>
   );

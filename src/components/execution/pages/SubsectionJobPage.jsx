@@ -46,6 +46,8 @@ import { carryOver, emptyEntry, entryBody, validateEntry } from "../executionLog
 import { anyPending, toMediaFile } from "../mediaItems";
 import { attentionMessage, reportError, showToast } from "../toast";
 import { contextOfSub, useExecContext } from "../useExecContext";
+import { ReviewSlots } from "../reviewUi";
+import { slotForRole } from "../execConstants";
 
 const mediaCount = (holder) => `${countLabel(holder?.photos?.length || 0, "photo")}${holder?.video ? " · video" : ""}`;
 
@@ -59,7 +61,7 @@ const SubsectionJobPage = ({ approvalView = false }) => {
   const { subSectionId } = useParams();
   const theme = useTheme();
   const isPhone = useMediaQuery(theme.breakpoints.down("sm"));
-  const { can } = usePermissions();
+  const { can, role, isAdmin } = usePermissions();
   const { config, typeOf, isDucting, statusOf } = useExecutionConfig();
   const [sub, setSub] = useState(null);
   const [loadError, setLoadError] = useState("");
@@ -126,8 +128,12 @@ const SubsectionJobPage = ({ approvalView = false }) => {
   const duct = isDucting(sub.typeOfWork);
   const fields = config?.entryFields?.[duct ? sub.typeOfWork : "basic"] || [];
   const status = sub.executionStatus;
-  const canExecute = can("executeSubsection");
-  const canApprove = can("approveExecution");
+  // A frozen section or block is read-only for everyone but Admin
+  const locked = !isAdmin && (sub.sectionInfo?.section?.stage === "FROZEN" || sub.sectionInfo?.block?.frozen);
+  const canExecute = can("executeSubsection") && !locked;
+  // Cluster Head and GIS Head each review once; the other's decision is kept
+  const slot = slotForRole(role);
+  const canApprove = can("reviewSubsection") && Boolean(slot) && sub.review?.[slot]?.status !== "APPROVED" && !locked;
   const entries = sub.entries || [];
   const done = sub.doneM || 0;
   const ic = sub.initialCondition || {};
@@ -299,12 +305,16 @@ const SubsectionJobPage = ({ approvalView = false }) => {
         status === "APPROVED"
           ? `Approved ${fmtDateTime(sub.approval?.at)}`
           : status === "PENDING_APPROVAL"
-            ? `Sent ${fmtDateTime(sub.end?.at)} · waiting for the admin`
+            ? `Sent ${fmtDateTime(sub.end?.at)} · waiting for the Cluster Head and GIS Head`
             : status === "REJECTED"
-              ? `Sent back ${fmtDateTime(sub.approval?.at)}`
-              : "The admin approves once the end is sent",
+              ? `Sent back by ${sub.approval?.by?.name || "a reviewer"} ${fmtDateTime(sub.approval?.at)}`
+              : "The Cluster Head and GIS Head review it once the end is sent",
       content:
-        status === "REJECTED" ? <FixBox remark={sub.approval?.remark} text="Fix and resubmit reopens the execution. Your end details are kept." /> : null,
+        status === "REJECTED" ? (
+          <FixBox remark={sub.approval?.remark} text="Fix and resubmit reopens the execution. Your end details are kept." />
+        ) : status === "PENDING_APPROVAL" || status === "APPROVED" ? (
+          <ReviewSlots review={sub.review} />
+        ) : null,
     },
   ];
 

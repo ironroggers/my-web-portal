@@ -1,10 +1,10 @@
 import { EXECUTION_URL } from "../API/api-keys.jsx";
+import { executionHeaders } from "./executionService.jsx";
 
 const base = EXECUTION_URL?.replace(/\/$/, "");
 
-const headers = () => ({
-  "Content-Type": "application/json",
-});
+// The login token: the execution service checks it on every request
+const headers = () => executionHeaders();
 
 const handle = async (res) => {
   if (!res.ok) {

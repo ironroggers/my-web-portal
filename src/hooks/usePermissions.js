@@ -22,7 +22,9 @@ const loadPermissions = (role) => {
 /**
  * Permissions for the signed-in user from the execution service's matrix
  * (execution-service/src/config/permissions.js): block profiles and OFC execution.
- * `can(action, record)` checks "own"-scoped actions against the record's creator.
+ * `can(action, record)` checks "own"-scoped actions (a list of actions: any of them) against the record's creator. "assigned"
+ * actions are allowed here: the server only returns blocks whose team the user is on.
+ * `canChange(action, { frozen })` also says no on frozen data, which only Admin changes.
  * Nothing is allowed until the matrix loads.
  */
 export const usePermissions = () => {
@@ -45,6 +47,8 @@ export const usePermissions = () => {
   const current = loaded.role === role ? loaded : { actions: null, error: "" };
 
   const can = (action, record) => {
+    // A list means any one of them
+    if (Array.isArray(action)) return action.some((a) => can(a, record));
     const permission = current.actions?.[action];
     if (!permission?.allowed) return false;
     if (permission.scope === "own") {
@@ -54,8 +58,14 @@ export const usePermissions = () => {
     return true;
   };
 
+  const isAdmin = role === "ADMIN";
+  const canChange = (action, { frozen } = {}, record) => can(action, record) && (isAdmin || !frozen);
+
   return {
     can,
+    canChange,
+    role,
+    isAdmin,
     userId,
     loading: Boolean(role) && !current.actions && !current.error,
     error: current.error,

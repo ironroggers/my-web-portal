@@ -33,7 +33,9 @@ import sectionsService from "../../services/sectionsService.jsx";
 import FormDialog from "../common/FormDialog";
 import ConfirmDeleteDialog from "../common/ConfirmDeleteDialog";
 import { formatNumber } from "../../utils/formatNumber";
-import { formatLength, routerName } from "./blockProfileConstants";
+import { formatLength, isSectionFrozen, routerName, sectionStage } from "./blockProfileConstants";
+import StatusPill from "../common/StatusPill";
+import { useIsAdmin } from "../../hooks/useIsAdmin";
 import { RestorationLine, StackBar } from "../execution/execUi";
 import { countLabel } from "../../utils/executionFormat";
 
@@ -64,13 +66,16 @@ const totalLength = (form) => Math.round(PATH_LENGTHS.reduce((sum, { key }) => s
 
 const SEARCH_DEBOUNCE_MS = 400;
 
-// C5: subsections by status and the restoration state
+// C5: the review stage, subsections by status and the restoration state
 const SectionProgress = ({ section }) =>
   section.restoration ? (
     <Box sx={{ minWidth: 0 }}>
-      <Typography variant="caption" sx={{ color: "text.secondary" }}>
-        {countLabel(section.restoration.total || 0, "subsection")}
-      </Typography>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+        <StatusPill label={sectionStage(section).label} tone={sectionStage(section).tone} />
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
+          {countLabel(section.restoration.total || 0, "subsection")}
+        </Typography>
+      </Box>
       <StackBar counts={section.counts} />
       <RestorationLine restoration={section.restoration} sx={{ mt: 0.75 }} />
     </Box>
@@ -132,6 +137,9 @@ const SectionActions = ({ section, onEdit, onDelete }) => (
  * `onChanged` runs after any change so the parent can refresh its totals.
  */
 const BlockSectionsPanel = ({ blockProfile, canManage = false, onChanged }) => {
+  const isAdmin = useIsAdmin();
+  // A frozen section is read-only for everyone but Admin
+  const canChangeSection = (section) => canManage && (isAdmin || !isSectionFrozen(section));
   const navigate = useNavigate();
   const theme = useTheme();
   const isPhone = useMediaQuery(theme.breakpoints.down("md"));
@@ -427,7 +435,7 @@ const BlockSectionsPanel = ({ blockProfile, canManage = false, onChanged }) => {
                         </Typography>
                       )}
                     </Box>
-                    {canManage && <SectionActions section={section} onEdit={openEdit} onDelete={askDelete} />}
+                    {canChangeSection(section) && <SectionActions section={section} onEdit={openEdit} onDelete={askDelete} />}
                   </Box>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", mt: 1 }}>
                     <Typography variant="caption" sx={{ color: "text.secondary" }}>
@@ -483,7 +491,7 @@ const BlockSectionsPanel = ({ blockProfile, canManage = false, onChanged }) => {
                       </TableCell>
                       {canManage && (
                         <TableCell align="right">
-                          <SectionActions section={section} onEdit={openEdit} onDelete={askDelete} />
+                          {canChangeSection(section) && <SectionActions section={section} onEdit={openEdit} onDelete={askDelete} />}
                         </TableCell>
                       )}
                       <TableCell padding="checkbox">

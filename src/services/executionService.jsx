@@ -3,8 +3,8 @@ import { downloadName } from "../utils/executionFormat";
 
 // OFC execution API. Function names match Locus/src/services/executionApi.js one to one.
 //
-// The execution service has no auth yet: these headers say who is acting so the
-// server can record it in the history. The token is sent too, for when auth lands.
+// The execution service checks the login token on every request and takes who is acting
+// from it; X-User-Name is the name shown in history.
 const base = EXECUTION_URL?.replace(/\/$/, "");
 
 const storedUser = () => {
@@ -122,6 +122,13 @@ const executionService = {
     request(`/api/subsections/${id(subId)}/approve`, { method: "POST", body: { version } }),
   rejectSubsection: (subId, version, remark) =>
     request(`/api/subsections/${id(subId)}/reject`, { method: "POST", body: { version, remark } }),
+
+  // ---- section review: Zonal Manager, then Admin (whose approval freezes the section)
+  getSectionReview: (sectionId) => request(`/api/sections/${id(sectionId)}/review`),
+  approveSection: (sectionId) => request(`/api/sections/${id(sectionId)}/review/approve`, { method: "POST", body: {} }),
+  // subSections: the ids of the subsections that need fixing
+  rejectSection: (sectionId, remark, subSections) =>
+    request(`/api/sections/${id(sectionId)}/review/reject`, { method: "POST", body: { remark, subSections } }),
 
   // ---- restoration
   getRestoration: (sectionId) => request(`/api/sections/${id(sectionId)}/restoration`),

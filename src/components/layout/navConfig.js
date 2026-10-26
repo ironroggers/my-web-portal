@@ -12,11 +12,12 @@ import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurned
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
 import PublicOutlinedIcon from "@mui/icons-material/PublicOutlined";
 import { LOCATIONS_ENABLED, SURVEYS_ENABLED } from "../../config/featureFlags";
+import { REVIEW_ACTIONS } from "../execution/execConstants";
 
 /**
  * Sidebar structure. `match` lists every route pattern that should highlight
  * the item, so detail pages keep their parent module selected.
- * `permission` is an action from the execution service's matrix (usePermissions); without it
+ * `permission` is an action (or a list: any of them) from the execution service's matrix (usePermissions); without it
  * the item is disabled. `badge` names a count from useWorkBadges shown next to the label.
  * `hidden` leaves the item out (a module switched off in featureFlags).
  */
@@ -82,7 +83,7 @@ export const NAV_GROUPS = [
         label: "Approvals",
         Icon: FactCheckOutlinedIcon,
         match: ["/approvals", "/approvals/*"],
-        permission: "approveExecution",
+        permission: REVIEW_ACTIONS,
         badge: "approvals",
         badgeColor: "warning",
       },

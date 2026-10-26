@@ -272,6 +272,7 @@ const BlockProfilesPage = () => {
                       </Typography>
                     </Box>
                     <StatusPill label={statusInfo.label} tone={statusInfo.tone} />
+                    {profile.frozen?.at && <StatusPill label="Frozen" tone="info" />}
                   </Box>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap", mt: 1 }}>
                     <Typography variant="caption" sx={{ color: "text.secondary" }}>
@@ -349,6 +350,7 @@ const BlockProfilesPage = () => {
                       </TableCell>
                       <TableCell>
                         <StatusPill label={statusInfo.label} tone={statusInfo.tone} />
+                    {profile.frozen?.at && <StatusPill label="Frozen" tone="info" />}
                       </TableCell>
                       <TableCell padding="checkbox">
                         <ChevronRightIcon fontSize="small" sx={{ color: "text.disabled", display: "block" }} />
