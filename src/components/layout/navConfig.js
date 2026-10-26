@@ -11,12 +11,14 @@ import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
 import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurnedInOutlined";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
 import PublicOutlinedIcon from "@mui/icons-material/PublicOutlined";
+import { LOCATIONS_ENABLED, SURVEYS_ENABLED } from "../../config/featureFlags";
 
 /**
  * Sidebar structure. `match` lists every route pattern that should highlight
  * the item, so detail pages keep their parent module selected.
  * `permission` is an action from the execution service's matrix (usePermissions); without it
  * the item is disabled. `badge` names a count from useWorkBadges shown next to the label.
+ * `hidden` leaves the item out (a module switched off in featureFlags).
  */
 export const NAV_GROUPS = [
   {
@@ -41,9 +43,10 @@ export const NAV_GROUPS = [
   {
     label: "Operations",
     items: [
-      { to: "/surveys", label: "Surveys", Icon: AssignmentOutlinedIcon, match: ["/surveys"] },
+      { to: "/surveys", label: "Surveys", Icon: AssignmentOutlinedIcon, match: ["/surveys"], hidden: !SURVEYS_ENABLED },
       {
         to: "/map",
+        hidden: !LOCATIONS_ENABLED,
         label: "Locations",
         Icon: MapOutlinedIcon,
         match: [

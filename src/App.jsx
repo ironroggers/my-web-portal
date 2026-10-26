@@ -17,7 +17,7 @@ import MapViewPage from "./components/mapViewPage/MapViewPage";
 import FRTTracking from "./components/FRTTracking";
 import HelpCenterPage from "./components/HelpCenterPage";
 import AboutPage from "./components/AboutPage";
-import { SUPPORT_PAGES_ENABLED } from "./config/featureFlags";
+import { LOCATIONS_ENABLED, SUPPORT_PAGES_ENABLED, SURVEYS_ENABLED } from "./config/featureFlags";
 import LandingPage from "./components/LandingPage"; // Keep for backward compatibility
 import AnalyticsDashboard from "./components/AnalyticsDashboard";
 import ExecutionDashboardPage from "./components/executionDashboard/ExecutionDashboardPage";
@@ -101,14 +101,16 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route
-                path="/surveys"
-                element={
-                  <ProtectedRoute>
-                    <SurveysPage />
-                  </ProtectedRoute>
-                }
-              />
+              {SURVEYS_ENABLED && (
+                <Route
+                  path="/surveys"
+                  element={
+                    <ProtectedRoute>
+                      <SurveysPage />
+                    </ProtectedRoute>
+                  }
+                />
+              )}
               <Route
                 path="/users"
                 element={
@@ -125,14 +127,16 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route
-                path="/map"
-                element={
-                  <ProtectedRoute>
-                    <MapViewPage />
-                  </ProtectedRoute>
-                }
-              />
+              {LOCATIONS_ENABLED && (
+                <Route
+                  path="/map"
+                  element={
+                    <ProtectedRoute>
+                      <MapViewPage />
+                    </ProtectedRoute>
+                  }
+                />
+              )}
               <Route
                 path="/summary"
                 element={
@@ -165,14 +169,16 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route
-                path="/location/:locationId"
-                element={
-                  <ProtectedRoute>
-                    <LocationDetailsPage />
-                  </ProtectedRoute>
-                }
-              />
+              {LOCATIONS_ENABLED && (
+                <Route
+                  path="/location/:locationId"
+                  element={
+                    <ProtectedRoute>
+                      <LocationDetailsPage />
+                    </ProtectedRoute>
+                  }
+                />
+              )}
               <Route
                 path="/hoto-details/:locationId"
                 element={
@@ -181,14 +187,16 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route
-                path="/location/:locationId/sections"
-                element={
-                  <ProtectedRoute>
-                    <LocationSectionsPage />
-                  </ProtectedRoute>
-                }
-              />
+              {LOCATIONS_ENABLED && (
+                <Route
+                  path="/location/:locationId/sections"
+                  element={
+                    <ProtectedRoute>
+                      <LocationSectionsPage />
+                    </ProtectedRoute>
+                  }
+                />
+              )}
               <Route
                 path="/master-map"
                 element={
