@@ -106,8 +106,9 @@ const Overview = ({ profile }) => {
           </SectionCard>
 
           <SectionCard title="Block router" subtitle="The block's head node: sections start here">
-            {hasRouterPoint || router.address || router.siteType ? (
+            {hasRouterPoint || router.name || router.address || router.siteType ? (
               <>
+                <DetailRow label="Name">{router.name}</DetailRow>
                 <DetailRow label="Site type">{SITE_TYPES[router.siteType]}</DetailRow>
                 <DetailRow label="Coordinates">
                   {hasRouterPoint && (

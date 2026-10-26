@@ -38,7 +38,7 @@ import ExecMediaViewer from "../execution/ExecMediaViewer";
 import { posterSrc, mediaSrc } from "../execution/mediaItems";
 import { titleCase } from "../execution/execConstants";
 import { useLoader } from "../execution/useLoader";
-import { SITE_TYPES, formatDate } from "./blockProfileConstants";
+import { SITE_TYPES, formatDate, routerName } from "./blockProfileConstants";
 import EquipmentDetails from "./EquipmentDetails";
 import { miscBadge } from "./equipmentForms";
 import {
@@ -382,9 +382,10 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
     },
     [equipment, router, gpPoints, blockProfile.blockCode]
   );
+  const routerTitle = routerName(blockProfile);
   const nodeName = useCallback(
-    (code) => (code === blockProfile.blockCode ? "Block router" : (blockProfile.gps || []).find((g) => g.lgdCode === code)?.name || code),
-    [blockProfile.blockCode, blockProfile.gps]
+    (code) => (code === blockProfile.blockCode ? routerTitle : (blockProfile.gps || []).find((g) => g.lgdCode === code)?.name || code),
+    [blockProfile.blockCode, blockProfile.gps, routerTitle]
   );
 
   const sections = useMemo(() => (data?.sections || []).filter((s) => s.from && s.to), [data]);
@@ -595,7 +596,7 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
 
   const infoRouter = () =>
     infoSite(router, {
-      name: "Block router",
+      name: routerName(blockProfile),
       kind: "Block LGD code",
       code: blockProfile.blockCode,
       lines: [SITE_TYPES[blockProfile.blockRouter?.siteType], blockProfile.blockRouter?.address],
@@ -833,7 +834,7 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
           position={router}
           title="Block router"
           icon={symbol(SQUARE_PATH, ROUTER_COLOR, { labelBelow: 20 })}
-          label={nameLabel("Block router")}
+          label={nameLabel(routerName(blockProfile))}
           zIndex={10}
           onClick={infoRouter}
         />

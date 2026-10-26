@@ -33,7 +33,7 @@ import sectionsService from "../../services/sectionsService.jsx";
 import FormDialog from "../common/FormDialog";
 import ConfirmDeleteDialog from "../common/ConfirmDeleteDialog";
 import { formatNumber } from "../../utils/formatNumber";
-import { formatLength } from "./blockProfileConstants";
+import { formatLength, routerName } from "./blockProfileConstants";
 import { RestorationLine, StackBar } from "../execution/execUi";
 import { countLabel } from "../../utils/executionFormat";
 
@@ -79,7 +79,7 @@ const SectionProgress = ({ section }) =>
 // The block router and GPs: the points a section can start and end at. The router is the
 // block's head node; its code is the block's LGD code.
 const blockNodes = (profile) => [
-  { type: "ROUTER", code: profile.blockCode, name: "Block router", latitude: profile.blockRouter?.latitude, longitude: profile.blockRouter?.longitude },
+  { type: "ROUTER", code: profile.blockCode, name: routerName(profile), latitude: profile.blockRouter?.latitude, longitude: profile.blockRouter?.longitude },
   ...(profile.gps || []).map((gp) => ({ type: "GP", code: gp.lgdCode, name: gp.name, latitude: gp.latitude, longitude: gp.longitude })),
 ];
 

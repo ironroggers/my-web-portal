@@ -2,6 +2,7 @@ import React, { memo, useMemo } from "react";
 import { Marker, Polygon, Polyline } from "@react-google-maps/api";
 import { titleCase } from "../execution/execConstants";
 import { miscBadge } from "../blockProfile/equipmentForms";
+import { routerName } from "../blockProfile/blockProfileConstants";
 import {
   BADGE_PATH,
   DIAMOND_PATH,
@@ -50,6 +51,7 @@ const MasterMapBlockLayers = ({ data, kml, roads, show, filters, thick, names, l
   const pick = (kind, position, extra) => onSelect({ kind, position, ...block, ...extra });
 
   const router = useMemo(() => toPoint(profile.blockRouter?.latitude, profile.blockRouter?.longitude), [profile.blockRouter]);
+  const routerTitle = routerName(profile);
   const gps = useMemo(
     () => (profile.gps || []).map((gp) => ({ gp, point: toPoint(gp.latitude, gp.longitude) })).filter(({ point }) => point),
     [profile.gps]
@@ -71,7 +73,7 @@ const MasterMapBlockLayers = ({ data, kml, roads, show, filters, thick, names, l
       if (e) return { lat: e.lat, lng: e.lng };
       return gps.find(({ gp }) => gp.lgdCode === code)?.point || null;
     };
-    const nameOf = (code) => (code === profile.blockCode ? "Block router" : (profile.gps || []).find((g) => g.lgdCode === code)?.name || code);
+    const nameOf = (code) => (code === profile.blockCode ? routerTitle : (profile.gps || []).find((g) => g.lgdCode === code)?.name || code);
     const links = new Map();
     const add = (from, to, distanceM) => {
       if (!from || !to || from === to) return;
@@ -91,7 +93,7 @@ const MasterMapBlockLayers = ({ data, kml, roads, show, filters, thick, names, l
         add(e.gpLgdCode, e.nextNode, e.nextNodeDistanceM);
       });
     return [...links.values()];
-  }, [show.rings, roads, equipment, gps, router, profile.blockCode, profile.gps]);
+  }, [show.rings, roads, equipment, gps, router, profile.blockCode, profile.gps, routerTitle]);
 
   const mediaGroups = useMemo(() => {
     if (!show.media) return [];
@@ -220,7 +222,7 @@ const MasterMapBlockLayers = ({ data, kml, roads, show, filters, thick, names, l
           icon={symbol(SQUARE_PATH, ROUTER_COLOR, { labelBelow: 20 })}
           // Zoomed out the router stands for the whole block, so it carries the block's name
           label={{
-            text: names ? "Block router" : titleCase(profile.block),
+            text: names ? routerTitle : titleCase(profile.block),
             className: "block-map-name",
             color: "#111827",
             fontSize: "11px",

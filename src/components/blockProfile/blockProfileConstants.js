@@ -20,4 +20,7 @@ export const formatLength = (meters) => (meters ? `${formatNumber(Number(meters)
 export const formatDate = (value) =>
   value ? new Date(value).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "";
 
+// The block router's own name from its profile, else "Block router" (the server's routerName)
+export const routerName = (profile) => String(profile?.blockRouter?.name || "").trim() || "Block router";
+
 export const blockPlace = (profile) => [profile?.district, profile?.state].filter(Boolean).join(", ");

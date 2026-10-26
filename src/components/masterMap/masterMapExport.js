@@ -3,7 +3,7 @@
 import * as XLSX from "xlsx";
 import { titleCase } from "../execution/execConstants";
 import { MEDIA_KIND, RESTORATION_COLORS, STATUS_COLORS, ROUTER_COLOR, GP_COLOR, INFRA_COLORS, EQUIPMENT_COLORS, REF_COLOR, RING_COLOR } from "../blockProfile/blockMapLayers";
-import { SITE_TYPES } from "../blockProfile/blockProfileConstants";
+import { SITE_TYPES, routerName } from "../blockProfile/blockProfileConstants";
 import { kmlStyleOf } from "../mapViewPage/utils/kmlUtils";
 import { EQUIPMENT_FORMS, formFields, miscItemsOf, miscTypeLabel } from "../blockProfile/equipmentForms";
 import { EQUIPMENT_FORMS_ON_MAP, kmlColor, pathLengthM, subKey, toPoint } from "./masterMapLayers";
@@ -330,7 +330,7 @@ const ringLinksOf = (data, roads) => {
     const gp = (profile.gps || []).find((g) => g.lgdCode === code);
     return gp ? toPoint(gp.latitude, gp.longitude) : null;
   };
-  const nameOf = (code) => (code === profile.blockCode ? "Block router" : titleCase((profile.gps || []).find((g) => g.lgdCode === code)?.name || code));
+  const nameOf = (code) => (code === profile.blockCode ? routerName(profile) : titleCase((profile.gps || []).find((g) => g.lgdCode === code)?.name || code));
   const links = new Map();
   const add = (from, to, distanceM) => {
     if (!from || !to || from === to || links.has(`${from}>${to}`)) return;
@@ -393,7 +393,7 @@ const blockFolder = (data, kml, { on, config, roads, styles, kmlStyles }) => {
 
   const network = [];
   if (on.router && router) {
-    network.push(placemark({ name: "Block router", description: lines([["", SITE_TYPES[profile.blockRouter?.siteType]], ["", profile.blockRouter?.address], ["Block LGD", profile.blockCode]]), style: "router", point: router }));
+    network.push(placemark({ name: routerName(profile), description: lines([["", SITE_TYPES[profile.blockRouter?.siteType]], ["", profile.blockRouter?.address], ["Block LGD", profile.blockCode]]), style: "router", point: router }));
   }
   if (on.gps) {
     network.push(

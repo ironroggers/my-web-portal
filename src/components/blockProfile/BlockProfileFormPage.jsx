@@ -39,7 +39,7 @@ const EMPTY_FORM = {
   numberOfRings: "",
   remarks: "",
   // The block router is the block's head node: sections start here
-  blockRouter: { siteType: "", address: "", latitude: "", longitude: "" },
+  blockRouter: { name: "", siteType: "", address: "", latitude: "", longitude: "" },
 };
 
 // rowId is only a React key; it isn't sent to the server
@@ -67,6 +67,7 @@ const toForm = (profile) => ({
   numberOfGps: profile.numberOfGps ?? "",
   numberOfRings: profile.rings?.length ? String(profile.rings.length) : "",
   blockRouter: {
+    name: profile.blockRouter?.name || "",
     siteType: profile.blockRouter?.siteType || "",
     latitude: profile.blockRouter?.latitude ?? "",
     longitude: profile.blockRouter?.longitude ?? "",
@@ -131,7 +132,7 @@ const validate = (form, gps) => {
 
 const toPayload = (form, gps) => {
   const rings = ringCodesFor(form.numberOfRings);
-  const { siteType, latitude, longitude, address } = form.blockRouter;
+  const { name, siteType, latitude, longitude, address } = form.blockRouter;
   const hasRouterPoint = hasPoint(form.blockRouter);
   return {
     ...Object.fromEntries(TEXT_FIELDS.map((key) => [key, form[key].trim()])),
@@ -145,6 +146,7 @@ const toPayload = (form, gps) => {
       ...(hasPoint(gp) && { latitude: Number(gp.latitude), longitude: Number(gp.longitude) }),
     })),
     blockRouter: {
+      name: name.trim(),
       siteType: siteType || null,
       latitude: hasRouterPoint ? Number(latitude) : null,
       longitude: hasRouterPoint ? Number(longitude) : null,
@@ -355,6 +357,15 @@ const BlockProfileFormPage = () => {
         <Grid size={{ xs: 12, lg: 6 }}>
           <SectionCard title="Block router" subtitle="The block's head node: sections start here. Coordinates put it on the block map." sx={{ height: "100%" }}>
             <Box sx={fieldGrid}>
+              <TextField
+                label="Name"
+                value={form.blockRouter.name}
+                onChange={updateGroup("blockRouter", "name")}
+                placeholder="e.g. Harippad Exchange"
+                helperText="Shown for the router on sections and maps; left empty it reads Block router"
+                size="small"
+                sx={{ gridColumn: "1 / -1" }}
+              />
               <TextField
                 select
                 label="Site type"

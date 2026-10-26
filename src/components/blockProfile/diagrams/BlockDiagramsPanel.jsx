@@ -12,6 +12,7 @@ import { EmptyState } from "../../execution/execUi";
 import L14Diagram, { L14Legend } from "./L14Diagram";
 import L14Schematic from "./L14Schematic";
 import { buildFeatures } from "./blockFeatures";
+import { routerName } from "../blockProfileConstants";
 import { exportA4Pdf } from "./exportPdf";
 import { showToast } from "../../execution/toast";
 import { titleCase } from "../../execution/execConstants";
@@ -58,7 +59,7 @@ const BlockDiagramsPanel = ({ blockProfile }) => {
   const fullNode = (node) => {
     if (node.type === "ROUTER") {
       const r = blockProfile.blockRouter || {};
-      return { type: "ROUTER", code: blockProfile.blockCode, name: "Block router", lat: r.latitude, lng: r.longitude };
+      return { type: "ROUTER", code: blockProfile.blockCode, name: routerName(blockProfile), lat: r.latitude, lng: r.longitude };
     }
     const gp = (blockProfile.gps || []).find((g) => g.lgdCode === node.code) || {};
     return { type: "GP", code: node.code, name: gp.name || node.name, lat: gp.latitude, lng: gp.longitude };
