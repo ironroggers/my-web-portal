@@ -18,14 +18,7 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { useAuth } from '../context/AuthContext';
 import PageHeader from './common/PageHeader';
 import SectionCard from './common/SectionCard';
-
-const ROLE_LABELS = {
-  ADMIN: 'Admin',
-  SUPERVISOR: 'Supervisor',
-  'EXECUTION ENGINEER': 'Execution Engineer',
-  SURVEYOR: 'Surveyor',
-  VIEWER: 'Viewer',
-};
+import { ROLE_LABELS } from '../config/roles';
 
 const EMPTY_FORM = { username: '', email: '', phone: '' };
 

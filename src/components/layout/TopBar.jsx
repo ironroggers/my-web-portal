@@ -29,14 +29,7 @@ import { useAuth } from "../../context/AuthContext";
 import { layout } from "../../theme/theme";
 import { getBreadcrumbTrail } from "./navConfig";
 import { SUPPORT_PAGES_ENABLED } from "../../config/featureFlags";
-
-const ROLE_LABELS = {
-  ADMIN: "Admin",
-  SUPERVISOR: "Supervisor",
-  SURVEYOR: "Surveyor",
-  "EXECUTION ENGINEER": "Execution Engineer",
-  VIEWER: "Viewer",
-};
+import { ROLE_LABELS } from "../../config/roles";
 
 const PageTrail = () => {
   const { pathname, state } = useLocation();

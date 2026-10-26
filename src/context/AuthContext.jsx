@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import {AUTH_URL} from "../API/api-keys.jsx";
+import { WEB_ROLES } from "../config/roles";
 
 // Create an axios instance with default config
 const api = axios.create({
@@ -39,8 +40,7 @@ export function AuthProvider({ children }) {
     if (storedUser && storedToken) {
       try {
         const parsedUser = JSON.parse(storedUser);
-        const allowedRoles = ['ADMIN', 'VIEWER'];
-        if (parsedUser && allowedRoles.includes(parsedUser.role)) {
+        if (parsedUser && WEB_ROLES.includes(parsedUser.role)) {
           setUser(parsedUser);
           setToken(storedToken);
         } else {
@@ -64,10 +64,9 @@ export function AuthProvider({ children }) {
       const response = await api.post('/auth/login', { email, password });
       const { user: userData, token: authToken } = response.data.data;
 
-      // Only allow ADMIN and VIEWER roles to log in
-      const allowedRoles = ['ADMIN', 'VIEWER'];
-      if (!userData || !allowedRoles.includes(userData.role)) {
-        throw new Error('Access denied: Only Admin and Viewer roles are allowed to login');
+      // Field Executives and the other field roles use the mobile app
+      if (!userData || !WEB_ROLES.includes(userData.role)) {
+        throw new Error('Access denied: this account works in the mobile app. The web portal is for Admin, Zonal Manager, Cluster Head, GIS Head and Viewer.');
       }
 
       // Save to state

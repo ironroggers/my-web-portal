@@ -45,6 +45,7 @@ import * as XLSX from 'xlsx';
 import Meter from './common/Meter';
 import StatusPill from './common/StatusPill';
 import { staffRoleColors } from '../theme/theme';
+import { ROLE_LABELS } from '../config/roles';
 
 // Display label and pill tone for each attendance status
 const STATUS_META = {
@@ -58,13 +59,6 @@ const STATUS_META = {
 const getStatusMeta = (status) =>
   STATUS_META[status] ?? { label: status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown', tone: 'default' };
 
-const ROLE_LABELS = {
-  ADMIN: 'Admin',
-  SUPERVISOR: 'Supervisor',
-  SURVEYOR: 'Surveyor',
-  'EXECUTION ENGINEER': 'Execution Engineer',
-  VIEWER: 'Viewer',
-};
 
 const TABLE_COLUMNS = 9;
 

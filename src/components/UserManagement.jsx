@@ -42,6 +42,8 @@ import CloseIcon from "@mui/icons-material/Close";
 import FilterAltOffOutlinedIcon from "@mui/icons-material/FilterAltOffOutlined";
 import { AUTH_URL } from "../API/api-keys.jsx";
 import PageHeader from "./common/PageHeader";
+import { useAuth } from "../context/AuthContext";
+import { ROLE_LABELS, ROLE_OPTIONS, ZONAL_MANAGED_ROLES } from "../config/roles";
 
 const PROJECT_OPTIONS = [
   "BharatNet Kerala",
@@ -57,15 +59,6 @@ const PROJECT_OPTIONS = [
   "Others",
 ];
 
-const ROLE_OPTIONS = [
-  { value: "ADMIN", label: "Admin" },
-  { value: "SUPERVISOR", label: "Supervisor" },
-  { value: "EXECUTION ENGINEER", label: "Execution Engineer" },
-  { value: "SURVEYOR", label: "Surveyor" },
-  { value: "VIEWER", label: "Viewer" },
-];
-
-const ROLE_LABELS = Object.fromEntries(ROLE_OPTIONS.map((role) => [role.value, role.label]));
 
 const EMPTY_FORM = {
   username: "",
@@ -165,6 +158,7 @@ const UserFormDialog = ({
   loading,
   error,
   potentialManagers,
+  roleOptions,
 }) => {
   const isAdmin = formData.role === "ADMIN";
 
@@ -234,7 +228,7 @@ const UserFormDialog = ({
             required
             size="small"
           >
-            {ROLE_OPTIONS.map((role) => (
+            {roleOptions.map((role) => (
               <MenuItem key={role.value} value={role.value}>
                 {role.label}
               </MenuItem>
@@ -333,9 +327,17 @@ const UserFormDialog = ({
 // PAGE
 // =============================================================================
 
+// Admin manages every account; a Zonal Manager the Cluster Heads, GIS Heads and Field
+// Executives; everyone else only looks
+const managedRolesFor = (role) => (role === "ADMIN" ? ROLE_OPTIONS.map((r) => r.value) : role === "ZONAL MANAGER" ? ZONAL_MANAGED_ROLES : []);
+
 const UserManagement = () => {
   const theme = useTheme();
   const isCompact = useMediaQuery(theme.breakpoints.down("md"));
+  const { user: me } = useAuth();
+  const managedRoles = managedRolesFor(me?.role);
+  const roleOptions = ROLE_OPTIONS.filter((r) => managedRoles.includes(r.value));
+  const canManage = (user) => managedRoles.includes(user.role);
 
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [formOpen, setFormOpen] = useState(false);
@@ -443,7 +445,7 @@ const UserManagement = () => {
   };
 
   const openCreateForm = () => {
-    setFormData(EMPTY_FORM);
+    setFormData({ ...EMPTY_FORM, role: managedRoles.includes(EMPTY_FORM.role) ? EMPTY_FORM.role : managedRoles[0] });
     setEditMode(false);
     setEditUserId(null);
     setFormError("");
@@ -639,9 +641,11 @@ const UserManagement = () => {
             >
               Refresh
             </Button>
-            <Button variant="contained" size="small" startIcon={<PersonAddAlt1OutlinedIcon />} onClick={openCreateForm}>
-              Add user
-            </Button>
+            {managedRoles.length > 0 && (
+              <Button variant="contained" size="small" startIcon={<PersonAddAlt1OutlinedIcon />} onClick={openCreateForm}>
+                Add user
+              </Button>
+            )}
           </>
         }
       />
@@ -777,7 +781,7 @@ const UserManagement = () => {
                         <Box sx={{ flex: 1, minWidth: 0 }}>
                           <UserIdentity user={user} />
                         </Box>
-                        <RowActions user={user} onEdit={handleEdit} onDelete={handleDeleteClick} />
+                        {canManage(user) && <RowActions user={user} onEdit={handleEdit} onDelete={handleDeleteClick} />}
                       </Box>
                       <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1, mt: 1, pl: 5.5 }}>
                         <RoleChip role={user.role} />
@@ -839,7 +843,7 @@ const UserManagement = () => {
                         {user.reportingTo ? user.reportingTo.username : "—"}
                       </TableCell>
                       <TableCell align="right">
-                        <RowActions user={user} onEdit={handleEdit} onDelete={handleDeleteClick} />
+                        {canManage(user) && <RowActions user={user} onEdit={handleEdit} onDelete={handleDeleteClick} />}
                       </TableCell>
                     </TableRow>
                   ))
@@ -871,6 +875,7 @@ const UserManagement = () => {
         loading={loading}
         error={formError}
         potentialManagers={potentialManagers}
+        roleOptions={roleOptions}
       />
 
       {/* Delete Confirmation Dialog */}
