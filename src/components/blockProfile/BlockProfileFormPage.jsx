@@ -24,6 +24,7 @@ import PageHeader from "../common/PageHeader";
 import SectionCard from "../common/SectionCard";
 import { SITE_TYPES } from "./blockProfileConstants";
 import { assetPrefix } from "./equipmentForms";
+import MasterBlockPicker from "./MasterBlockPicker";
 
 // District Census code and number of racks aren't on the form; saved values stay as they are
 const TEXT_FIELDS = ["state", "stateCode", "district", "districtCode", "block", "blockCode", "remarks"];
@@ -240,6 +241,24 @@ const BlockProfileFormPage = () => {
     clearServerError("gps");
   };
 
+  // A block picked from the LGD master: its names, codes and GPs replace what's typed;
+  // the router, rings and remarks stay as they are
+  const fillFromMaster = (block) => {
+    setForm((previous) => ({
+      ...previous,
+      state: block.state || "",
+      stateCode: block.stateCode || "",
+      district: block.district || "",
+      districtCode: block.districtCode || "",
+      block: block.block || "",
+      blockCode: block.blockCode || "",
+      numberOfGps: String(block.gps?.length || ""),
+    }));
+    setGps((block.gps || []).map((gp) => newGpRow(gp)));
+    setTouched({});
+    setServerErrors({});
+  };
+
   const addGp = () => setGps((previous) => [...previous, newGpRow()]);
   const removeGp = (rowId) => {
     setGps((previous) => previous.filter((gp) => gp.rowId !== rowId));
@@ -339,6 +358,8 @@ const BlockProfileFormPage = () => {
   return (
     <Box>
       {header}
+
+      {!isEdit && <MasterBlockPicker onPick={fillFromMaster} />}
 
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, lg: 6 }}>

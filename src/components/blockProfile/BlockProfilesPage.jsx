@@ -23,6 +23,7 @@ import {
 import { useTheme } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
 import AddIcon from "@mui/icons-material/Add";
+import PlaylistAddIcon from "@mui/icons-material/PlaylistAdd";
 import SearchIcon from "@mui/icons-material/Search";
 import ClearIcon from "@mui/icons-material/Clear";
 import RefreshIcon from "@mui/icons-material/Refresh";
@@ -35,6 +36,7 @@ import { formatNumber } from "../../utils/formatNumber";
 import { SITE_TYPES, blockStatus, formatLength } from "./blockProfileConstants";
 import ProgressMarks from "./ProgressMarks";
 import { DemoBlockButton, DemoChip } from "./DemoBlock";
+import BulkCreateFromMasterDialog from "./BulkCreateFromMasterDialog";
 import executionService from "../../services/executionService.jsx";
 import { titleCase } from "../execution/execConstants";
 
@@ -115,6 +117,8 @@ const BlockProfilesPage = () => {
 
   const isLoading = items === undefined;
   const canCreate = can("createBlockProfile");
+  const canBulkCreate = can("bulkCreateBlockProfiles");
+  const [bulkOpen, setBulkOpen] = useState(false);
   const openProfile = (profile) => navigate(`/block-profiles/${profile._id}`);
 
   if (!permissionsLoading && !can("viewBlockProfile")) {
@@ -154,6 +158,11 @@ const BlockProfilesPage = () => {
         actions={
           <>
             <DemoBlockButton onChanged={fetchProfiles} />
+            {canBulkCreate && (
+              <Button variant="outlined" startIcon={<PlaylistAddIcon />} onClick={() => setBulkOpen(true)}>
+                Create from master
+              </Button>
+            )}
             {canCreate && (
               <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate("/block-profiles/new")}>
                 New block profile
@@ -162,6 +171,8 @@ const BlockProfilesPage = () => {
           </>
         }
       />
+
+      <BulkCreateFromMasterDialog open={bulkOpen} onClose={() => setBulkOpen(false)} onCreated={fetchProfiles} />
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} action={<Button color="inherit" size="small" onClick={fetchProfiles}>Retry</Button>}>

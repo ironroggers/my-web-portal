@@ -86,6 +86,28 @@ const blockProfileService = {
     return handle(res);
   },
 
+  // ---- LGD master: districts, blocks and GPs loaded from the GP list Excel
+  async masterDistricts() {
+    return handle(await fetch(`${base}/api/master/districts`, { headers: headers() }));
+  },
+  async masterBlocks(districtCode) {
+    const params = new URLSearchParams(districtCode ? { districtCode } : {});
+    return handle(await fetch(`${base}/api/master/blocks?${params.toString()}`, { headers: headers() }));
+  },
+  // One block with its GPs; blockProfileId is set when it already has a profile
+  async masterBlock(blockCode) {
+    return handle(await fetch(`${base}/api/master/blocks/${encodeURIComponent(blockCode)}`, { headers: headers() }));
+  },
+  // Admin: a block profile per block code, filled from the master -> { created, skipped }
+  async createFromMaster(blockCodes) {
+    const res = await fetch(`${base}/api/master/blocks/create-profiles`, {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify({ blockCodes }),
+    });
+    return handle(res);
+  },
+
   // Active users of one role, for picking a block's team (from the auth service)
   async usersWithRole(role) {
     const res = await fetch(`${AUTH_URL}/api/auth/users?role=${encodeURIComponent(role)}`);
