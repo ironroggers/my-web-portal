@@ -20,6 +20,7 @@ import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import InsertDriveFileOutlinedIcon from "@mui/icons-material/InsertDriveFileOutlined";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import useReverseGeocode from "../../hooks/useReverseGeocode";
+import MediaDownloadButton from "./MediaDownloadButton";
 import {
   formatMediaDate,
   getCoordinates,
@@ -129,7 +130,8 @@ const MediaViewerDialog = ({ media, subtitle, onClose }) => {
             <DetailRow label="Type" value={kind === "file" ? media.fileType : kind === "image" ? "Photo" : "Video"} />
             <DetailRow label="Captured" value={formatMediaDate(getMediaCapturedAt(media))} />
             <DetailRow label="Device" value={media.deviceName || media.deviceInfo} />
-            {media.url && (
+            {media.url && (media.fileType === "IMAGE" || media.fileType === "VIDEO") && <MediaDownloadButton media={media} sx={{ mt: 2 }} />}
+            {media.url && media.fileType !== "IMAGE" && media.fileType !== "VIDEO" && (
               <Button
                 startIcon={<OpenInNewIcon />}
                 variant="outlined"

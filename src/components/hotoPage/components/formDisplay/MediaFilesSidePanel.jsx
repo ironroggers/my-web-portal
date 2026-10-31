@@ -28,6 +28,7 @@ import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import PublicIcon from "@mui/icons-material/Public";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import MediaDownloadButton from "../../../common/MediaDownloadButton";
 import CameraAltIcon from "@mui/icons-material/CameraAlt";
 import DescriptionIcon from "@mui/icons-material/Description";
 import PhoneAndroidIcon from "@mui/icons-material/PhoneAndroid";
@@ -247,7 +248,7 @@ const MediaFilesSidePanel = ({ open, onClose, mediaFiles }) => {
                             </Typography>
                           </Box>
                         )}
-                        {file.url && (
+                        {file.url && file.fileType !== "IMAGE" && file.fileType !== "VIDEO" && (
                           <Link
                             href={file.url}
                             target="_blank"
@@ -257,6 +258,7 @@ const MediaFilesSidePanel = ({ open, onClose, mediaFiles }) => {
                             View Original
                           </Link>
                         )}
+                        {file.url && (file.fileType === "IMAGE" || file.fileType === "VIDEO") && <MediaDownloadButton media={file} sx={{ mt: 1 }} />}
                       </Box>
                     </Box>
                   </CardContent>

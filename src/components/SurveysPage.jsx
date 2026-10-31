@@ -56,6 +56,7 @@ import StatTile from './common/StatTile';
 import StatusPill from './common/StatusPill';
 import { formatNumber } from '../utils/formatNumber';
 import { getSurveyStatus } from '../constants/surveys';
+import MediaViewerDialog from './common/MediaViewerDialog';
 
 // =============================================================================
 // CONSTANTS & HELPERS
@@ -136,17 +137,26 @@ const MediaTile = ({ media, showCaption = false }) => {
   const label = media.description || media.fileType || 'Media file';
   const isImage = media.fileType === 'IMAGE' && media.url;
   const FallbackIcon = media.fileType === 'VIDEO' ? PlayCircleOutlinedIcon : InsertDriveFileOutlinedIcon;
+  // Photos and videos open in the viewer, whose download carries the location stamp
+  const opensViewer = Boolean(media.url) && (media.fileType === 'IMAGE' || media.fileType === 'VIDEO');
+  const [viewing, setViewing] = useState(false);
 
   return (
     <Box sx={{ minWidth: 0 }}>
+      {viewing && <MediaViewerDialog media={media} onClose={() => setViewing(false)} />}
       <Box
-        component={media.url ? 'a' : 'div'}
-        href={media.url || undefined}
-        target={media.url ? '_blank' : undefined}
-        rel={media.url ? 'noopener noreferrer' : undefined}
+        component={opensViewer ? 'button' : media.url ? 'a' : 'div'}
+        type={opensViewer ? 'button' : undefined}
+        onClick={opensViewer ? () => setViewing(true) : undefined}
+        href={!opensViewer && media.url ? media.url : undefined}
+        target={!opensViewer && media.url ? '_blank' : undefined}
+        rel={!opensViewer && media.url ? 'noopener noreferrer' : undefined}
         title={label}
         sx={{
           display: 'grid',
+          width: '100%',
+          p: 0,
+          cursor: media.url ? 'pointer' : 'default',
           placeItems: 'center',
           aspectRatio: '1',
           borderRadius: 1,
