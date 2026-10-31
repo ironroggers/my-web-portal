@@ -127,7 +127,9 @@ export const StickyActionBar = ({ children }) => (
       bottom: 0,
       zIndex: 5,
       mt: 3,
+      // Out to the edges of the page's padding, the bottom one included
       mx: { xs: -2, md: -3 },
+      mb: { xs: -2, md: -3 },
       px: { xs: 2, md: 3 },
       py: 1.5,
       bgcolor: "background.paper",
