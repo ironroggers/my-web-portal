@@ -43,7 +43,7 @@ import FilterAltOffOutlinedIcon from "@mui/icons-material/FilterAltOffOutlined";
 import { AUTH_URL } from "../API/api-keys.jsx";
 import PageHeader from "./common/PageHeader";
 import { useAuth } from "../context/AuthContext";
-import { ROLE_LABELS, ROLE_OPTIONS, ZONAL_MANAGED_ROLES } from "../config/roles";
+import { ROLE_LABELS, ROLE_OPTIONS, ZONAL_MANAGED_ROLES, currentRole } from "../config/roles";
 
 const PROJECT_OPTIONS = [
   "BharatNet Kerala",
@@ -388,7 +388,7 @@ const UserManagement = () => {
 
       const responseData = await response.json();
       if (responseData.success && Array.isArray(responseData.data)) {
-        setUsers(responseData.data);
+        setUsers(responseData.data.map((u) => ({ ...u, role: currentRole(u.role) })));
       } else {
         throw new Error("Invalid data format received from server");
       }
@@ -464,7 +464,8 @@ const UserManagement = () => {
           ? { reportingTo: formData.reportingTo }
           : {}),
       };
-      if (!formData.project) {
+      // An edit sends the blank project so it clears; a new account just has none
+      if (!formData.project && !editMode) {
         delete requestBody.project;
       }
 

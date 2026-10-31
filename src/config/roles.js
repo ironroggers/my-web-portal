@@ -18,6 +18,9 @@ export const ROLE_LABELS = {
   "EXECUTION ENGINEER": "Field Executive",
 };
 
+// The role to use for an account that may not have been renamed yet
+export const currentRole = (role) => (role === "EXECUTION ENGINEER" ? "FIELD EXECUTIVE" : role);
+
 export const roleLabel = (role) => ROLE_LABELS[role] || role || "—";
 
 // Roles that can sign in to the web portal
