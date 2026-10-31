@@ -15,8 +15,8 @@ const SubsectionMediaCard = ({ sub, pitALabel, pitBLabel }) => {
 
   const groups = useMemo(() => {
     const byLabel = new Map();
-    eachCapturedMedia(sub, pitALabel, pitBLabel, (m, kind, label) => {
-      const heading = { ENTRY: "Entries", START: pitALabel, END: pitBLabel }[kind] || label;
+    eachCapturedMedia(sub, pitALabel, pitBLabel, (m, kind, label, _description, source) => {
+      const heading = source || { ENTRY: "Entries", START: pitALabel, END: pitBLabel }[kind] || label;
       if (!byLabel.has(heading)) byLabel.set(heading, []);
       byLabel.get(heading).push(m);
     });

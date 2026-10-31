@@ -75,6 +75,11 @@ const executionService = {
   getBlock: (blockId) => request(`/api/block-profiles/${id(blockId)}`),
   // Everything of a block with a place on the map: infra, sections, subsections, geotagged media
   getBlockMap: (blockId) => request(`/api/block-profiles/${id(blockId)}/map`),
+  // ---- pits close enough to merge, and merging them
+  getPitGaps: (blockId, subSection) => request(`/api/block-profiles/${id(blockId)}/pit-gaps`, { query: { subSection } }),
+  mergePits: (blockId, body) => request(`/api/block-profiles/${id(blockId)}/pit-merges`, { method: "POST", body }),
+  undoPitMerge: (blockId, mergeId, reason) =>
+    request(`/api/block-profiles/${id(blockId)}/pit-merges/${id(mergeId)}/undo`, { method: "POST", body: { reason } }),
 
   // ---- master map (read only): one row per block, then a block's layers once it's picked
   getMasterMapBlocks: () => request("/api/master-map/blocks"),

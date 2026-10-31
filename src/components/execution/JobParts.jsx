@@ -24,6 +24,36 @@ export const KV = ({ rows }) => (
   </Box>
 );
 
+/** What a merged pit brought from the others; tape distances are to where each was captured */
+const MergedPit = ({ merge }) => (
+  <Box sx={{ mt: 1.5 }}>
+    <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
+      Merged · location of {merge.keptFrom} · captured here at {fmtLatLong(merge.original?.latitude, merge.original?.longitude)}
+    </Typography>
+    {(merge.others || []).map((other) => (
+      <Box key={`${other.subSection}:${other.side}`} sx={{ mt: 1 }}>
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          From {other.name} · {other.pitLabel}
+        </Typography>
+        <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
+          Captured at {fmtLatLong(other.latitude, other.longitude)}
+        </Typography>
+        {(other.photos?.length > 0 || other.video) && <MediaStrip media={other} size={56} />}
+        {(other.refs || []).map((r, i) => (
+          <React.Fragment key={i}>
+            <RefRow refPoint={r} index={i} />
+            {(r.photos?.length > 0 || r.video) && (
+              <Box sx={{ pl: 5.25, pb: 1 }}>
+                <MediaStrip media={r} size={56} />
+              </Box>
+            )}
+          </React.Fragment>
+        ))}
+      </Box>
+    ))}
+  </Box>
+);
+
 /** Start or end as recorded: pit with its 3 reference points (ducting), each with any photos, or a location */
 export const PointView = ({ point }) => {
   const { config } = useExecutionConfig();
@@ -66,6 +96,7 @@ export const PointView = ({ point }) => {
           ))
         : null}
       <KV rows={[["Recorded", [fmtDateTime(point.at), point.by?.name].filter(Boolean).join(" · ")], ["Note", point.remarks]].filter(([, v]) => v)} />
+      {point.pit?.merge?.id && <MergedPit merge={point.pit.merge} />}
       <Box sx={{ mt: 1 }}>
         <MediaStrip media={point} />
       </Box>

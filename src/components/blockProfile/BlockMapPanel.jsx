@@ -38,6 +38,8 @@ import ExecMediaViewer from "../execution/ExecMediaViewer";
 import { posterSrc, mediaSrc } from "../execution/mediaItems";
 import { titleCase } from "../execution/execConstants";
 import { useLoader } from "../execution/useLoader";
+import PitMergeDialog from "../execution/PitMergeDialog";
+import { usePermissions } from "../../hooks/usePermissions";
 import { SITE_TYPES, formatDate, routerName } from "./blockProfileConstants";
 import EquipmentDetails from "./EquipmentDetails";
 import { miscBadge } from "./equipmentForms";
@@ -294,6 +296,16 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
 
   const loadMap = useCallback(() => executionService.getBlockMap(blockProfileId), [blockProfileId]);
   const { data, error: dataError, reload } = useLoader(loadMap);
+  // Nearby pits to merge, for those who can; a frozen block is refused by the server
+  const { can } = usePermissions();
+  const canMerge = can("mergePits");
+  const loadGaps = useCallback(
+    () => (canMerge ? executionService.getPitGaps(blockProfileId) : Promise.resolve(null)),
+    [blockProfileId, canMerge]
+  );
+  const { data: gapData, reload: reloadGaps } = useLoader(loadGaps);
+  const gaps = gapData?.gaps || [];
+  const [gap, setGap] = useState(null);
 
   const [map, setMap] = useState(null);
   const [selected, setSelected] = useState(null);
@@ -806,6 +818,17 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
         })}
 
       {layers.subsections && visibleSubs.map(renderSubsection)}
+      {gaps.map((g) => (
+        <Marker
+          key={`${g.a.subSection}:${g.a.side}:${g.b.subSection}:${g.b.side}`}
+          position={{ lat: (g.a.latitude + g.b.latitude) / 2, lng: (g.a.longitude + g.b.longitude) / 2 }}
+          icon={circleSymbol("#f59e0b", 11, { stroke: "#ffffff", strokeWeight: 3 })}
+          label={{ text: "!", color: "#ffffff", fontSize: "13px", fontWeight: "700" }}
+          zIndex={12}
+          title={`Pit gap · ${g.a.name} and ${g.b.name} · ${g.distanceM} m`}
+          onClick={() => setGap(g)}
+        />
+      ))}
 
       {layers.rings &&
         ringLinks.filter((link) => link.path).map((link) => (
@@ -888,6 +911,21 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
   return (
     <>
       <GlobalStyles styles={{ ".block-map-name": { textShadow: "0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff", whiteSpace: "nowrap" } }} />
+      {gaps.length > 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {gaps.length === 1 ? "1 pit gap" : `${gaps.length} pit gaps`} within {gapData.maxGapM} m. Click an amber marker on the map to compare and merge.
+        </Alert>
+      )}
+      <PitMergeDialog
+        gap={gap}
+        blockId={blockProfileId}
+        onClose={() => setGap(null)}
+        onMerged={() => {
+          setGap(null);
+          reload();
+          reloadGaps();
+        }}
+      />
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, lg: 8 }}>
           <Card sx={{ position: "relative", height: { xs: 460, md: 680 }, overflow: "hidden" }}>

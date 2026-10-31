@@ -273,6 +273,11 @@ const ExecutionPointPage = ({ which = "start" }) => {
             action={pointOf(d.pit) && <StatusPill label="Done" tone="success" />}
             sx={{ mb: 3 }}
           >
+            {!isStart && sub.end?.pit?.merge?.id && (
+              <Alert severity="info" sx={{ mb: 1.5 }}>
+                This pit is merged with another subsection. Capturing GPS again takes it out of the merge.
+              </Alert>
+            )}
             <GpsField
               value={pointOf(d.pit) ? d.pit : null}
               onChange={(fix) => {

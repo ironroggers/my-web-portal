@@ -39,6 +39,7 @@ import EntryForm from "../EntryForm";
 import ApprovalActions from "../ApprovalActions";
 import ApprovalMap from "../ApprovalMap";
 import SubsectionMediaCard from "../SubsectionMediaCard";
+import NearbyPitsCard from "../NearbyPitsCard";
 import { FlagList } from "../Flags";
 import { MediaStrip } from "../MediaPicker";
 import { FixBox, HistoryCard, KV, PointView } from "../JobParts";
@@ -395,6 +396,9 @@ const SubsectionJobPage = ({ approvalView = false }) => {
             </SectionCard>
           )}
           {(approvalView || endDone) && <SubsectionMediaCard sub={sub} pitALabel={pitALabel} pitBLabel={pitBLabel} />}
+          {duct && can("mergePits") && !locked && sub.sectionInfo?.block?._id && (
+            <NearbyPitsCard sub={sub} blockId={sub.sectionInfo.block._id} pitLabels={{ start: pitALabel, end: pitBLabel }} onChanged={load} />
+          )}
           {approvalView && (
             <SectionCard title="Map" subtitle="Where everything was captured">
               <ApprovalMap sub={sub} pitALabel={pitALabel} pitBLabel={pitBLabel} />
