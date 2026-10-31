@@ -293,7 +293,7 @@ const ExecutionPointPage = ({ which = "start" }) => {
                 }
                 sx={{ mt: 1.5 }}
               >
-                {suggestion.name}&apos;s {(suggestion.pitLabel || (isStart ? "end pit" : "start pit")).toLowerCase()} is {fmtDistance(suggestion.distanceM)} from here. Use it as this {isStart ? "start" : "end"}, with its 3 reference points, photos and video?
+                {suggestion.name}&apos;s {(suggestion.pitLabel || "pit").toLowerCase()} is {fmtDistance(suggestion.distanceM)} from the planned {isStart ? "start" : "end"}. Use it as this {isStart ? "start" : "end"}, with its 3 reference points, photos and video?
               </Alert>
             )}
             {d.pit.copiedFrom && (

@@ -41,7 +41,7 @@ export const PointView = ({ point }) => {
       </Box>
       {point.pit?.copiedFrom && (
         <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
-          Pit copied from the previous subsection&apos;s end pit
+          Pit copied from another subsection
         </Typography>
       )}
       {/* The pit's own photos and video, then each reference point with its own */}

@@ -121,7 +121,7 @@ const ApprovalMap = ({ sub, pitALabel = "Start", pitBLabel = "End" }) => {
         <Box sx={{ width: 260 }}>
           <InfoTitle sub={[fmtDateTime(point.at), point.by?.name].filter(Boolean).join(" · ")}>{title}</InfoTitle>
           <Line2>{`${fmtLatLong(position.lat, position.lng)} · ${fmtAccuracy(point.pit?.accuracy ?? point.accuracy, limit)}`}</Line2>
-          {point.pit?.copiedFrom && <Line2>Copied from the previous subsection&apos;s end pit</Line2>}
+          {point.pit?.copiedFrom && <Line2>Copied from another subsection&apos;s pit</Line2>}
           {point.remarks && <Line2>Note: {point.remarks}</Line2>}
           <Box sx={{ mt: 1 }}>
             <MediaStrip media={{ photos: [...(point.pit?.photos || []), ...(point.photos || [])], video: point.pit?.video || point.video }} size={56} />
