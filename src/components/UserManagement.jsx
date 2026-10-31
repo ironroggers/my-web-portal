@@ -252,7 +252,7 @@ const UserFormDialog = ({
             </MenuItem>
             {potentialManagers.map((manager) => (
               <MenuItem key={manager._id} value={manager._id}>
-                {manager.username}
+                {manager.username} ({ROLE_LABELS[manager.role] ?? manager.role})
               </MenuItem>
             ))}
           </TextField>
