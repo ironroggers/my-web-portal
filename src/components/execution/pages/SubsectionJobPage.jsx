@@ -38,6 +38,7 @@ import EntriesView from "../EntriesView";
 import EntryForm from "../EntryForm";
 import ApprovalActions from "../ApprovalActions";
 import ApprovalMap from "../ApprovalMap";
+import SubsectionMediaCard from "../SubsectionMediaCard";
 import { FlagList } from "../Flags";
 import { MediaStrip } from "../MediaPicker";
 import { FixBox, HistoryCard, KV, PointView } from "../JobParts";
@@ -354,6 +355,8 @@ const SubsectionJobPage = ({ approvalView = false }) => {
   }
 
   const pct = Math.min(100, Math.round((done / (sub.subSectionLength || 1)) * 100));
+  const pitALabel = duct ? type?.pitA : "Start";
+  const pitBLabel = duct ? type?.pitB : "End";
   return (
     <Box>
       {header}
@@ -387,11 +390,14 @@ const SubsectionJobPage = ({ approvalView = false }) => {
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, lg: 8 }} sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
           {approvalView && (
-            <SectionCard title="Check before approving" subtitle="Flags and where everything was captured">
+            <SectionCard title="Check before approving" subtitle="Flags raised on this subsection">
               <FlagList flags={sub.flags} />
-              <Box sx={{ mt: 2 }}>
-                <ApprovalMap sub={sub} pitALabel={duct ? type?.pitA : "Start"} pitBLabel={duct ? type?.pitB : "End"} />
-              </Box>
+            </SectionCard>
+          )}
+          {(approvalView || endDone) && <SubsectionMediaCard sub={sub} pitALabel={pitALabel} pitBLabel={pitBLabel} />}
+          {approvalView && (
+            <SectionCard title="Map" subtitle="Where everything was captured">
+              <ApprovalMap sub={sub} pitALabel={pitALabel} pitBLabel={pitBLabel} />
             </SectionCard>
           )}
           <SectionCard title="Progress" subtitle="Site condition → start → entries → end → approval">

@@ -8,42 +8,24 @@ import { MEDIA_KIND, MEDIA_SQUARE_PATH, circleSymbol, groupMedia, isFlagged, sym
 import { InfoTitle, Line2, MediaRow } from "../blockProfile/BlockMapPanel";
 import ExecMediaViewer from "./ExecMediaViewer";
 import { MediaStrip } from "./MediaPicker";
+import { eachCapturedMedia } from "./subsectionMedia";
 
 const COLORS = { plan: "#64748b", start: "#15803d", end: "#b91c1c", ref: "#7c3aed", entry: "#1d4ed8" };
 const MAP_STYLE = { width: "100%", height: "100%" };
-const MAP_OPTIONS = { mapTypeControl: true, streetViewControl: false, fullscreenControl: true, clickableIcons: false };
+// Cooperative: the wheel keeps scrolling the page, ctrl or cmd + wheel zooms
+const MAP_OPTIONS = { gestureHandling: "cooperative", mapTypeControl: true, streetViewControl: false, fullscreenControl: true, clickableIcons: false };
 const DASH = [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 1, strokeColor: COLORS.plan, scale: 3 }, offset: "0", repeat: "14px" }];
 
 // parseLatLong and pointOf give { lat, lng }; keep only finite points so the map never gets NaN
 const toLatLng = (p) => (p && Number.isFinite(p.lat) && Number.isFinite(p.lng) ? { lat: p.lat, lng: p.lng } : null);
 
-/**
- * Every photo and video captured for the subsection, with where it was taken, for the map:
- * site condition and crossings, the start / end (their own media, the pit's and each
- * reference point's) and the entries. Media without a usable location is left out.
- */
+// The captured media with a usable location, for the map
 const capturedMedia = (sub, pitALabel, pitBLabel) => {
   const out = [];
-  const add = (m, kind, label, description) => {
+  eachCapturedMedia(sub, pitALabel, pitBLabel, (m, kind, label, description) => {
     const p = toLatLng(pointOf(m));
-    if (!m || !p) return;
-    out.push({ ...m, id: m._id || `${kind}:${m.url}`, kind, label, description: description || m.description, ...p });
-  };
-  const ic = sub.initialCondition || {};
-  [...(ic.photos || []), ic.video].forEach((m) => add(m, "SITE", "Site condition"));
-  (ic.crossingPhotos || []).forEach((m) => add(m, "SITE", `Crossing${ic.crossing ? ` · ${ic.crossing}` : ""}`));
-  [
-    ["START", sub.start, pitALabel],
-    ["END", sub.end, pitBLabel],
-  ].forEach(([kind, point, title]) => {
-    if (!point) return;
-    [...(point.photos || []), point.video].forEach((m) => add(m, kind, title));
-    [...(point.pit?.photos || []), point.pit?.video].forEach((m) => add(m, kind, `${title} · pit`));
-    (point.pit?.refs || []).forEach((r, i) =>
-      [...(r.photos || []), r.video].forEach((m) => add(m, kind, `${title} · reference ${i + 1}${r.description ? ` (${r.description})` : ""}`))
-    );
+    if (p) out.push({ ...m, id: m._id || `${kind}:${m.url}`, kind, label, description: description || m.description, ...p });
   });
-  (sub.entries || []).forEach((e, i) => add(e.photo, "ENTRY", `Entry #${i + 1}`, e.remarks));
   return out;
 };
 
@@ -225,7 +207,7 @@ const ApprovalMap = ({ sub, pitALabel = "Start", pitBLabel = "End" }) => {
         <LayerChip on={layers.entries} onClick={() => toggle("entries")} color={COLORS.entry} label="Entries" count={shapes.entries.length} />
         <LayerChip on={layers.media} onClick={() => toggle("media")} color={MEDIA_KIND.SITE.color} label="Photos & videos" count={shapes.media.length} />
       </Stack>
-      <Box sx={{ height: { xs: 340, md: 480 }, borderRadius: 1, overflow: "hidden", bgcolor: "action.hover" }}>
+      <Box sx={{ height: { xs: 300, md: 380 }, borderRadius: 1, overflow: "hidden", bgcolor: "action.hover" }}>
         {!isLoaded ? (
           <Skeleton variant="rectangular" height="100%" />
         ) : (
