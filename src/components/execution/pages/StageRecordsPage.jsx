@@ -23,11 +23,11 @@ const cardLine = (r) => {
   const d = r.data || {};
   const name = (key) => r.linked?.[key]?.name;
   return {
-    CHAMBER: () => [r.typeLabel, chTxt(r.chainageM), d.position],
-    DUCTING: () => [r.subsection?.name, d.lengthM !== undefined ? fmtDistance(d.lengthM) : "", name("startChamber") ? `${name("startChamber")}${name("endChamber") ? ` to ${name("endChamber")}` : ""}` : ""],
-    COUPLING: () => [chTxt(r.chainageM), `${name("ductRun")}${name("joinedTo") ? ` to ${name("joinedTo")}` : ""}`],
+    DUCTING: () => [r.subsection?.name, d.lengthM !== undefined ? fmtDistance(d.lengthM) : "", r.pits?.start ? `${r.pits.start.name} to ${r.pits.end?.name ?? "–"}` : ""],
+    COUPLING: () => [r.pits?.pit?.name, chTxt(r.chainageM), r.ductNames?.join(" meets ")],
+    BLOWING: () => [`${r.pits?.fromPit?.name ?? "–"} to ${r.pits?.toPit?.name ?? "–"}`, fmtDistance(d.blownLengthM || 0), d.drumId ? `Drum ${d.drumId}` : ""],
+    CHAMBER: () => [r.typeLabel, d.hasJoint === "Yes" ? `${d.jointType} joint closure` : "", r.pits?.atCoupling ? `at ${r.pits.atCoupling.name}` : chTxt(r.chainageM)],
     ROUTE_MARKER: () => [chTxt(r.chainageM), d.position, name("beside") ? `at ${name("beside")}` : ""],
-    BLOWING: () => [`${name("fromChamber")} to ${name("toChamber")}`, fmtDistance(d.blownLengthM || 0), d.drumId ? `Drum ${d.drumId}` : ""],
   }[r.stage]()
     .filter(Boolean)
     .join(" · ");
@@ -51,6 +51,7 @@ const StageRecordsPage = () => {
     return [{ value: "ALL", label: "All", count: all.length }, ...statuses.map((s) => ({ value: s, label: statusOf(s).label, count: all.filter((r) => r.status === s).length }))];
   }, [records, config, statusOf]);
   const list = (records || []).filter((r) => filter === "ALL" || r.status === filter);
+  const toRecord = stage === "COUPLING" ? (data?.options?.couplingPoints || []).filter((p) => !p.recordId) : [];
   const canWork = can("executeSubsection") && data?.sectionStage === "FIELD" && (isAdmin || !data?.blockFrozen);
 
   const header = (
@@ -68,7 +69,7 @@ const StageRecordsPage = () => {
             </IconButton>
           </Tooltip>
           {canWork && <StageCompleteButton sectionId={sectionId} stage={data} many={meta.many} onChanged={reload} />}
-          {canWork && !data?.complete && (
+          {canWork && !data?.complete && meta.add && (
             <Button variant="contained" startIcon={<AddIcon />} onClick={() => go(`/sections/${sectionId}/stages/${stage}/new`)}>
               {meta.add}
             </Button>
@@ -100,6 +101,27 @@ const StageRecordsPage = () => {
           {w}
         </Alert>
       ))}
+      {toRecord.length > 0 && (
+        <ListCard title="To record" count={toRecord.length}>
+          {toRecord.map((p) => (
+            <Box key={p.key} sx={{ display: "flex", alignItems: "center", gap: 1, px: 2, py: 1.5, borderBottom: 1, borderColor: "divider", "&:last-of-type": { borderBottom: 0 } }}>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: "monospace" }}>
+                  {p.name}
+                </Typography>
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                  {[p.chainageM === null ? "" : `Ch ${p.chainageM} m`, p.ductNames.join(" meets ")].filter(Boolean).join(" · ")}
+                </Typography>
+              </Box>
+              {canWork && !data.complete && (
+                <Button size="small" startIcon={<AddIcon />} onClick={() => go(`/sections/${sectionId}/stages/${stage}/new?pit=${encodeURIComponent(p.key)}`)}>
+                  Record coupling
+                </Button>
+              )}
+            </Box>
+          ))}
+        </ListCard>
+      )}
       {records.length > 0 && (
         <Box sx={{ my: 1.5 }}>
           <ChipGroup nowrap value={filter} onChange={(v) => setFilter(v || "ALL")} options={chips} />
@@ -136,7 +158,7 @@ const StageRecordsPage = () => {
             </ButtonBase>
           ))}
         </ListCard>
-      ) : (
+      ) : toRecord.length ? null : (
         <EmptyState title={`No ${meta.many} yet`} text={meta.empty} />
       )}
     </Box>

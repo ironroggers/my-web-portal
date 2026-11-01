@@ -23,7 +23,7 @@ const LANES = [
 const POINTS = [
   ["chambers", "Chamber", "#37474F"],
   ["markers", "Marker", "#C62828"],
-  ["couplings", "Coupling", "#B45309"],
+  ["couplings", "Coupling point", "#B45309"],
 ];
 
 // Recorded work along the section. Positions are approximate: the straight line between the ends.
@@ -47,6 +47,9 @@ const RouteStrip = ({ route }) => {
         </Box>
       ))}
       <Box sx={{ position: "relative", height: 10, mb: 0.5 }}>
+        {route.pits.map((m, i) => (
+          <Box key={i} sx={{ position: "absolute", left: pct(m), ml: "-1px", width: 2, height: 8, bgcolor: "#475569" }} />
+        ))}
         {route.couplings.map((m, i) => (
           <Box key={i} sx={{ position: "absolute", left: pct(m), ml: "-4px", width: 8, height: 8, bgcolor: POINTS[2][2], transform: "rotate(45deg)" }} />
         ))}

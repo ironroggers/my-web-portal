@@ -12,7 +12,7 @@ import ApprovalActions from "../ApprovalActions";
 import { ExecStatusPill, PageState, StickyActionBar } from "../execUi";
 import { MediaStrip } from "../MediaPicker";
 import { ReviewSlots } from "../reviewUi";
-import { detailRows } from "../stageLogic";
+import { detailRows, readingText, recordExtraRows } from "../stageLogic";
 import { reportError, showToast } from "../toast";
 import { useExecContext } from "../useExecContext";
 import { useLoader } from "../useLoader";
@@ -71,12 +71,13 @@ const StageRecordPage = ({ approvalView = false }) => {
   const details = [
     ...(record.assetCode ? [["Asset code", record.assetCode]] : []),
     ...(record.stage === "DUCTING" && record.chainageM !== undefined ? [["Route", `Ch ${record.chainageM} m to ${record.chainageEndM} m`]] : []),
+    ...recordExtraRows(record),
     ...detailRows(config?.stageFields?.[record.stage] || [], record, labelOf),
     ...(record.stage === "BLOWING"
       ? [
           ["Blown length", fmtDistance(record.data?.blownLengthM || 0)],
-          [`At ${record.linked?.fromChamber?.name}`, `In ${record.data?.fromIn ?? "–"} m · Out ${record.data?.fromOut ?? "–"} m · Loop ${record.data?.fromLoopM ?? "–"} m`],
-          [`At ${record.linked?.toChamber?.name}`, `In ${record.data?.toIn ?? "–"} m · Out ${record.data?.toOut ?? "–"} m · Loop ${record.data?.toLoopM ?? "–"} m`],
+          [`At ${record.pits?.fromPit?.name ?? "From pit"}`, `In ${record.data?.fromIn ?? "–"} m · Out ${record.data?.fromOut ?? "–"} m · Loop ${record.data?.fromLoopM ?? "–"} m`],
+          [`At ${record.pits?.toPit?.name ?? "To pit"}`, `In ${record.data?.toIn ?? "–"} m · Out ${record.data?.toOut ?? "–"} m · Loop ${record.data?.toLoopM ?? "–"} m`],
         ]
       : []),
     ...(record.remarks ? [["Remarks", record.remarks]] : []),
@@ -168,10 +169,10 @@ const StageRecordPage = ({ approvalView = false }) => {
       {record.stage === "CHAMBER" && (
         <SectionCard title="Cable readings · from Blowing" sx={{ mb: 2 }}>
           {record.readings?.length ? (
-            record.readings.map((x) => <Row key={x.record} label={`Drum ${x.drum ?? "–"}`} value={`In ${x.in ?? "–"} m · Out ${x.out ?? "–"} m · Loop ${x.loop ?? "–"} m`} />)
+            record.readings.map((x) => <Row key={x.record} label={`Drum ${x.drum ?? "–"}`} value={readingText(x)} />)
           ) : (
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
-              None yet. Readings appear here when a blowing run starts or ends at this chamber.
+              No cable blown past this chamber yet.
             </Typography>
           )}
         </SectionCard>

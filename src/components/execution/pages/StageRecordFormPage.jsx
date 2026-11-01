@@ -1,18 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Box, Button, CircularProgress, Dialog, DialogContent, DialogTitle, Link, List, ListItemButton, ListItemText, TextField, Typography } from "@mui/material";
 import CheckIcon from "@mui/icons-material/Check";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import PageHeader from "../../common/PageHeader";
 import SectionCard from "../../common/SectionCard";
 import executionService from "../../../services/executionService.jsx";
 import { useExecutionConfig } from "../../../hooks/useExecutionConfig";
-import { fmtDistance } from "../../../utils/executionFormat";
+import { distanceM, fmtDistance } from "../../../utils/executionFormat";
 import ChipGroup from "../ChipGroup";
 import GpsField from "../GpsField";
 import MediaPicker from "../MediaPicker";
 import { StickyActionBar } from "../execUi";
 import { anyPending, toMediaFile } from "../mediaItems";
-import { blowingPreview, copyRunDetails, draftErrors, emptyRecordForm, fieldShown, fillFromSubsection, lastCompleteRun, recordBody, recordForm, submitErrors } from "../stageLogic";
+import { blowingPreview, blowingRoute, copyRunDetails, draftErrors, emptyRecordForm, fieldShown, fillFromSubsection, lastCompleteRun, pitFor, pitRows, recordBody, recordForm, submitErrors } from "../stageLogic";
 import { attentionMessage, reportError, showToast } from "../toast";
 
 const ofId = (x) => String(x?._id ?? "");
@@ -20,16 +20,16 @@ const ofId = (x) => String(x?._id ?? "");
 /** New or edit, for every stage, from config.stageFields */
 const StageRecordFormPage = () => {
   const params = useParams();
+  const [search] = useSearchParams();
   const navigate = useNavigate();
   const { config } = useExecutionConfig();
   const [record, setRecord] = useState(null);
   const [sectionId, setSectionId] = useState(params.sectionId);
   const [stage, setStage] = useState(params.stage);
   const [stageData, setStageData] = useState(null);
-  const [form, setForm] = useState(emptyRecordForm());
+  const [form, setForm] = useState(() => emptyRecordForm(search.get("pit") ? { pit: search.get("pit") } : {}));
   const [errors, setErrors] = useState({});
   const [picking, setPicking] = useState(null);
-  const [pit, setPit] = useState(null);
   const [busy, setBusy] = useState(false);
   const [section, setSection] = useState(null);
 
@@ -62,8 +62,7 @@ const StageRecordFormPage = () => {
   const fields = useMemo(() => config?.stageFields?.[stage] || [], [config, stage]);
   const meta = config?.stages?.[stage] || {};
   const rule = config?.mediaRules?.stageRecord;
-  const options = stageData?.options || { chambers: [], ductRuns: [], subsections: [] };
-  const limit = config?.pitSuggestionRadiusM ?? 3;
+  const options = stageData?.options || { chambers: [], ductRuns: [], subsections: [], pits: [], couplingPoints: [] };
   const backTo = record ? `/stage-records/${record._id}` : `/sections/${sectionId}/stages/${stage}`;
 
   const set = (key, value) => {
@@ -71,38 +70,35 @@ const StageRecordFormPage = () => {
     setErrors((e) => ({ ...e, [key]: undefined }));
   };
 
+  // A new fix means the chamber isn't taken from a coupling point any more
   const setLocation = (fix) => {
-    setForm((f) => ({ ...f, location: fix }));
+    setForm((f) => ({ ...f, location: fix, values: stage === "CHAMBER" ? { ...f.values, atCoupling: "" } : f.values }));
     setErrors((e) => ({ ...e, location: undefined }));
-    setPit(null);
-    if (stage === "CHAMBER" && fix) {
-      executionService.getChamberPit(sectionId, fix.latitude, fix.longitude).then((r) => setPit(r.suggestion)).catch(() => null);
-    }
   };
 
   const pickerRows = (f) => {
     if (f.target === "SUBSECTION") {
       return options.subsections.map((s) => {
         const taken = s.usedBy && String(s.usedBy.recordId) !== ofId(record);
-        return { value: ofId(s), title: s.name, sub: `${s.typeLabel} · ${fmtDistance(s.doneM)} excavated`, disabled: s.notStarted || taken, why: taken ? `Has ${s.usedBy.name}` : s.notStarted ? "Not started" : "", raw: s };
+        return { value: ofId(s), title: s.name, sub: s.noEndPit ? s.typeLabel : `${s.startPit} to ${s.endPit} · ${fmtDistance(s.doneM)}`, disabled: s.noEndPit || taken, why: taken ? `Has ${s.usedBy.name}` : s.notStarted ? "Not started" : s.noEndPit ? "End pit not marked" : "", raw: s };
       });
     }
-    if (f.target === "DUCTING") {
-      const other = f.key === "joinedTo" ? "ductRun" : "joinedTo";
-      return options.ductRuns.map((d) => ({ value: ofId(d), title: d.name, sub: `${d.subsectionName} · ${fmtDistance(d.lengthM || 0)}`, disabled: ofId(d) === form.values[other] }));
-    }
-    const other = { fromChamber: "toChamber", toChamber: "fromChamber" }[f.key];
-    return options.chambers
-      .filter((c) => ofId(c) !== ofId(record) && (!f.nonJointOnly || !["BJC", "SJC"].includes(c.type)))
-      .map((c) => ({ value: ofId(c), title: c.name, sub: [c.typeLabel, c.chainageM !== null && c.chainageM !== undefined ? `Ch ${c.chainageM} m` : ""].filter(Boolean).join(" · "), disabled: other && ofId(c) === form.values[other] }));
+    return pitRows(options.pits, f, form.values);
   };
 
   const choose = (f, row) => {
     setPicking(null);
     if (f.target === "SUBSECTION") {
-      setForm((v) => ({ ...v, values: fillFromSubsection(v.values, row.raw, options.chambers, limit) }));
+      setForm((v) => ({ ...v, values: fillFromSubsection(v.values, row.raw) }));
       setErrors((e) => ({ ...e, [f.key]: undefined }));
     } else set(f.key, row.value);
+  };
+
+  // Chamber: at a coupling point copies its location
+  const pickCoupling = (value) => {
+    const p = options.couplingPoints.find((x) => x.key === value);
+    setForm((v) => ({ ...v, values: { ...v.values, atCoupling: value }, location: p ? { latitude: p.latitude, longitude: p.longitude, accuracy: p.accuracy } : v.location }));
+    setErrors((e) => ({ ...e, location: undefined }));
   };
 
   // Route Marker: beside a chamber copies its location, offset and position
@@ -192,6 +188,14 @@ const StageRecordFormPage = () => {
     </Typography>
   );
 
+  const nearestChamber =
+    stage === "CHAMBER" && form.location
+      ? options.chambers
+          .filter((c) => ofId(c) !== ofId(record) && c.latitude !== undefined && c.latitude !== null)
+          .map((c) => ({ name: c.name, m: distanceM({ lat: c.latitude, lng: c.longitude }, { lat: form.location.latitude, lng: form.location.longitude }) }))
+          .sort((a, b) => a.m - b.m)[0]
+      : null;
+
   const renderField = (f) => {
     if (!fieldShown(f, form.values)) return null;
     const error = errors[f.key];
@@ -207,18 +211,46 @@ const StageRecordFormPage = () => {
       return (
         <Box key={f.key}>
           <GpsField label={f.label} value={form.location} onChange={setLocation} error={errors.location} />
-          {pit && (
-            <Button
-              size="small"
-              sx={{ mt: -1, mb: 1.5 }}
-              onClick={() => {
-                setForm((v) => ({ ...v, location: { latitude: pit.latitude, longitude: pit.longitude, accuracy: pit.accuracy, pitFrom: pit.subSection } }));
-                setPit(null);
-                showToast("Using the pit location");
-              }}
-            >
-              Use the {String(pit.pitLabel || "pit").toLowerCase()} of {pit.name}, {pit.distanceM} m away
-            </Button>
+          {nearestChamber && (
+            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: -1, mb: 1.5 }}>
+              {fmtDistance(nearestChamber.m)} from {nearestChamber.name}, the nearest chamber.
+            </Typography>
+          )}
+        </Box>
+      );
+    }
+    if (f.kind === "pit" && f.fixed) {
+      const p = pitFor(options.pits, value);
+      const point = options.couplingPoints.find((x) => x.key === p?.key);
+      return (
+        <Box key={f.key} sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>{f.label}</Typography>
+          <Typography variant="body2">Pit: {[p?.name, p?.chainageM === null || p?.chainageM === undefined ? "" : `Ch ${p.chainageM} m`].filter(Boolean).join(" · ") || "–"}</Typography>
+          {point && <Typography variant="body2">Ducts meeting: {point.ductNames.join(" and ")}</Typography>}
+          <Typography variant="body2">Location: taken from the pit</Typography>
+          {error && (
+            <Typography variant="caption" color="error">
+              {error}
+            </Typography>
+          )}
+        </Box>
+      );
+    }
+    if (f.kind === "pit" && f.chips) {
+      const chips = options.couplingPoints.map((p) => ({ value: p.key, label: p.name }));
+      return (
+        <Box key={f.key} sx={{ mb: 2 }}>
+          {label(f)}
+          {chips.length ? <ChipGroup size="small" allowClear options={chips} value={pitFor(options.pits, value)?.key ?? ""} onChange={pickCoupling} /> : <Typography variant="body2">No coupling points yet.</Typography>}
+          {error && (
+            <Typography variant="caption" color="error" sx={{ display: "block" }}>
+              {error}
+            </Typography>
+          )}
+          {f.help && (
+            <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
+              {f.help}
+            </Typography>
           )}
         </Box>
       );
@@ -233,8 +265,8 @@ const StageRecordFormPage = () => {
         </Box>
       );
     }
-    if (f.kind === "link") {
-      const row = pickerRows(f).find((x) => x.value === value);
+    if (f.kind === "link" || f.kind === "pit") {
+      const row = pickerRows(f).find((x) => x.value === (f.kind === "pit" ? pitFor(options.pits, value)?.key : value));
       return (
         <Box key={f.key} sx={{ mb: 2 }}>
           {label(f)}
@@ -304,7 +336,8 @@ const StageRecordFormPage = () => {
   const runs = stageData?.records || [];
   const lastRun = stage === "DUCTING" ? lastCompleteRun(runs, record?._id) : null;
   const preview = stage === "BLOWING" ? blowingPreview(form.values) : null;
-  const chamberName = (id, fallback) => options.chambers.find((c) => ofId(c) === id)?.name || fallback;
+  const pitName = (key, fallback) => pitFor(options.pits, key)?.name || fallback;
+  const blowRoute = stage === "BLOWING" ? blowingRoute(options, form.values) : null;
   const subPicked = stage === "DUCTING" && options.subsections.find((s) => ofId(s) === form.values.subSection);
   const sentBack = record?.status === "IN_PROGRESS" && record.approval?.status === "REJECTED" ? record.approval : null;
 
@@ -364,7 +397,8 @@ const StageRecordFormPage = () => {
                   <Typography variant="caption" sx={{ fontWeight: 600, display: "block" }}>
                     Filled from {subPicked.name}
                   </Typography>
-                  {subPicked.startM !== null && subPicked.startM !== undefined && <Typography variant="caption" sx={{ display: "block" }}>Route: Ch {subPicked.startM} m to {subPicked.startM + subPicked.doneM} m</Typography>}
+                  <Typography variant="caption" sx={{ display: "block" }}>Start pit: {[subPicked.startPit, subPicked.startPitM === null ? "" : `Ch ${subPicked.startPitM} m`].filter(Boolean).join(" · ")}</Typography>
+                  <Typography variant="caption" sx={{ display: "block" }}>End pit: {[subPicked.endPit, subPicked.endPitM === null ? "" : `Ch ${subPicked.endPitM} m`].filter(Boolean).join(" · ")}</Typography>
                   <Typography variant="caption" sx={{ display: "block" }}>Method: {subPicked.typeLabel}, underground</Typography>
                   <Typography variant="caption" sx={{ display: "block" }}>Road: {[subPicked.roadName, subPicked.side].filter(Boolean).join(", ")}</Typography>
                 </Box>
@@ -373,12 +407,22 @@ const StageRecordFormPage = () => {
           ))}
         </SectionCard>
       ))}
+      {blowRoute?.uncoveredM > 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {fmtDistance(blowRoute.uncoveredM)} between {blowRoute.from} and {blowRoute.to} has no duct recorded. You can still save this.
+        </Alert>
+      )}
+      {blowRoute?.through.length > 0 && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Passes through {blowRoute.through.join(", ")}.
+        </Alert>
+      )}
       {preview && (
         <>
-          {readingEnd("from", chamberName(form.values.fromChamber, "From chamber"), preview.fromLoopM)}
-          {readingEnd("to", chamberName(form.values.toChamber, "To chamber"), preview.toLoopM)}
+          {readingEnd("from", pitName(form.values.fromPit, "From pit"), preview.fromLoopM)}
+          {readingEnd("to", pitName(form.values.toPit, "To pit"), preview.toLoopM)}
           <Alert severity="success" icon={false} sx={{ mb: 2 }}>
-            Blown length: <strong>{preview.blownM === null ? "–" : fmtDistance(preview.blownM)}</strong> · Cable In at {chamberName(form.values.toChamber, "To")} minus Cable Out at {chamberName(form.values.fromChamber, "From")}
+            Blown length: <strong>{preview.blownM === null ? "–" : fmtDistance(preview.blownM)}</strong> · Cable In at {pitName(form.values.toPit, "To")} minus Cable Out at {pitName(form.values.fromPit, "From")}
           </Alert>
         </>
       )}

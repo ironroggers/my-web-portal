@@ -6,7 +6,7 @@ const isBlank = (v) => v === undefined || v === null || String(v).trim() === "";
 export const fieldShown = (f, values) => (f.showIf || []).every((c) => (c.set ? !isBlank(values[c.key]) : c.in.includes(values[c.key])));
 
 // A form: { values, location, photos, video, remarks }
-export const emptyRecordForm = () => ({ values: {}, location: null, photos: [], video: null, remarks: "" });
+export const emptyRecordForm = (values = {}) => ({ values, location: null, photos: [], video: null, remarks: "" });
 
 export const recordForm = (record) => {
   const links = Object.fromEntries(Object.entries(record.links || {}).filter(([, id]) => id));
@@ -67,22 +67,35 @@ export const submitErrors = (fields, form, rule) => {
   return errors;
 };
 
-// A chamber at this point along the section, within the pit suggestion limit
-const chamberAt = (chambers, chainage, limit) =>
-  chainage === null || chainage === undefined ? undefined : chambers.find((c) => c.chainageM !== null && c.chainageM !== undefined && Math.abs(c.chainageM - chainage) <= limit);
+// Picking a subsection fills the length
+export const fillFromSubsection = (values, sub) => ({ ...values, subSection: String(sub._id), lengthM: String(sub.doneM ?? "") });
 
-// Picking a subsection fills the length and any chamber at either end
-export const fillFromSubsection = (values, sub, chambers, limit) => {
-  const next = { ...values, subSection: String(sub._id), lengthM: String(sub.doneM ?? "") };
-  const start = chamberAt(chambers, sub.startM, limit);
-  const end = sub.startM === null || sub.startM === undefined ? undefined : chamberAt(chambers, sub.startM + (sub.doneM || 0), limit);
-  if (start && !next.startChamber) {
-    next.startChamber = String(start._id);
+// A pit is stored as any of the subsection pits it stands for
+export const pitFor = (pits, key) => (key ? (pits || []).find((p) => p.keys.includes(key)) : undefined);
+
+// From and To can't be the same pit
+export const pitRows = (pits, f, values) => {
+  const other = pitFor(pits, values[{ fromPit: "toPit", toPit: "fromPit" }[f.key]]);
+  return (pits || []).map((p) => ({
+    value: p.key,
+    title: p.name,
+    sub: [p.chainageM === null || p.chainageM === undefined ? "" : `Ch ${p.chainageM} m`, p.couplingPoint ? "Coupling point" : ""].filter(Boolean).join(" · "),
+    disabled: other === p,
+  }));
+};
+
+// A blowing run's ducts on the form, and the metres of the stretch without one
+export const blowingRoute = (options, values) => {
+  const a = pitFor(options.pits, values.fromPit);
+  const b = pitFor(options.pits, values.toPit);
+  if (!a || !b || a.chainageM === null || b.chainageM === null) {
+    return null;
   }
-  if (end && !next.endChamber) {
-    next.endChamber = String(end._id);
-  }
-  return next;
+  const lo = Math.min(a.chainageM, b.chainageM);
+  const hi = Math.max(a.chainageM, b.chainageM);
+  const runs = (options.ductRuns || []).filter((d) => d.chainageM !== undefined && d.chainageM < hi && d.chainageEndM > lo);
+  const covered = runs.reduce((sum, d) => sum + Math.min(hi, d.chainageEndM) - Math.max(lo, d.chainageM), 0);
+  return { from: a.name, to: b.name, through: runs.map((d) => d.name), uncoveredM: Math.max(0, hi - lo - covered) };
 };
 
 // The last duct run with its duct and right-of-way details filled in
@@ -109,7 +122,7 @@ export const detailRows = (fields, record, labelOf) =>
   fields
     .filter((f) => !["location", "note"].includes(f.kind) && !f.end)
     .map((f) => {
-      const raw = f.kind === "link" ? record.linked?.[f.key]?.name : record.data?.[f.key];
+      const raw = f.kind === "link" ? record.linked?.[f.key]?.name : f.kind === "pit" ? record.pits?.[f.key]?.name : record.data?.[f.key];
       if (isBlank(raw)) {
         return null;
       }
@@ -117,3 +130,18 @@ export const detailRows = (fields, record, labelOf) =>
       return [String(f.label).replace(/ \(.*\)$/, "").replace(/\?$/, ""), value];
     })
     .filter(Boolean);
+
+// Rows a stage adds to the Details card
+export const recordExtraRows = (record) => {
+  const ducts = record.ductNames || [];
+  return {
+    CHAMBER: () => (record.jointAssetCode ? [["Joint asset code", record.jointAssetCode]] : []),
+    DUCTING: () => (record.pits?.start ? [["Pits", `${record.pits.start.name} to ${record.pits.end?.name ?? "–"}`]] : []),
+    COUPLING: () => (ducts.length ? [["Ducts meeting", ducts.join(" and ")]] : []),
+    BLOWING: () => (ducts.length ? [["Through", ducts.join(", ")]] : []),
+  }[record.stage]?.() || [];
+};
+
+// A chamber's cable reading, or the cable passing through it
+export const readingText = (x) => (x.passesThrough ? `Cable passes through, ${x.run}` : `In ${x.in ?? "–"} m · Out ${x.out ?? "–"} m · Loop ${x.loop ?? "–"} m`);
+
