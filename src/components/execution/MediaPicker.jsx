@@ -115,7 +115,7 @@ const MediaPicker = ({ value, onUpdate, rule, title = "Photos", errors = {}, edi
     }));
 
   const add = async (mode, source, replaceKey) => {
-    const captured = await openGeoCamera({ mode, source });
+    const captured = await openGeoCamera({ mode, source, targetBytes: rule?.targetBytes });
     if (!captured) return;
     const item = newMediaItem(captured);
     onUpdate((v) => {

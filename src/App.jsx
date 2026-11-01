@@ -47,6 +47,10 @@ import RestorationPage from "./components/execution/pages/RestorationPage";
 import RestorationItemPage from "./components/execution/pages/RestorationItemPage";
 import MyWorkPage from "./components/execution/pages/MyWorkPage";
 import ApprovalsPage from "./components/execution/pages/ApprovalsPage";
+import SectionStagesPage from "./components/execution/pages/SectionStagesPage";
+import StageRecordsPage from "./components/execution/pages/StageRecordsPage";
+import StageRecordFormPage from "./components/execution/pages/StageRecordFormPage";
+import StageRecordPage from "./components/execution/pages/StageRecordPage";
 import { ToastHost } from "./components/execution/execUi";
 import { GeoCameraHost } from "./components/execution/WebGeoCamera";
 
@@ -234,6 +238,54 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <BlockProfileDetailPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/sections/:sectionId/stages"
+                element={
+                  <ProtectedRoute>
+                    <SectionStagesPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/sections/:sectionId/stages/:stage"
+                element={
+                  <ProtectedRoute>
+                    <StageRecordsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/sections/:sectionId/stages/:stage/new"
+                element={
+                  <ProtectedRoute>
+                    <StageRecordFormPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/stage-records/:recordId"
+                element={
+                  <ProtectedRoute>
+                    <StageRecordPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/stage-records/:recordId/edit"
+                element={
+                  <ProtectedRoute>
+                    <StageRecordFormPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/approvals/stage-records/:recordId"
+                element={
+                  <ProtectedRoute>
+                    <StageRecordPage approvalView />
                   </ProtectedRoute>
                 }
               />

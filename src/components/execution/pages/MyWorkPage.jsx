@@ -4,7 +4,7 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 import PageHeader from "../../common/PageHeader";
 import executionService from "../../../services/executionService.jsx";
 import SubRow from "../SubRow";
-import { ListCard, PageState, RestorationPill } from "../execUi";
+import { ListCard, PageState, RestorationPill, ExecStatusPill } from "../execUi";
 import { titleCase } from "../execConstants";
 import { setWorkBadges } from "../workBadges";
 import { useExecContext } from "../useExecContext";
@@ -75,6 +75,27 @@ const MyWorkPage = () => {
             Section restoration
           </Typography>
           <RestorationPill status={item.status} />
+        </Box>
+        <Typography variant="caption" noWrap sx={{ color: "text.disabled", display: "block", mt: 0.5 }}>
+          {contextOf(item)}
+        </Typography>
+        {item.remark && (
+          <Typography variant="body2" sx={{ color: "error.dark", mt: 0.5 }}>
+            {item.remark}
+          </Typography>
+        )}
+      </ButtonBase>
+    ) : item.kind === "stageRecord" ? (
+      <ButtonBase
+        key={item._id}
+        onClick={() => go(`/stage-records/${item._id}`, stateOf(item))}
+        sx={{ display: "block", width: "100%", textAlign: "left", px: 2, py: 1.5, borderBottom: 1, borderColor: "divider", "&:last-of-type": { borderBottom: 0 }, "&:hover": { bgcolor: "action.hover" } }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Typography variant="body2" sx={{ fontWeight: 700, flex: 1 }}>
+            {item.stageLabel} · {item.name}
+          </Typography>
+          <ExecStatusPill status={item.status} />
         </Box>
         <Typography variant="caption" noWrap sx={{ color: "text.disabled", display: "block", mt: 0.5 }}>
           {contextOf(item)}

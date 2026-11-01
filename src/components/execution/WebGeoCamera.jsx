@@ -62,6 +62,15 @@ const reverseGeocode = (lat, lng) =>
   });
 
 const canvasBlob = (canvas, type = "image/jpeg", quality = 0.82) => new Promise((resolve) => canvas.toBlob(resolve, type, quality));
+// With a size target, quality steps down until the photo fits; the server has the last word after stamping
+const blobUnder = async (canvas, targetBytes) => {
+  let blob = await canvasBlob(canvas);
+  for (const quality of [0.7, 0.6, 0.5, 0.4]) {
+    if (!targetBytes || blob.size <= targetBytes) break;
+    blob = await canvasBlob(canvas, "image/jpeg", quality);
+  }
+  return blob;
+};
 
 // A still frame from a video element as a JPEG blob
 const frameOf = async (video, maxWidth = 960) => {
@@ -216,7 +225,7 @@ export const GeoCameraHost = () => {
     const meta = await locationFor();
     if (!meta) return finish(null);
     // The server burns the stamp in after upload, so the file is the plain frame
-    const blob = await canvasBlob(canvas);
+    const blob = await blobUnder(canvas, optionsRef.current.targetBytes);
     const file = new File([blob], `ofc-${Date.now()}.jpg`, { type: "image/jpeg" });
     setItem({
       ...meta,

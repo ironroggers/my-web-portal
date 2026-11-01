@@ -319,7 +319,7 @@ const BlockSectionsPanel = ({ blockProfile, canManage = false, onChanged }) => {
 
   // The state tells the subsections page (and its breadcrumbs) to lead back to this block
   const openSection = (section) =>
-    navigate(`/sections/${section._id}/subsections`, {
+    navigate(section.blockProfile ? `/sections/${section._id}/stages` : `/sections/${section._id}/subsections`, {
       state: { blockProfileId, blockProfileName: blockProfile.block },
     });
   const askDelete = (section) => {

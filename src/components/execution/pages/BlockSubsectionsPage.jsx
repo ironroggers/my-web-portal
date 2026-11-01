@@ -20,7 +20,7 @@ import { showToast } from "../toast";
 import { useExecContext } from "../useExecContext";
 import { useLoader } from "../useLoader";
 import { tint } from "../execSx";
-import { SectionReviewCard } from "../reviewUi";
+import { StageCompleteButton } from "../StageComplete";
 
 const NEEDS_ACTION_RANK = { REJECTED: 0, IN_PROGRESS: 1, NOT_STARTED: 2 };
 
@@ -47,7 +47,7 @@ const Group = ({ title, subs, empty, onOpen }) => (
  */
 const BlockSubsectionsPage = ({ section }) => {
   const sectionId = section._id;
-  const { can, role, isAdmin } = usePermissions();
+  const { can, isAdmin } = usePermissions();
   const { config, typeOf } = useExecutionConfig();
   const [type, setType] = useState("ALL");
   const [query, setQuery] = useState("");
@@ -59,12 +59,13 @@ const BlockSubsectionsPage = ({ section }) => {
   });
 
   const load = useCallback(async () => {
-    const [list, restoration, review] = await Promise.all([
+    const [list, restoration, review, stages] = await Promise.all([
       executionService.listSubsections(sectionId),
       executionService.getRestoration(sectionId),
       executionService.getSectionReview(sectionId),
+      executionService.getSectionStages(sectionId),
     ]);
-    return { subs: list.items || [], restoration, review };
+    return { subs: list.items || [], restoration, review, excavation: stages.stages.find((s) => s.key === "EXCAVATION") };
   }, [sectionId]);
   const { data, error, reload } = useLoader(load);
   const review = data?.review;
@@ -79,8 +80,10 @@ const BlockSubsectionsPage = ({ section }) => {
     Boolean(data) &&
     !["PENDING_APPROVAL", "APPROVED"].includes(restStatus) &&
     review?.stage === "FIELD" &&
+    !data?.excavation?.complete &&
     (isAdmin || !review?.blockFrozen);
-  const backTo = `/block-profiles/${section.blockProfile}?tab=sections`;
+  const canComplete = can("executeSubsection") && review?.stage === "FIELD" && (isAdmin || !review?.blockFrozen);
+  const backTo = `/sections/${sectionId}/stages`;
 
   const header = (
     <PageHeader
@@ -89,13 +92,14 @@ const BlockSubsectionsPage = ({ section }) => {
       actions={
         <>
           <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => go(backTo)}>
-            Back to block
+            Back to stages
           </Button>
           <Tooltip title="Refresh">
             <IconButton onClick={reload} aria-label="Refresh subsections">
               <RefreshIcon />
             </IconButton>
           </Tooltip>
+          {canComplete && data?.excavation && <StageCompleteButton sectionId={sectionId} stage={data.excavation} many="subsections" completeLabel="Mark stage complete" onChanged={reload} />}
           {canCreate && (
             <Button variant="contained" startIcon={<AddIcon />} onClick={() => go(`/sections/${sectionId}/subsections/new`)}>
               New subsection
@@ -159,25 +163,6 @@ const BlockSubsectionsPage = ({ section }) => {
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
-      )}
-
-      {review && (
-        <SectionReviewCard
-          review={review}
-          role={role}
-          canReview={can("reviewSection") && (isAdmin || !review.blockFrozen)}
-          onApprove={async () => {
-            await executionService.approveSection(sectionId);
-            showToast("Section approved", "success");
-            reload();
-          }}
-          onReject={async (remark, ids) => {
-            await executionService.rejectSection(sectionId, remark, ids);
-            showToast("Section sent back", "info");
-            reload();
-          }}
-          sx={{ mb: 2 }}
-        />
       )}
 
       <SectionCard title="Progress" subtitle={all.length ? `${all.length} subsections` : undefined} sx={{ mb: 2 }}>

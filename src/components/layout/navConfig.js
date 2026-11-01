@@ -55,6 +55,7 @@ export const NAV_GROUPS = [
           "/location/*",
           "/sections/*",
           "/subsections/*",
+          "/stage-records/*",
           "/hoto-details/*",
         ],
       },
@@ -191,6 +192,7 @@ const ROUTE_TRAILS = [
       { label: state?.subSectionId === params.subSectionId && state?.subSectionName ? state.subSectionName : "Subsection" },
     ],
   },
+  { path: "/approvals/stage-records/:recordId", trail: [{ label: "Operations" }, APPROVALS, { label: "Stage record" }] },
   {
     path: "/approvals/restorations/:sectionId",
     trail: [{ label: "Operations" }, APPROVALS, { label: "Restoration" }],
@@ -215,6 +217,11 @@ export const FULL_SCREEN_ROUTES = ["/login", "/register"];
 //   section: add the section crumb; sub: add the subsection crumb; restoration: add Restoration
 const BLOCK_SECTION_TRAILS = [
   { path: "/sections/:sectionId/subsections", label: "Subsections" },
+  { path: "/sections/:sectionId/stages", label: "Stages", blockOnly: true },
+  { path: "/sections/:sectionId/stages/:stage", label: "Stage", section: true, blockOnly: true },
+  { path: "/sections/:sectionId/stages/:stage/new", label: "New record", section: true, blockOnly: true },
+  { path: "/stage-records/:recordId", label: "Stage record", section: true, blockOnly: true },
+  { path: "/stage-records/:recordId/edit", label: "Edit record", section: true, blockOnly: true },
   { path: "/subsections/:subSectionId/trenching", label: "Trenching", section: true },
   { path: "/sections/:sectionId/subsections/new", label: "New subsection", section: true, blockOnly: true },
   { path: "/subsections/:subSectionId", label: "Subsection", section: true, blockOnly: true, named: true },

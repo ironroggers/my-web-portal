@@ -108,6 +108,19 @@ const executionService = {
   listSections: (blockId, { page = 1, limit = 1000 } = {}) =>
     request("/api/sections", { query: { blockProfile: blockId, page, limit } }),
   getSection: (sectionId) => request(`/api/sections/${id(sectionId)}`),
+  getSectionStages: (sectionId) => request(`/api/sections/${id(sectionId)}/stages`),
+  completeStage: (sectionId, stage) => request(`/api/sections/${id(sectionId)}/stages/${stage}/complete`, { method: "POST" }),
+  reopenStage: (sectionId, stage) => request(`/api/sections/${id(sectionId)}/stages/${stage}/reopen`, { method: "POST" }),
+  getStageRecords: (sectionId, stage) => request(`/api/sections/${id(sectionId)}/stages/${stage}/records`),
+  createStageRecord: (sectionId, stage, body) => request(`/api/sections/${id(sectionId)}/stages/${stage}/records`, { method: "POST", body }),
+  getChamberPit: (sectionId, lat, lng) => request(`/api/sections/${id(sectionId)}/stages/CHAMBER/pit-suggestion`, { query: { lat, lng } }),
+  getStageRecord: (recordId) => request(`/api/stage-records/${id(recordId)}`),
+  updateStageRecord: (recordId, body) => request(`/api/stage-records/${id(recordId)}`, { method: "PUT", body }),
+  deleteStageRecord: (recordId) => request(`/api/stage-records/${id(recordId)}`, { method: "DELETE" }),
+  submitStageRecord: (recordId, version) => request(`/api/stage-records/${id(recordId)}/submit`, { method: "POST", body: { version } }),
+  reopenStageRecord: (recordId, version) => request(`/api/stage-records/${id(recordId)}/reopen`, { method: "POST", body: { version } }),
+  approveStageRecord: (recordId, version) => request(`/api/stage-records/${id(recordId)}/approve`, { method: "POST", body: { version } }),
+  rejectStageRecord: (recordId, version, remark) => request(`/api/stage-records/${id(recordId)}/reject`, { method: "POST", body: { version, remark } }),
   listSubsections: (sectionId, { typeOfWork, executionStatus, q, page = 1, limit = 1000 } = {}) =>
     request("/api/subsections", { query: { section: sectionId, typeOfWork, executionStatus, q, page, limit } }),
   previewName: (sectionId, { roadName, typeOfWork } = {}) =>
@@ -132,8 +145,8 @@ const executionService = {
   getSectionReview: (sectionId) => request(`/api/sections/${id(sectionId)}/review`),
   approveSection: (sectionId) => request(`/api/sections/${id(sectionId)}/review/approve`, { method: "POST", body: {} }),
   // subSections: the ids of the subsections that need fixing
-  rejectSection: (sectionId, remark, subSections) =>
-    request(`/api/sections/${id(sectionId)}/review/reject`, { method: "POST", body: { remark, subSections } }),
+  rejectSection: (sectionId, remark, subSections, stageRecords = []) =>
+    request(`/api/sections/${id(sectionId)}/review/reject`, { method: "POST", body: { remark, subSections, stageRecords } }),
 
   // ---- restoration
   getRestoration: (sectionId) => request(`/api/sections/${id(sectionId)}/restoration`),
