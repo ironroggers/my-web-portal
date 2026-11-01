@@ -10,7 +10,8 @@ import { fmtDateTime } from "../../../utils/executionFormat";
 import ChipGroup from "../ChipGroup";
 import SubRow from "../SubRow";
 import { FlagChips } from "../Flags";
-import { EmptyState, ListCard, PageState, RestorationPill } from "../execUi";
+import { EmptyState, ExecStatusPill, ListCard, PageState, RestorationPill } from "../execUi";
+import { ReviewSlots } from "../reviewUi";
 import { REVIEW_ACTIONS, titleCase } from "../execConstants";
 import StatusPill from "../../common/StatusPill";
 import { formatLength, sectionStage } from "../../blockProfile/blockProfileConstants";
@@ -30,7 +31,7 @@ const stateOf = (card) => ({
 
 /**
  * C16: what's waiting for this user, oldest first, filterable by district / block / type of work:
- * subsections (Cluster Head, GIS Head), sections (Zonal Manager, Admin) and restorations (Admin)
+ * subsections and stage records (Cluster Head, GIS Head), sections (Zonal Manager, Admin) and restorations (Admin)
  */
 const ApprovalsPage = () => {
   const { can, loading: permissionsLoading } = usePermissions();
@@ -89,14 +90,17 @@ const ApprovalsPage = () => {
   }
 
   const subs = data?.subsections || [];
+  const records = data?.stageRecords || [];
   const sections = data?.sections || [];
   const rests = data?.restorations || [];
   const showSubs = !kind || kind === "subsection";
+  const showRecords = (!kind || kind === "stageRecord") && !typeOfWork;
   const showSections = (!kind || kind === "section") && !typeOfWork;
   const showRests = (!kind || kind === "restoration") && !typeOfWork;
   // Only the kinds this role reviews
   const kindChips = [
     can("reviewSubsection") && { value: "subsection", label: "Subsections", count: data ? subs.length : undefined },
+    can("reviewSubsection") && { value: "stageRecord", label: "Stage records", count: data ? records.length : undefined },
     can("reviewSection") && { value: "section", label: "Sections", count: data ? sections.length : undefined },
     can("approveRestoration") && { value: "restoration", label: "Restorations", count: data ? rests.length : undefined },
   ].filter(Boolean);
@@ -108,7 +112,7 @@ const ApprovalsPage = () => {
           nowrap
           value={kind}
           onChange={(v) => setKind(v || "")}
-          options={[{ value: "", label: "All", count: data ? subs.length + sections.length + rests.length : undefined }, ...kindChips]}
+          options={[{ value: "", label: "All", count: data ? subs.length + records.length + sections.length + rests.length : undefined }, ...kindChips]}
         />
       </Box>
       <TextField
@@ -211,12 +215,35 @@ const ApprovalsPage = () => {
               ))}
             </ListCard>
           )}
+          {showRecords && records.length > 0 && (
+            <ListCard title="Stage records" count={records.length}>
+              {records.map((r) => (
+                <ButtonBase
+                  key={r._id}
+                  onClick={() => go(`/approvals/stage-records/${r._id}`, stateOf(r))}
+                  sx={{ display: "block", width: "100%", textAlign: "left", px: 2, py: 1.5, borderBottom: 1, borderColor: "divider", "&:last-of-type": { borderBottom: 0 }, "&:hover": { bgcolor: "action.hover" } }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700, flex: 1, minWidth: 0 }} noWrap>
+                      {r.stageLabel} · {r.name}
+                    </Typography>
+                    <ExecStatusPill status={r.status} />
+                  </Box>
+                  <Typography variant="caption" noWrap sx={{ color: "text.disabled", display: "block", mt: 0.5 }}>
+                    {contextOf(r)} · {sentLine(r.submittedAt, r.submittedBy)}
+                  </Typography>
+                  <ReviewSlots review={r.review} sx={{ mt: 0.5 }} />
+                  {Object.values(r.flags || {}).some(Boolean) && <FlagChips flags={r.flags} />}
+                </ButtonBase>
+              ))}
+            </ListCard>
+          )}
           {showSections && sections.length > 0 && (
             <ListCard title="Sections" count={sections.length}>
               {sections.map((s) => (
                 <ButtonBase
                   key={s.section?._id}
-                  onClick={() => go(`/sections/${s.section?._id}/subsections`, stateOf(s))}
+                  onClick={() => go(`/sections/${s.section?._id}/stages`, stateOf(s))}
                   sx={{
                     display: "block",
                     width: "100%",
@@ -236,7 +263,7 @@ const ApprovalsPage = () => {
                     <StatusPill label={sectionStage({ stage: s.stage }).label} tone={sectionStage({ stage: s.stage }).tone} />
                   </Box>
                   <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.5 }}>
-                    {[`${s.subsectionCount} subsections approved by Cluster Head and GIS Head`, s.sectionLength ? formatLength(s.sectionLength) : "", s.stage === "ADMIN" && s.zonal?.by?.name ? `Approved by ${s.zonal.by.name}` : ""]
+                    {[`All 6 stages complete · ${s.subsectionCount} subsections approved by Cluster Head and GIS Head`, s.sectionLength ? formatLength(s.sectionLength) : "", s.stage === "ADMIN" && s.zonal?.by?.name ? `Approved by ${s.zonal.by.name}` : ""]
                       .filter(Boolean)
                       .join(" · ")}
                   </Typography>

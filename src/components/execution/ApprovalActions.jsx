@@ -5,6 +5,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
 
 const PLACEHOLDERS = {
+  record: "e.g. The photo does not show the chamber cover. Retake it from above.",
   subsection: "e.g. Ending pit reference 2 has no description",
   restoration: "e.g. After photo still shows loose soil",
 };
@@ -81,7 +82,7 @@ const ApprovalActions = ({ kind = "subsection", name, onApprove, onReject, appro
 
       <Dialog open={rejecting} onClose={() => !busy && setRejecting(false)} fullWidth maxWidth="sm">
         <DialogTitle>
-          Reject {kind === "restoration" ? "restoration" : "subsection"}
+          Reject {kind}
           {name && (
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {name}

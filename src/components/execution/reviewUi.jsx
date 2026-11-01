@@ -47,13 +47,15 @@ export const ReviewSlots = ({ review = {}, sx }) => (
   </Box>
 );
 
+const STAGE_TAGS = { CHAMBER: "Chamber", DUCTING: "Ducting", COUPLING: "Coupling", ROUTE_MARKER: "Route marker", BLOWING: "Blowing" };
+
 // Which section stage each reviewer acts on
 const STAGE_OF_ROLE = { "ZONAL MANAGER": "ZONAL", ADMIN: "ADMIN" };
 const APPROVE_LABEL = { ZONAL: "Approve and send to Admin", ADMIN: "Approve and freeze" };
 
 const StageHint = {
-  FIELD: "Subsections are being executed and reviewed by the Cluster Head and GIS Head. The section goes to the Zonal Manager once every subsection has both approvals.",
-  ZONAL: "Every subsection is approved by the Cluster Head and GIS Head. The Zonal Manager approves it to Admin, or sends subsections back.",
+  FIELD: "Work is being recorded and reviewed by the Cluster Head and GIS Head. The section goes to the Zonal Manager when all 6 stages are complete and every record is approved.",
+  ZONAL: "All 6 stages are complete and approved by the Cluster Head and GIS Head. The Zonal Manager approves it to Admin, or sends items back.",
   ADMIN: "Approved by the Zonal Manager. Admin's approval freezes the section.",
   FROZEN: "Approved by Admin. Only Admin can change it now.",
 };
@@ -61,7 +63,7 @@ const StageHint = {
 /**
  * The section's review above its subsections: stage, the latest Zonal Manager / Admin
  * decision and history, with Approve / Reject for the reviewer whose turn it is.
- * review: GET /api/sections/:id/review. onApprove() / onReject(remark, ids) return the new review.
+ * review: GET /api/sections/:id/review. onApprove() / onReject(remark, ids, recordIds) return the new review.
  */
 export const SectionReviewCard = ({ review, role, canReview, onApprove, onReject, sx }) => {
   const [busy, setBusy] = useState(false);
@@ -135,8 +137,8 @@ export const SectionReviewCard = ({ review, role, canReview, onApprove, onReject
         <RejectSectionDialog
           review={review}
           onClose={() => setRejecting(false)}
-          onReject={async (remark, ids) => {
-            await onReject(remark, ids);
+          onReject={async (remark, ids, recordIds) => {
+            await onReject(remark, ids, recordIds);
             setRejecting(false);
           }}
         />
@@ -145,9 +147,11 @@ export const SectionReviewCard = ({ review, role, canReview, onApprove, onReject
   );
 };
 
-// Pick the subsections that need fixing and say why; they go back to the Field Executive
+// Pick the subsections and stage records that need fixing and say why; they go back to the Field Executive
 const RejectSectionDialog = ({ review, onClose, onReject }) => {
   const subs = review?.subsections || [];
+  const records = review?.stageRecords || [];
+  const isRecord = new Set(records.map((r) => r._id));
   const [picked, setPicked] = useState([]);
   const [remark, setRemark] = useState("");
   const [touched, setTouched] = useState(false);
@@ -161,7 +165,7 @@ const RejectSectionDialog = ({ review, onClose, onReject }) => {
     try {
       setBusy(true);
       setError("");
-      await onReject(remark.trim(), picked);
+      await onReject(remark.trim(), picked.filter((id) => !isRecord.has(id)), picked.filter((id) => isRecord.has(id)));
     } catch (e) {
       setError(e.message || "Couldn't send the section back");
       setBusy(false);
@@ -183,25 +187,31 @@ const RejectSectionDialog = ({ review, onClose, onReject }) => {
           </Alert>
         )}
         <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-          Subsections that need fixing
+          What needs fixing
         </Typography>
         <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 1 }}>
-          They reopen for the Field Executive and go through the Cluster Head and GIS Head review again. The others stay approved.
+          They reopen for the Field Executive and go through the Cluster Head and GIS Head review again. Each stage holding one stops being complete. The others stay approved.
         </Typography>
         <Box sx={{ display: "flex", flexDirection: "column", maxHeight: 280, overflowY: "auto", mb: 1 }}>
-          {subs.map((s) => (
+          {[...subs.map((s) => ({ ...s, tag: "Excavation" })), ...records.map((r) => ({ ...r, tag: STAGE_TAGS[r.stage] }))].map((s) => (
             <FormControlLabel
               key={s._id}
               control={<Checkbox size="small" checked={picked.includes(s._id)} onChange={() => toggle(s._id)} disabled={busy} />}
               label={
-                <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
-                  {s.name}
+                <Typography variant="body2">
+                  <Box component="span" sx={{ fontFamily: "monospace" }}>
+                    {s.name}
+                  </Box>
+                  <Box component="span" sx={{ color: "text.secondary" }}>
+                    {" · "}
+                    {s.tag}
+                  </Box>
                 </Typography>
               }
             />
           ))}
         </Box>
-        {touched && !picked.length && <FormHelperText error>Pick the subsections that need fixing.</FormHelperText>}
+        {touched && !picked.length && <FormHelperText error>Pick what needs fixing.</FormHelperText>}
         <TextField
           fullWidth
           multiline
