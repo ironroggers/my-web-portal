@@ -44,7 +44,7 @@ import { FlagList } from "../Flags";
 import { MediaStrip } from "../MediaPicker";
 import { FixBox, HistoryCard, KV, PointView } from "../JobParts";
 import { ExecStatusPill, PageState, StickyActionBar, TypeTag } from "../execUi";
-import { carryOver, emptyEntry, entryBody, validateEntry } from "../executionLogic";
+import { carryOver, emptyEntry, entryBody, entryForm, validateEntry } from "../executionLogic";
 import { anyPending, toMediaFile } from "../mediaItems";
 import { attentionMessage, reportError, showToast } from "../toast";
 import { contextOfSub, useExecContext } from "../useExecContext";
@@ -142,6 +142,7 @@ const SubsectionJobPage = ({ approvalView = false }) => {
 
   // A new entry starts empty; the previous entry's offset, side, protection… can be copied on request
   const openEntry = () => setSheet({ form: emptyEntry(fields), errors: {} });
+  const openEdit = (entry) => setSheet({ form: entryForm(fields, entry), errors: {}, entryId: entry._id });
   const previousEntry = entries[entries.length - 1];
   const copyPrevious = () =>
     setSheet((s) => (s ? { ...s, form: carryOver(s.form, config?.entryCarryOver || [], previousEntry), errors: {} } : s));
@@ -159,7 +160,8 @@ const SubsectionJobPage = ({ approvalView = false }) => {
     }
     try {
       setBusy(true);
-      const card = await executionService.addEntry(subSectionId, entryBody(fields, sheet.form, toMediaFile));
+      const body = entryBody(fields, sheet.form, toMediaFile);
+      const card = sheet.entryId ? await executionService.updateEntry(subSectionId, sheet.entryId, body) : await executionService.addEntry(subSectionId, body);
       setSub(card);
       setSheet(null);
       showToast(duct ? `Entry saved · ${fmtDistance(card.doneM)} of ${fmtDistance(card.subSectionLength)}` : "Entry saved");
@@ -286,7 +288,7 @@ const SubsectionJobPage = ({ approvalView = false }) => {
           : duct
             ? `${countLabel(entries.length, "entry", "entries")} · ${fmtDistance(done)} of ${fmtDistance(sub.subSectionLength)}`
             : countLabel(entries.length, "entry", "entries"),
-      content: status === "NOT_STARTED" ? null : <EntriesView sub={sub} editable={status === "IN_PROGRESS" && canExecute} onDelete={removeEntry} />,
+      content: status === "NOT_STARTED" ? null : <EntriesView sub={sub} editable={status === "IN_PROGRESS" && canExecute} onEdit={openEdit} onDelete={removeEntry} />,
     },
     {
       key: "end",
@@ -435,7 +437,7 @@ const SubsectionJobPage = ({ approvalView = false }) => {
       <Dialog open={Boolean(sheet)} onClose={() => !busy && setSheet(null)} fullScreen={isPhone} fullWidth maxWidth="md">
         <DialogTitle sx={{ display: "flex", alignItems: "flex-start" }}>
           <Box sx={{ flex: 1 }}>
-            Add entry #{entries.length + 1}
+            {sheet?.entryId ? `Edit entry #${entries.findIndex((e) => e._id === sheet.entryId) + 1}` : `Add entry #${entries.length + 1}`}
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {sub.name}
             </Typography>
@@ -445,7 +447,7 @@ const SubsectionJobPage = ({ approvalView = false }) => {
           </IconButton>
         </DialogTitle>
         <DialogContent dividers>
-          {sheet && previousEntry && (config?.entryCarryOver || []).length > 0 && (
+          {sheet && !sheet.entryId && previousEntry && (config?.entryCarryOver || []).length > 0 && (
             <Button size="small" startIcon={<ContentCopyIcon />} onClick={copyPrevious} sx={{ mb: 1.5 }}>
               Copy from the previous entry
             </Button>

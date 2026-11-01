@@ -48,6 +48,15 @@ export const validateEntry = (fields, form) => {
   return errors;
 };
 
+// The form for editing a saved entry
+export const entryForm = (fields, entry) => {
+  const form = { location: { latitude: entry.latitude, longitude: entry.longitude, accuracy: entry.accuracy }, photo: entry.photo || null };
+  fields.forEach((f) => {
+    form[f.key] = isBlank(entry[f.key]) ? "" : String(entry[f.key]);
+  });
+  return form;
+};
+
 // Request body for POST / PUT …/entries
 export const entryBody = (fields, form, toMediaFile) => {
   const body = {};

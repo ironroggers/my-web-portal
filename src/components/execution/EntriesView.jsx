@@ -17,12 +17,19 @@ import { LineChart } from "@mui/x-charts/LineChart";
 import TableChartOutlinedIcon from "@mui/icons-material/TableChartOutlined";
 import ShowChartIcon from "@mui/icons-material/ShowChart";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import { useExecutionConfig } from "../../hooks/useExecutionConfig";
 import { fmtDateTime, fmtDistance, fmtLatLong } from "../../utils/executionFormat";
 import ExecMediaViewer from "./ExecMediaViewer";
 import { MediaThumb } from "./MediaPicker";
 
 const dash = (v, digits) => (v === null || v === undefined || v === "" ? "—" : digits !== undefined ? Number(v).toFixed(digits) : String(v));
+
+const EditButton = ({ onClick }) => (
+  <Button size="small" startIcon={<EditOutlinedIcon fontSize="small" />} onClick={onClick}>
+    Edit
+  </Button>
+);
 
 // Delete needs a second click on the same button
 const DeleteButton = ({ armed, onClick }) => (
@@ -60,7 +67,7 @@ export const DepthGraph = ({ entries, planned }) => {
 };
 
 /** Ducting: table (cumulative distance) or depth graph; other work: one card per entry */
-const EntriesView = ({ sub, editable, onDelete }) => {
+const EntriesView = ({ sub, editable, onEdit, onDelete }) => {
   const { isDucting } = useExecutionConfig();
   const [mode, setMode] = useState("table");
   const [armed, setArmed] = useState(null);
@@ -101,6 +108,7 @@ const EntriesView = ({ sub, editable, onDelete }) => {
               </Typography>
               {editable && (
                 <Box>
+                  <EditButton onClick={() => onEdit(e)} />
                   <DeleteButton armed={armed === e._id} onClick={() => del(e._id)} />
                 </Box>
               )}
@@ -180,7 +188,8 @@ const EntriesView = ({ sub, editable, onDelete }) => {
                     )}
                   </TableCell>
                   {editable && (
-                    <TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>
+                      <EditButton onClick={() => onEdit(e)} />
                       <DeleteButton armed={armed === e._id} onClick={() => del(e._id)} />
                     </TableCell>
                   )}
