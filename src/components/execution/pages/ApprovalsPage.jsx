@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Box, ButtonBase, Card, IconButton, MenuItem, TextField, Tooltip, Typography } from "@mui/material";
+import { Box, Button, ButtonBase, Card, IconButton, MenuItem, TextField, Tooltip, Typography } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import InboxOutlinedIcon from "@mui/icons-material/InboxOutlined";
 import PageHeader from "../../common/PageHeader";
@@ -15,12 +15,33 @@ import { ReviewSlots } from "../reviewUi";
 import { REVIEW_ACTIONS, titleCase } from "../execConstants";
 import StatusPill from "../../common/StatusPill";
 import { formatLength, sectionStage } from "../../blockProfile/blockProfileConstants";
+import SectionCard from "../../common/SectionCard";
+import { recordLine } from "../stageRecordLine";
 import { setWorkBadges } from "../workBadges";
 import { useExecContext } from "../useExecContext";
 import { useLoader } from "../useLoader";
 
 const contextOf = (card) => [titleCase(card.block?.name), card.section?.name].filter(Boolean).join(" › ");
 const sentLine = (at, by) => [at ? `Sent ${fmtDateTime(at)}` : "", by?.name ? `by ${by.name}` : ""].filter(Boolean).join(" ");
+
+// What the Cluster Head and GIS Head review, by block section, the section with the oldest
+// submission first; inside a section, by stage in route order (Excavation is the subsections)
+const bySection = (subs, records) => {
+  const groups = new Map();
+  const add = (card, stage) => {
+    const id = String(card.section?._id);
+    if (!groups.has(id)) groups.set(id, { id, card, stages: {}, count: 0, oldest: Infinity });
+    const g = groups.get(id);
+    (g.stages[stage] ||= []).push(card);
+    g.count += 1;
+    if (card.submittedAt) g.oldest = Math.min(g.oldest, new Date(card.submittedAt).getTime());
+  };
+  subs.forEach((s) => add(s, "EXCAVATION"));
+  records.forEach((r) => add(r, r.stage));
+  return [...groups.values()].sort((a, b) => a.oldest - b.oldest);
+};
+
+const rowSx = { display: "block", width: "100%", textAlign: "left", px: 2, py: 1.5, borderBottom: 1, borderColor: "divider", "&:hover": { bgcolor: "action.hover" } };
 
 const stateOf = (card) => ({
   blockProfileId: card.block?._id,
@@ -176,7 +197,9 @@ const ApprovalsPage = () => {
     );
   }
 
-  const nothing = (showSubs ? subs.length : 0) + (showSections ? sections.length : 0) + (showRests ? rests.length : 0) === 0;
+  const groups = bySection(showSubs ? subs : [], showRecords ? records : []);
+  const stageOrder = config?.stageOrder || ["EXCAVATION", "DUCTING", "COUPLING", "CHAMBER", "BLOWING", "ROUTE_MARKER"];
+  const nothing = groups.length + (showSections ? sections.length : 0) + (showRests ? rests.length : 0) === 0;
 
   return (
     <Box>
@@ -197,47 +220,64 @@ const ApprovalsPage = () => {
         </Card>
       ) : (
         <>
-          {showSubs && subs.length > 0 && (
-            <ListCard title="Subsections" count={subs.length}>
-              {subs.map((s) => (
-                <Box key={s._id} sx={{ borderBottom: 1, borderColor: "divider", "&:last-of-type": { borderBottom: 0 } }}>
-                  <SubRow
-                    sub={s}
-                    context={`${contextOf(s)} · ${sentLine(s.submittedAt, s.submittedBy)}`}
-                    onClick={() => go(`/approvals/subsections/${s._id}`, { ...stateOf(s), subSectionId: s._id, subSectionName: s.name })}
-                  />
-                  {Object.values(s.flags || {}).some(Boolean) && (
-                    <Box sx={{ px: 2, pb: 1.5, mt: -1 }}>
-                      <FlagChips flags={s.flags} />
+          {groups.map((g) => (
+            <SectionCard
+              key={g.id}
+              title={g.card.section?.name}
+              subtitle={[titleCase(g.card.block?.name), titleCase(g.card.block?.district), `${g.count} waiting`].filter(Boolean).join(" · ")}
+              action={
+                <Button size="small" onClick={() => go(`/sections/${g.id}/stages`, stateOf(g.card))}>
+                  Open section
+                </Button>
+              }
+              contentSx={{ p: 0 }}
+              sx={{ mb: 2 }}
+            >
+              {stageOrder
+                .filter((stage) => g.stages[stage]?.length)
+                .map((stage) => (
+                  <Box key={stage}>
+                    <Box sx={{ display: "flex", alignItems: "baseline", gap: 1, px: 2, py: 0.75, bgcolor: "action.hover", borderBottom: 1, borderColor: "divider" }}>
+                      <Typography variant="overline" sx={{ fontWeight: 700, lineHeight: 1.6 }}>
+                        {config?.stages?.[stage]?.label || stage}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                        {g.stages[stage].length} {g.stages[stage].length === 1 ? config?.stages?.[stage]?.one || "item" : config?.stages?.[stage]?.many || "items"}
+                      </Typography>
                     </Box>
-                  )}
-                </Box>
-              ))}
-            </ListCard>
-          )}
-          {showRecords && records.length > 0 && (
-            <ListCard title="Stage records" count={records.length}>
-              {records.map((r) => (
-                <ButtonBase
-                  key={r._id}
-                  onClick={() => go(`/approvals/stage-records/${r._id}`, stateOf(r))}
-                  sx={{ display: "block", width: "100%", textAlign: "left", px: 2, py: 1.5, borderBottom: 1, borderColor: "divider", "&:last-of-type": { borderBottom: 0 }, "&:hover": { bgcolor: "action.hover" } }}
-                >
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 700, flex: 1, minWidth: 0 }} noWrap>
-                      {r.stageLabel} · {r.name}
-                    </Typography>
-                    <ExecStatusPill status={r.status} />
+                    {stage === "EXCAVATION"
+                      ? g.stages[stage].map((s) => (
+                          <Box key={s._id} sx={{ borderBottom: 1, borderColor: "divider" }}>
+                            <SubRow sub={s} context={sentLine(s.submittedAt, s.submittedBy)} onClick={() => go(`/approvals/subsections/${s._id}`, { ...stateOf(s), subSectionId: s._id, subSectionName: s.name })} />
+                            {Object.values(s.flags || {}).some(Boolean) && (
+                              <Box sx={{ px: 2, pb: 1.5, mt: -1 }}>
+                                <FlagChips flags={s.flags} />
+                              </Box>
+                            )}
+                          </Box>
+                        ))
+                      : g.stages[stage].map((r) => (
+                          <ButtonBase key={r._id} onClick={() => go(`/approvals/stage-records/${r._id}`, stateOf(r))} sx={rowSx}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                              <Typography variant="body2" sx={{ fontWeight: 700, flex: 1, minWidth: 0 }} noWrap>
+                                {r.name}
+                              </Typography>
+                              <ExecStatusPill status={r.status} />
+                            </Box>
+                            <Typography variant="caption" noWrap sx={{ color: "text.secondary", display: "block", mt: 0.5 }}>
+                              {recordLine(r)}
+                            </Typography>
+                            <Typography variant="caption" noWrap sx={{ color: "text.disabled", display: "block" }}>
+                              {sentLine(r.submittedAt, r.submittedBy)}
+                            </Typography>
+                            <ReviewSlots review={r.review} sx={{ mt: 0.5 }} />
+                            {Object.values(r.flags || {}).some(Boolean) && <FlagChips flags={r.flags} />}
+                          </ButtonBase>
+                        ))}
                   </Box>
-                  <Typography variant="caption" noWrap sx={{ color: "text.disabled", display: "block", mt: 0.5 }}>
-                    {contextOf(r)} · {sentLine(r.submittedAt, r.submittedBy)}
-                  </Typography>
-                  <ReviewSlots review={r.review} sx={{ mt: 0.5 }} />
-                  {Object.values(r.flags || {}).some(Boolean) && <FlagChips flags={r.flags} />}
-                </ButtonBase>
-              ))}
-            </ListCard>
-          )}
+                ))}
+            </SectionCard>
+          ))}
           {showSections && sections.length > 0 && (
             <ListCard title="Sections" count={sections.length}>
               {sections.map((s) => (

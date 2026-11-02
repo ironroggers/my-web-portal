@@ -8,31 +8,14 @@ import PageHeader from "../../common/PageHeader";
 import executionService from "../../../services/executionService.jsx";
 import { usePermissions } from "../../../hooks/usePermissions";
 import { useExecutionConfig } from "../../../hooks/useExecutionConfig";
-import { fmtDistance } from "../../../utils/executionFormat";
 import ChipGroup from "../ChipGroup";
 import { EmptyState, ExecStatusPill, ListCard, PageState } from "../execUi";
 import { ReviewSlots } from "../reviewUi";
 import { StageCompleteButton } from "../StageComplete";
 import { landmarkText } from "../stageLogic";
+import { recordLine } from "../stageRecordLine";
 import { useExecContext } from "../useExecContext";
 import { useLoader } from "../useLoader";
-
-const chTxt = (m) => (m === null || m === undefined ? "No location yet" : `Ch ${m} m`);
-
-// The line under a record's name
-const cardLine = (r) => {
-  const d = r.data || {};
-  const name = (key) => r.linked?.[key]?.name;
-  return {
-    DUCTING: () => [r.subsection?.name, d.lengthM !== undefined ? fmtDistance(d.lengthM) : "", r.pits?.start ? `${r.pits.start.name} to ${r.pits.end?.name ?? "–"}` : ""],
-    COUPLING: () => [r.pits?.pit?.name, chTxt(r.chainageM), r.ductNames?.join(" meets ")],
-    BLOWING: () => [`${r.linked?.fromChamber?.name ?? "–"} to ${r.linked?.toChamber?.name ?? "–"}`, fmtDistance(d.blownLengthM || 0), d.drumId ? `Drum ${d.drumId}` : ""],
-    CHAMBER: () => [r.typeLabel, d.hasJoint === "Yes" ? `${d.jointType} joint closure` : "", r.pits?.atCoupling ? `at ${r.pits.atCoupling.name}` : r.nodes?.atNode ? `at ${r.nodes.atNode.name}` : chTxt(r.chainageM)],
-    ROUTE_MARKER: () => [chTxt(r.chainageM), d.position, name("beside") ? `at ${name("beside")}` : ""],
-  }[r.stage]()
-    .filter(Boolean)
-    .join(" · ");
-};
 
 /** One stage's records: warnings, status filter, cards, Mark complete and Add */
 const StageRecordsPage = () => {
@@ -148,7 +131,7 @@ const StageRecordsPage = () => {
                 <ExecStatusPill status={r.status} />
               </Box>
               <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.5 }}>
-                {cardLine(r)}
+                {recordLine(r)}
               </Typography>
               {r.status === "PENDING_APPROVAL" && <ReviewSlots review={r.review} sx={{ mt: 0.5 }} />}
               {r.status === "IN_PROGRESS" && (
