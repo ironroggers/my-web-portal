@@ -9,7 +9,9 @@ import {
   RESTORATION_COLORS,
   RING_COLOR,
   ROUTER_COLOR,
+  STAGE_LAYERS,
   STATUS_COLORS,
+  lighten,
 } from "../blockProfile/blockMapLayers";
 
 // Blocks drawn at once. Each picked block loads its own layers, so this keeps the map fast.
@@ -90,6 +92,8 @@ export const layerDefs = () => [
       ...SUB_STATUSES.map((key) => ({ shape: "line", color: STATUS_COLORS[key], status: key })),
       { shape: "line", color: "#475569", dashed: true, label: "Planned line, along the road" },
       { shape: "line", color: "#475569", label: "Executed path" },
+      { shape: "line", color: lighten(STATUS_COLORS.IN_PROGRESS), label: "Every other subsection, lighter" },
+      { shape: "tick", label: "Where one subsection ends and the next begins" },
       { shape: "dot", color: "#15803d", label: "A · start pit / point" },
       { shape: "dot", color: "#b91c1c", label: "B · end pit / point" },
     ],
@@ -129,6 +133,16 @@ export const layerDefs = () => [
       { shape: "badge", color: EQUIPMENT_COLORS.misc, text: "FD", label: "Misc: RA rack, FD FDMS, FT FTB, CC CCU, SP SPV" },
     ],
   },
+  // Section stages, coloured by the record's status
+  ...STAGE_LAYERS.map((l) => ({
+    key: l.key,
+    stage: l.stage,
+    group: "Stages",
+    label: l.label,
+    minZoom: 13,
+    on: true,
+    legend: [{ shape: "stage", stage: l.stage, color: STATUS_COLORS.APPROVED, label: l.note }],
+  })),
   {
     key: "media",
     group: "Attachments",
@@ -139,7 +153,7 @@ export const layerDefs = () => [
   },
 ];
 
-export const LAYER_GROUPS = ["Network", "Routes", "Infra", "Attachments"];
+export const LAYER_GROUPS = ["Network", "Routes", "Stages", "Infra", "Attachments"];
 
 // ---- block tree (State → District → Block)
 
@@ -237,6 +251,7 @@ export const blockPoints = (data, kmlFeatures = []) => {
     ...(data.equipment || []),
     ...(data.sections || []).flatMap((s) => [s.from, s.to]),
     ...(data.subsections || []).flatMap((s) => [s.from, s.to, s.start, s.end]),
+    ...(data.stageRecords || []).map((r) => toPoint(r.lat, r.lng)),
     ...kmlFeatures.flatMap(featurePoints),
   ].filter(Boolean);
 };

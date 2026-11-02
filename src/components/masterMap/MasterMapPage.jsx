@@ -41,7 +41,8 @@ import PageHeader from "../common/PageHeader";
 import StatTile from "../common/StatTile";
 import ExecMediaViewer from "../execution/ExecMediaViewer";
 import { Badge, Diamond, Dot, FilterChip, GroupHeading, Line, Pin, Square } from "../blockProfile/BlockMapPanel";
-import { EQUIPMENT_COLORS, MEDIA_KINDS, STATUS_COLORS } from "../blockProfile/blockMapLayers";
+import { EQUIPMENT_COLORS, MEDIA_KINDS, STAGE_LAYERS, STAGE_STATUSES, STATUS_COLORS, SUB_LABEL_ZOOM } from "../blockProfile/blockMapLayers";
+import { StageSwatch, TickSwatch } from "../blockProfile/MapWorkLayers";
 import MasterMapBlockLayers from "./MasterMapBlockLayers";
 import MasterMapBlockTree from "./MasterMapBlockTree";
 import MasterMapInfo from "./MasterMapInfo";
@@ -122,6 +123,10 @@ const LegendSwatch = ({ item }) => {
       return <Badge color={item.color} text={item.text} />;
     case "line":
       return <Line color={item.color} dashed={item.dashed} thick={item.thick} />;
+    case "stage":
+      return <StageSwatch stage={item.stage} color={item.color} />;
+    case "tick":
+      return <TickSwatch />;
     default:
       return <Dot color={item.color} size={item.size} />;
   }
@@ -215,6 +220,7 @@ const MasterMapPage = () => {
   const [prefs] = useState(readPrefs);
   const [layers, setLayers] = useState(() => ({ ...Object.fromEntries(defs.map((d) => [d.key, d.on])), names: true, ...prefs.layers }));
   const [subStatuses, setSubStatuses] = useState(() => new Set(prefs.subStatuses || SUB_STATUSES));
+  const [stageStatuses, setStageStatuses] = useState(() => new Set(prefs.stageStatuses || STAGE_STATUSES));
   const [equipmentForms, setEquipmentForms] = useState(() => new Set(prefs.equipmentForms || EQUIPMENT_FORMS_ON_MAP.map((f) => f.key)));
   const [mediaKinds, setMediaKinds] = useState(() => new Set(prefs.mediaKinds || MEDIA_KINDS.map((k) => k.key)));
   const [legendOpen, setLegendOpen] = useState(prefs.legendOpen ?? true);
@@ -222,10 +228,10 @@ const MasterMapPage = () => {
   const [panelOpen, setPanelOpen] = useState(prefs.panelOpen ?? true);
   const [tab, setTab] = useState(selected.size ? "layers" : "blocks");
   useEffect(() => {
-    writePrefs({ layers, subStatuses: [...subStatuses], equipmentForms: [...equipmentForms], mediaKinds: [...mediaKinds], legendOpen, panelOpen });
-  }, [layers, subStatuses, equipmentForms, mediaKinds, legendOpen, panelOpen]);
+    writePrefs({ layers, subStatuses: [...subStatuses], stageStatuses: [...stageStatuses], equipmentForms: [...equipmentForms], mediaKinds: [...mediaKinds], legendOpen, panelOpen });
+  }, [layers, subStatuses, stageStatuses, equipmentForms, mediaKinds, legendOpen, panelOpen]);
   const toggleLayer = (key) => setLayers((l) => ({ ...l, [key]: !l[key] }));
-  const filters = useMemo(() => ({ subStatuses, equipmentForms, mediaKinds }), [subStatuses, equipmentForms, mediaKinds]);
+  const filters = useMemo(() => ({ subStatuses, stageStatuses, equipmentForms, mediaKinds }), [subStatuses, stageStatuses, equipmentForms, mediaKinds]);
 
   // ---- each picked block's layers, a few requests at a time; kept while the page is open
   const [blockData, setBlockData] = useState({});
@@ -385,6 +391,7 @@ const MasterMapPage = () => {
     Object.fromEntries([
       ...defs.map((d) => [d.key, Boolean(layers[d.key]) && zoom >= d.minZoom]),
       ["entries", Boolean(layers.subsections) && zoom >= 15],
+      ["subLabels", Boolean(layers.subsections) && Boolean(layers.names) && zoom >= SUB_LABEL_ZOOM],
       ["kmlPoints", Boolean(layers.kml) && zoom >= 13],
     ])
   );
@@ -425,6 +432,7 @@ const MasterMapPage = () => {
       gpInfra: sum((d) => (d.infra || []).filter((i) => i.level === "GP").length),
       equipment: sum((d) => (d.equipment || []).length),
       media: sum((d) => (d.media || []).length),
+      ...Object.fromEntries(STAGE_LAYERS.map((l) => [l.key, sum((d) => (d.stageRecords || []).filter((r) => r.stage === l.stage).length)])),
     };
   }, [ready]);
   const countWhere = (fn) => ready.reduce((n, d) => n + fn(d), 0);
@@ -538,6 +546,25 @@ const MasterMapPage = () => {
                 {layerFilters[def.key]}
               </LayerRow>
             ))}
+          {group === "Stages" && (
+            <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: "divider" }}>
+              <Typography variant="caption" component="div" sx={{ color: "text.secondary", mb: 0.5 }}>
+                Stage records by status
+              </Typography>
+              <Stack direction="row" useFlexGap spacing={0.75} sx={{ flexWrap: "wrap" }}>
+                {STAGE_STATUSES.map((key) => (
+                  <FilterChip
+                    key={key}
+                    label={statusLabel(key)}
+                    count={countWhere((d) => (d.stageRecords || []).filter((r) => r.status === key).length)}
+                    color={STATUS_COLORS[key]}
+                    on={stageStatuses.has(key)}
+                    onClick={() => setStageStatuses((s) => toggleIn(s, key))}
+                  />
+                ))}
+              </Stack>
+            </Box>
+          )}
         </React.Fragment>
       ))}
       <Typography variant="caption" component="p" sx={{ color: "text.secondary", px: 2, py: 1.5 }}>

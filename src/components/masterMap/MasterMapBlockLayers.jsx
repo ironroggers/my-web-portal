@@ -17,12 +17,17 @@ import {
   RING_COLOR,
   ROUTER_COLOR,
   SQUARE_PATH,
+  STAGE_LAYERS,
   STATUS_COLORS,
+  boundaryTicks,
   circleSymbol,
   groupMedia,
   isFlagged,
+  lighten,
+  lightSubsections,
   symbol,
 } from "../blockProfile/blockMapLayers";
+import { StageRecordLayers, SubsectionLabel } from "../blockProfile/MapWorkLayers";
 import { kmlColor, subKey, toPoint } from "./masterMapLayers";
 import { midpointOf } from "../blockProfile/roadPaths";
 import { kmlPointIcon, kmlStyleOf } from "../mapViewPage/utils/kmlUtils";
@@ -59,6 +64,9 @@ const MasterMapBlockLayers = ({ data, kml, roads, show, filters, thick, names, l
   const equipment = useMemo(() => (data.equipment || []).filter((e) => Number.isFinite(e.lat)), [data.equipment]);
   const infra = useMemo(() => (data.infra || []).filter((i) => Number.isFinite(i.lat)), [data.infra]);
   const sections = useMemo(() => (data.sections || []).filter((s) => s.from && s.to), [data.sections]);
+  const lightSubs = useMemo(() => lightSubsections(data.subsections || []), [data.subsections]);
+  // Stage layers that draw now
+  const stages = useMemo(() => new Set(STAGE_LAYERS.filter((l) => show[l.key]).map((l) => l.stage)), [show]);
 
   // Where a ring node is: its equipment sheet's location, else the router / GP coordinates.
   // A link runs along the KML road between its nodes; without one it isn't drawn.
@@ -104,11 +112,15 @@ const MasterMapBlockLayers = ({ data, kml, roads, show, filters, thick, names, l
   const nameLabel = (text) => (names ? { text: titleCase(text), className: "block-map-name", color: "#111827", fontSize: "11px", fontWeight: "600" } : undefined);
 
   const renderSubsection = (s) => {
-    const color = STATUS_COLORS[subKey(s)] || STATUS_COLORS.NOT_STARTED;
+    // Every other subsection in a section takes the light shade, so neighbours stand apart
+    const statusColor = STATUS_COLORS[subKey(s)] || STATUS_COLORS.NOT_STARTED;
+    const color = lightSubs.has(String(s._id)) ? lighten(statusColor) : statusColor;
     const executed = [s.start, ...s.entries, s.end].filter(Boolean).map((p) => ({ lat: p.lat, lng: p.lng }));
     // The planned line follows the road from the KML; without one only the field work shows
     const planned = roads?.subsections.get(String(s._id));
     const mid = planned ? midpointOf(planned) : executed[0];
+    // The line its ends are ticked on and its label sits at
+    const line = planned || (executed.length > 1 ? executed : null);
     const sub = (what, position) => pick("subsection", position, { item: s, what });
     return (
       <React.Fragment key={s._id}>
@@ -116,6 +128,8 @@ const MasterMapBlockLayers = ({ data, kml, roads, show, filters, thick, names, l
         {executed.length > 1 && (
           <Polyline path={executed} options={{ strokeColor: color, strokeWeight: 4, strokeOpacity: 0.9, zIndex: 4 }} onClick={(e) => sub("Executed path", at(e))} />
         )}
+        {line && <Polyline path={line} options={{ strokeOpacity: 0, icons: boundaryTicks(), zIndex: 5, clickable: false }} />}
+        {line && show.subLabels && <SubsectionLabel subsection={s} path={line} onClick={(position) => sub("Subsection", position)} />}
         {show.entries &&
           s.entries.map((p, i) => (
             <Marker key={`e${i}`} position={p} icon={circleSymbol(color, 3, { strokeWeight: 1 })} zIndex={5} onClick={() => sub(`Entry #${i + 1}`, p)} />
@@ -198,6 +212,16 @@ const MasterMapBlockLayers = ({ data, kml, roads, show, filters, thick, names, l
         })}
 
       {show.subsections && (data.subsections || []).filter((s) => filters.subStatuses.has(subKey(s))).map(renderSubsection)}
+      {stages.size > 0 && (
+        <StageRecordLayers
+          records={data.stageRecords}
+          subsections={data.subsections}
+          roads={roads}
+          visible={stages}
+          statuses={filters.stageStatuses}
+          onPick={(r, position) => pick("stage", position, { item: r })}
+        />
+      )}
 
       {ringLinks.map((link) => (
         <Polyline key={link.key} path={link.path} options={{ strokeOpacity: 0, icons: ringIcons(RING_COLOR), zIndex: 2 }} onClick={(e) => pick("ring", at(e), { item: link })} />

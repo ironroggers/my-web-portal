@@ -1,3 +1,5 @@
+import { fmtDistance } from "../../utils/executionFormat";
+
 // Colours, shapes and grouping for the block map's layers (BlockMapPanel). Every kind of
 // point has its own colour and shape so nothing on the map needs a click to tell apart.
 
@@ -42,6 +44,81 @@ export const RESTORATION_COLORS = {
 };
 
 export const REF_COLOR = "#475569";
+
+// ---- subsections: back-to-back subsections alternate a full and a light shade of their status
+// colour and have a cross tick at each end, so two with the same status still read as two
+
+// A colour mixed towards white
+export const lighten = (hex, amount = 0.45) => {
+  const n = parseInt(hex.slice(1), 16);
+  const mix = (c) => Math.round(c + (255 - c) * amount);
+  return `#${[n >> 16, (n >> 8) & 255, n & 255].map((c) => mix(c).toString(16).padStart(2, "0")).join("")}`;
+};
+
+// Odd-numbered subsections in each section (in route order) take the light shade
+export const lightSubsections = (subsections) => {
+  const bySection = new Map();
+  const light = new Set();
+  for (const s of subsections) {
+    const n = bySection.get(s.sectionId) || 0;
+    if (n % 2) light.add(String(s._id));
+    bySection.set(s.sectionId, n + 1);
+  }
+  return light;
+};
+
+// A dark tick across the line at both ends, on a white halo; a symbol on a line turns with it
+const TICK = "M -1 0 L 1 0";
+export const boundaryTicks = () =>
+  ["0", "100%"].flatMap((offset) => [
+    { icon: { path: TICK, strokeColor: "#ffffff", strokeOpacity: 1, strokeWeight: 6, scale: 8 }, offset },
+    { icon: { path: TICK, strokeColor: "#111827", strokeOpacity: 1, strokeWeight: 3, scale: 7 }, offset },
+  ]);
+
+// "SS-3 · 420 m"; labels show from this zoom in
+export const SUB_LABEL_ZOOM = 14;
+export const subsectionLabel = (s) => {
+  const length = s.subSectionLength ?? s.calculatedLength;
+  return [s.name || "Subsection", length != null ? fmtDistance(length) : ""].filter(Boolean).join(" · ");
+};
+
+/** The subsection's executed path (start, entries, end), else its planned road line */
+export const subsectionPath = (s, roads) => {
+  const executed = [s.start, ...(s.entries || []), s.end].filter(Boolean).map((p) => ({ lat: p.lat, lng: p.lng }));
+  return executed.length > 1 ? executed : roads?.subsections.get(String(s._id)) || null;
+};
+
+// ---- section stages, coloured by the record's status like subsections
+
+export const HEXAGON_PATH = "M -11 0 L -6 -9 L 6 -9 L 11 0 L 6 9 L -6 9 z";
+export const TRIANGLE_PATH = "M 0 -8 L 8 6 L -8 6 z";
+// A route marker post
+export const POST_PATH = "M -3.5 -10 L 3.5 -10 L 3.5 9 L -3.5 9 z";
+
+// line: beads (ducting), arrows (blowing); point shapes: hexagon (chamber, with its type),
+// triangle (coupling), post (route marker)
+export const STAGE_LAYERS = [
+  { stage: "DUCTING", key: "ducting", label: "Ducting", shape: "beads", note: "Duct run along its excavation subsection" },
+  { stage: "COUPLING", key: "coupling", label: "Coupling", shape: "triangle", path: TRIANGLE_PATH, note: "Coupling at the pit where two ducts meet" },
+  { stage: "CHAMBER", key: "chamber", label: "Chamber", shape: "hexagon", path: HEXAGON_PATH, note: "Chamber, with its type (MH, HH, LC)" },
+  { stage: "BLOWING", key: "blowing", label: "Blowing", shape: "arrows", note: "Cable blown from one chamber to the next" },
+  { stage: "ROUTE_MARKER", key: "routeMarker", label: "Route marker", shape: "post", path: POST_PATH, note: "Route marker" },
+];
+export const STAGE_LAYER = Object.fromEntries(STAGE_LAYERS.map((l) => [l.stage, l]));
+export const STAGE_STATUSES = ["IN_PROGRESS", "PENDING_APPROVAL", "APPROVED", "REJECTED"];
+
+// Small beads along a duct run
+export const beadIcons = (color) => [
+  {
+    icon: { path: "M -1 0 A 1 1 0 1 1 1 0 A 1 1 0 1 1 -1 0", fillColor: color, fillOpacity: 1, strokeColor: "#ffffff", strokeOpacity: 1, strokeWeight: 1, scale: 3 },
+    offset: "6px",
+    repeat: "14px",
+  },
+];
+// Arrows from the From chamber to the To chamber
+export const arrowIcons = (color) => [
+  { icon: { path: window.google.maps.SymbolPath.FORWARD_OPEN_ARROW, strokeColor: color, strokeOpacity: 1, strokeWeight: 2.5, scale: 2.5 }, offset: "20px", repeat: "70px" },
+];
 
 // Geotagged attachments by where they were captured
 export const MEDIA_KINDS = [

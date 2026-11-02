@@ -121,6 +121,20 @@ const MasterMapInfo = ({ selected, data, roads, config, limit, onSelect, onZoom,
         {roads?.problems.has(String(item._id)) && <Line2>{`Planned line not drawn: ${roads.problems.get(String(item._id))}`}</Line2>}
       </>
     ),
+    stage: () => {
+      const records = data?.stageRecords || [];
+      const nameOf = (id) => records.find((r) => r._id === String(id))?.name || "—";
+      const sub = (data?.subsections || []).find((x) => x._id === String(item.links?.subSection));
+      const sectionName = (data?.sections || []).find((x) => x._id === item.sectionId)?.name;
+      return (
+        <>
+          <InfoTitle sub={[config?.stages?.[item.stage]?.label || item.stage, sectionName].filter(Boolean).join(" · ")}>{item.name}</InfoTitle>
+          <Line2>{[item.stage === "CHAMBER" ? item.type : "", statusLabel(item.status)].filter(Boolean).join(" · ")}</Line2>
+          {item.stage === "DUCTING" && sub && <Line2>{`Along ${sub.name} · ${fmtDistance(sub.subSectionLength)}`}</Line2>}
+          {item.stage === "BLOWING" && <Line2>{`${nameOf(item.links?.fromChamber)} → ${nameOf(item.links?.toChamber)}`}</Line2>}
+        </>
+      );
+    },
     ref: () => (
       <>
         <InfoTitle sub={`Reference point · ${selected.subsection.name}`}>{item.description || "Reference point"}</InfoTitle>

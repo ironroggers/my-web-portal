@@ -58,12 +58,19 @@ import {
   RESTORATION_COLORS,
   RING_COLOR,
   SQUARE_PATH,
+  STAGE_LAYERS,
+  STAGE_STATUSES,
   STATUS_COLORS,
+  SUB_LABEL_ZOOM,
+  boundaryTicks,
   circleSymbol,
   groupMedia,
   isFlagged,
+  lighten,
+  lightSubsections,
   symbol,
 } from "./blockMapLayers";
+import { StageRecordLayers, StageSwatch, SubsectionLabel, TickSwatch } from "./MapWorkLayers";
 import { exportBlockKml } from "../masterMap/masterMapExport";
 import { ROAD_TOLERANCE_M, buildRoadNetwork, buildRoadPaths, midpointOf, pathLength } from "./roadPaths";
 
@@ -330,12 +337,16 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
     rings: true,
     sections: true,
     subsections: true,
+    subLabels: true,
     refs: false,
     media: false,
   });
   const [equipmentForms, setEquipmentForms] = useState(() => new Set(EQUIPMENT_FORMS_ON_MAP.map((f) => f.key)));
   const [subStatuses, setSubStatuses] = useState(() => new Set([...SUB_STATUSES, "LEGACY"]));
   const [mediaKinds, setMediaKinds] = useState(() => new Set(MEDIA_KINDS.map((k) => k.key)));
+  // Section stages: which are drawn, and which record statuses
+  const [stages, setStages] = useState(() => new Set(STAGE_LAYERS.map((l) => l.stage)));
+  const [stageStatuses, setStageStatuses] = useState(() => new Set(STAGE_STATUSES));
   const [fileTypes, setFileTypes] = useState(() => new Set(["IMAGE", "VIDEO"]));
   const [flaggedOnly, setFlaggedOnly] = useState(false);
   const toggleLayer = (key) => setLayers((l) => ({ ...l, [key]: !l[key] }));
@@ -402,6 +413,8 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
 
   const sections = useMemo(() => (data?.sections || []).filter((s) => s.from && s.to), [data]);
   const subsections = useMemo(() => data?.subsections || [], [data]);
+  const lightSubs = useMemo(() => lightSubsections(subsections), [subsections]);
+  const stageRecords = useMemo(() => data?.stageRecords || [], [data]);
   const allMedia = useMemo(() => data?.media || [], [data]);
 
   // Sections, subsections and ring links follow the road in the KML files, never a straight line
@@ -466,14 +479,15 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
       ...sections.flatMap((s) => [s.from, s.to]),
       ...subsections.flatMap((s) => [s.from, s.to, s.start, s.end, ...s.entries].filter(Boolean).map((p) => ({ lat: p.lat, lng: p.lng }))),
       ...allMedia.map((m) => ({ lat: m.lat, lng: m.lng })),
+      ...stageRecords.filter((r) => Number.isFinite(r.lat)).map((r) => ({ lat: r.lat, lng: r.lng })),
     ],
-    [router, gpPoints, kmlFiles, kmlState, infra, equipment, sections, subsections, allMedia]
+    [router, gpPoints, kmlFiles, kmlState, infra, equipment, sections, subsections, allMedia, stageRecords]
   );
   const fitKey = [
     router ? formatPoint(router) : "",
     gpPoints.length,
     loadedKmlIds.join(","),
-    data ? `${infra.length}/${equipment.length}/${sections.length}/${subsections.length}/${allMedia.length}` : "",
+    data ? `${infra.length}/${equipment.length}/${sections.length}/${subsections.length}/${allMedia.length}/${stageRecords.length}` : "",
   ].join("|");
 
   useEffect(() => {
@@ -687,6 +701,24 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
       </>
     ));
 
+  // A stage record: what it is, where it runs, and a link to the record
+  const infoStage = (r, position) => {
+    const sectionName = sections.find((x) => x._id === r.sectionId)?.name;
+    const nameOf = (id) => stageRecords.find((x) => x._id === String(id))?.name;
+    const sub = subsections.find((x) => x._id === String(r.links?.subSection));
+    select(position, (
+      <>
+        <InfoTitle sub={[config?.stages?.[r.stage]?.label || r.stage, sectionName].filter(Boolean).join(" · ")}>{r.name}</InfoTitle>
+        <Line2>{[r.stage === "CHAMBER" ? r.type : "", statusLabel(r.status)].filter(Boolean).join(" · ")}</Line2>
+        {r.stage === "DUCTING" && sub && <Line2>{`Along ${sub.name} · ${fmtDistance(sub.subSectionLength)}`}</Line2>}
+        {r.stage === "BLOWING" && <Line2>{`${nameOf(r.links?.fromChamber) || "—"} → ${nameOf(r.links?.toChamber) || "—"}`}</Line2>}
+        <Link component="button" variant="caption" onClick={() => navigate(`/stage-records/${r._id}`, { state: { ...blockState, sectionId: r.sectionId, sectionName } })}>
+          Open record
+        </Link>
+      </>
+    ));
+  };
+
   const infoRef = (s, r, which) =>
     infoNode({ lat: r.lat, lng: r.lng }, r.description || "Reference point", [
       `${which} · ${s.name}`,
@@ -708,11 +740,15 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
 
   // ---- drawing
   const renderSubsection = (s) => {
-    const color = STATUS_COLORS[subKey(s)] || STATUS_COLORS.NOT_STARTED;
+    // Every other subsection in a section takes the light shade, so neighbours stand apart
+    const statusColor = STATUS_COLORS[subKey(s)] || STATUS_COLORS.NOT_STARTED;
+    const color = lightSubs.has(String(s._id)) ? lighten(statusColor) : statusColor;
     const executed = [s.start, ...s.entries, s.end].filter(Boolean).map((p) => ({ lat: p.lat, lng: p.lng }));
     // Along the road from the KML; without one only the field work shows
     const planned = roadPaths.subsections.get(String(s._id));
     const mid = planned ? midpointOf(planned) : executed[0];
+    // The line its ends are ticked on and its label sits at
+    const line = planned || (executed.length > 1 ? executed : null);
     const pitA = config?.types?.[s.typeOfWork]?.pitA || "Start";
     const pitB = config?.types?.[s.typeOfWork]?.pitB || "End";
     return (
@@ -727,6 +763,8 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
         {executed.length > 1 && (
           <Polyline path={executed} options={{ strokeColor: color, strokeWeight: 4, strokeOpacity: 0.9, zIndex: 4 }} onClick={(e) => infoSub(s, e.latLng.toJSON(), "Executed path")} />
         )}
+        {line && <Polyline path={line} options={{ strokeOpacity: 0, icons: boundaryTicks(), zIndex: 5, clickable: false }} />}
+        {line && layers.subLabels && zoom >= SUB_LABEL_ZOOM && <SubsectionLabel subsection={s} path={line} onClick={(position) => infoSub(s, position, "Subsection")} />}
         {s.entries.map((p, i) => (
           <Marker key={`e${i}`} position={p} icon={circleSymbol(color, 3, { strokeWeight: 1 })} zIndex={5} title={`${s.name} · entry #${i + 1}`} onClick={() => infoSub(s, p, `Entry #${i + 1}`)} />
         ))}
@@ -818,6 +856,7 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
         })}
 
       {layers.subsections && visibleSubs.map(renderSubsection)}
+      <StageRecordLayers records={stageRecords} subsections={subsections} roads={roadPaths} visible={stages} statuses={stageStatuses} onPick={infoStage} />
       {gaps.map((g) => (
         <Marker
           key={`${g.a.subSection}:${g.a.side}:${g.b.subSection}:${g.b.side}`}
@@ -1093,6 +1132,18 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
               <Stack spacing={0.25}>
                 <Key swatch={<Line color="#475569" dashed />}>Planned line, along the road from → to</Key>
                 <Key swatch={<Line color="#475569" />}>Executed path through the entries</Key>
+                <Key swatch={<Line color={lighten(STATUS_COLORS.IN_PROGRESS)} />}>Every other subsection in a section is a lighter shade</Key>
+                <Key swatch={<TickSwatch />}>Tick: where one subsection ends and the next begins</Key>
+                <Key
+                  swatch={
+                    <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                      Aa
+                    </Typography>
+                  }
+                  action={<Switch size="small" checked={layers.subLabels} onChange={() => toggleLayer("subLabels")} slotProps={{ input: { "aria-label": "Show subsection labels" } }} />}
+                >
+                  Name and length {zoom < SUB_LABEL_ZOOM && layers.subLabels ? "(zoom in to see them)" : ""}
+                </Key>
                 <Key swatch={<Dot color="#15803d" size={14} />}>A · start pit / point</Key>
                 <Key swatch={<Dot color="#b91c1c" size={14} />}>B · end pit / point</Key>
                 <Key
@@ -1103,6 +1154,35 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
                 </Key>
               </Stack>
             </LayerRow>
+
+            <GroupHeading>Stages</GroupHeading>
+            {STAGE_LAYERS.map((l) => (
+              <LayerRow
+                key={l.stage}
+                swatch={<StageSwatch stage={l.stage} />}
+                label={config?.stages?.[l.stage]?.label || l.label}
+                count={stageRecords.filter((r) => r.stage === l.stage).length}
+                checked={stages.has(l.stage)}
+                onChange={() => setStages((v) => toggleIn(v, l.stage))}
+              />
+            ))}
+            <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: "divider" }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
+                Coloured by status. Hexagon: chamber (its type inside) · triangle: coupling · post: route marker · beads: duct run · arrows: blowing, From → To chamber.
+              </Typography>
+              <Stack direction="row" useFlexGap spacing={0.75} sx={{ flexWrap: "wrap" }}>
+                {STAGE_STATUSES.map((key) => (
+                  <FilterChip
+                    key={key}
+                    label={statusLabel(key)}
+                    count={stageRecords.filter((r) => r.status === key).length}
+                    color={STATUS_COLORS[key]}
+                    on={stageStatuses.has(key)}
+                    onClick={() => setStageStatuses((v) => toggleIn(v, key))}
+                  />
+                ))}
+              </Stack>
+            </Box>
 
             <GroupHeading>Attachments</GroupHeading>
             <LayerRow swatch={<Dot color="#0891b2" />} label="Geotagged photos and videos" count={allMedia.length} checked={layers.media} onChange={() => toggleLayer("media")}>
