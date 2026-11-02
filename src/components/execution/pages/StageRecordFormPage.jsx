@@ -61,7 +61,7 @@ const StageRecordFormPage = () => {
 
   const fields = useMemo(() => config?.stageFields?.[stage] || [], [config, stage]);
   const meta = config?.stages?.[stage] || {};
-  const rule = config?.mediaRules?.stageRecord;
+  const rule = config?.mediaRules?.[meta.mediaRule || "stageRecord"];
   const options = stageData?.options || { chambers: [], ductRuns: [], subsections: [], pits: [], couplingPoints: [] };
   const backTo = record ? `/stage-records/${record._id}` : `/sections/${sectionId}/stages/${stage}`;
 
