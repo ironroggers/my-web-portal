@@ -33,8 +33,6 @@ import BlockMapPanel from "./BlockMapPanel";
 import { BlockInfraPanel, GpInfraPanel } from "./InfraPanels";
 import BlockDiagramsPanel from "./diagrams/BlockDiagramsPanel";
 import BlockTeamPanel from "./BlockTeamPanel";
-import { DemoChip, ResetDemoDialog } from "./DemoBlock";
-import { useIsAdmin } from "../../hooks/useIsAdmin";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import { SITE_TYPES, blockPlace, blockStatus, formatDate } from "./blockProfileConstants";
 
@@ -209,8 +207,6 @@ const BlockProfileDetailPage = () => {
 
   // Deactivate confirmation
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [demoReset, setDemoReset] = useState(false);
-  const isAdmin = useIsAdmin();
   const [deactivateError, setDeactivateError] = useState("");
   const [deactivating, setDeactivating] = useState(false);
   const [freezeOpen, setFreezeOpen] = useState(false);
@@ -283,7 +279,6 @@ const BlockProfileDetailPage = () => {
             {[blockPlace(profile), `LGD ${profile.blockCode}`].filter(Boolean).join(" · ")}
             <StatusPill label={status.label} tone={status.tone} />
             {frozen && <StatusPill label="Frozen" tone="info" />}
-            {profile.isDemo && <DemoChip />}
           </Box>
         )
       }
@@ -362,31 +357,6 @@ const BlockProfileDetailPage = () => {
   return (
     <Box>
       {header}
-
-      {profile.isDemo && (
-        <Alert
-          severity="info"
-          sx={{ mb: 3 }}
-          action={
-            isAdmin && (
-              <Button color="inherit" size="small" onClick={() => setDemoReset(true)}>
-                Reset demo block
-              </Button>
-            )
-          }
-        >
-          Demo block with complete sample data, visible to admins only. Create, edit, approve and delete freely; Reset puts it back.
-        </Alert>
-      )}
-      <ResetDemoDialog
-        open={demoReset}
-        exists
-        onClose={() => setDemoReset(false)}
-        onDone={(id) => {
-          setDemoReset(false);
-          navigate(`/block-profiles/${id}`, { replace: true });
-        }}
-      />
 
       {frozen && (
         <Alert severity="info" icon={<AcUnitIcon />} sx={{ mb: 3 }}>

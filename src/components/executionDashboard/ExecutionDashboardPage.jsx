@@ -55,7 +55,6 @@ import StatusPill from "../common/StatusPill";
 import Meter from "../common/Meter";
 import { StackBar } from "../execution/execUi";
 import { BAR_ORDER, RESTORATION_ICONS, STATUS_ICONS, toneSx, titleCase } from "../execution/execConstants";
-import { DemoChip } from "../blockProfile/DemoBlock";
 import { formatNumber } from "../../utils/formatNumber";
 
 // Empty filters show their "All …" option rather than a bare label
@@ -357,7 +356,6 @@ const BlockProgressTable = ({ blocks }) => {
               <Box sx={{ display: "flex", alignItems: "baseline", gap: 1 }}>
                 <Typography variant="body2" component="div" sx={{ fontWeight: 600, flex: 1 }}>
                   {b.block}
-                  {b.isDemo && <DemoChip />}
                 </Typography>
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
                   {progress}%
@@ -404,7 +402,6 @@ const BlockProgressTable = ({ blocks }) => {
                 <TableCell>
                   <Typography variant="body2" component="div" sx={{ fontWeight: 600 }}>
                     {b.block}
-                    {b.isDemo && <DemoChip />}
                   </Typography>
                   <Typography variant="caption" sx={{ color: "text.secondary" }}>
                     LGD {b.blockCode}

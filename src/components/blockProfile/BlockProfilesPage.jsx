@@ -35,7 +35,6 @@ import StatusPill from "../common/StatusPill";
 import { formatNumber } from "../../utils/formatNumber";
 import { SITE_TYPES, blockStatus, formatLength } from "./blockProfileConstants";
 import ProgressMarks from "./ProgressMarks";
-import { DemoBlockButton, DemoChip } from "./DemoBlock";
 import BulkCreateFromMasterDialog from "./BulkCreateFromMasterDialog";
 import executionService from "../../services/executionService.jsx";
 import { titleCase } from "../execution/execConstants";
@@ -157,7 +156,6 @@ const BlockProfilesPage = () => {
         subtitle="Blocks with their GPs, router, KML files and execution sections"
         actions={
           <>
-            <DemoBlockButton onChanged={fetchProfiles} />
             {canBulkCreate && (
               <Button variant="outlined" startIcon={<PlaylistAddIcon />} onClick={() => setBulkOpen(true)}>
                 Create from master
@@ -276,7 +274,6 @@ const BlockProfilesPage = () => {
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>
                         {profile.block}
-                        {profile.isDemo && <DemoChip />}
                       </Typography>
                       <Typography variant="body2" noWrap sx={{ color: "text.secondary" }}>
                         {[profile.district, `LGD ${profile.blockCode}`].filter(Boolean).join(" · ")}
@@ -331,7 +328,6 @@ const BlockProfilesPage = () => {
                       <TableCell>
                         <Typography variant="body2" sx={{ fontWeight: 600 }}>
                           {profile.block}
-                          {profile.isDemo && <DemoChip />}
                         </Typography>
                         {profile.state && (
                           <Typography variant="caption" sx={{ color: "text.secondary" }}>
