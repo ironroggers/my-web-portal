@@ -63,7 +63,7 @@ const BLOCK_SHEETS = {
   },
   misc: {
     title: "Misc equipment",
-    empty: "Rack, FDMS, FTB, CCU or SPV at the block: type, asset code, model, serial no., backhaul and project status.",
+    empty: "Rack, FDMS, FTB, CCU, SPV, earthing or electric meter at the block: type, asset code, model, serial no., backhaul and project status.",
     columns: { xs: 1, md: 2 },
   },
 };

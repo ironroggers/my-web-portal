@@ -1061,7 +1061,7 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
               </Stack>
               <Stack spacing={0.25}>
                 <Key swatch={<Badge color={EQUIPMENT_COLORS.router} text="R" />}>Router (block or GP sheet)</Key>
-                <Key swatch={<Badge color={EQUIPMENT_COLORS.misc} text="FD" />}>Misc: RA rack, FD FDMS, FT FTB, CC CCU, SP SPV</Key>
+                <Key swatch={<Badge color={EQUIPMENT_COLORS.misc} text="FD" />}>Misc: RA rack, FD FDMS, FT FTB, CC CCU, SP SPV, ER earthing, EM electric meter</Key>
               </Stack>
             </LayerRow>
             <LayerRow

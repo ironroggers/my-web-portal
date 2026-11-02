@@ -14,9 +14,9 @@ const GP_SITE_TYPES = opts({ SCHOOL: "School", COLLEGE: "College", AANGANWADI: "
 // Where misc equipment is: the GP site types, or a BSNL exchange
 const MISC_LOCATION_TYPES = [...GP_SITE_TYPES, { value: "BSNL_EXCHANGE", label: "BSNL exchange" }];
 
-export const MISC_TYPE_TAGS = { RACK: "RA", FDMS: "FD", FTB: "FT", CCU: "CC", SPV: "SP" };
+export const MISC_TYPE_TAGS = { RACK: "RA", FDMS: "FD", FTB: "FT", CCU: "CC", SPV: "SP", EARTHING: "ER", ELECTRIC_METER: "EM" };
 // Types of misc equipment, in the order they're offered
-export const MISC_TYPES = opts({ RACK: "Rack", FDMS: "FDMS", FTB: "FTB", CCU: "CCU", SPV: "SPV" });
+export const MISC_TYPES = opts({ RACK: "Rack", FDMS: "FDMS", FTB: "FTB", CCU: "CCU", SPV: "SPV", EARTHING: "Earthing", ELECTRIC_METER: "Electric meter" });
 export const miscTypeLabel = (type) => MISC_TYPES.find((t) => t.value === type)?.label || type;
 
 const pad = (value, length) => {
@@ -121,7 +121,7 @@ export const EQUIPMENT_FORMS = {
   misc: {
     title: "Misc equipment",
     sheet: "misc_eqpt",
-    assetFormat: "SSDDDBBBB XX + the site's LGD code (XX: RA rack, FD FDMS, FT FTB, CC CCU, SP SPV · the GP's 6 digits, or the block's 4 at block level)",
+    assetFormat: "SSDDDBBBB XX + the site's LGD code (XX: RA rack, FD FDMS, FT FTB, CC CCU, SP SPV, ER earthing, EM electric meter · the GP's 6 digits, or the block's 4 at block level)",
     sections: [
       {
         title: "Equipment",

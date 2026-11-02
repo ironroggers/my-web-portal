@@ -130,7 +130,7 @@ export const layerDefs = () => [
     on: true,
     legend: [
       { shape: "badge", color: EQUIPMENT_COLORS.router, text: "R", label: "Router (block or GP sheet)" },
-      { shape: "badge", color: EQUIPMENT_COLORS.misc, text: "FD", label: "Misc: RA rack, FD FDMS, FT FTB, CC CCU, SP SPV" },
+      { shape: "badge", color: EQUIPMENT_COLORS.misc, text: "FD", label: "Misc: RA rack, FD FDMS, FT FTB, CC CCU, SP SPV, ER earthing, EM electric meter" },
     ],
   },
   // Section stages, coloured by the record's status

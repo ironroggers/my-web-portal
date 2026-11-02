@@ -17,7 +17,7 @@ export const MEDIA_SQUARE_PATH = "M -6 -6 L 6 -6 L 6 6 L -6 6 z";
 // Rounded badge with a short code inside, for equipment sheets
 export const BADGE_PATH = "M -10 -8 L 10 -8 Q 13 -8 13 -5 L 13 5 Q 13 8 10 8 L -10 8 Q -13 8 -13 5 L -13 -5 Q -13 -8 -10 -8 z";
 
-// Router equipment (block and GP sheets) and misc equipment (rack, FDMS, FTB, CCU, SPV)
+// Router equipment (block and GP sheets) and misc equipment (rack, FDMS, FTB, CCU, SPV, earthing, electric meter)
 export const EQUIPMENT_COLORS = { router: "#b45309", misc: "#4d7c0f" };
 // Previous / next node links on the ring, from the GP equipment sheets
 export const RING_COLOR = "#b45309";
