@@ -6,6 +6,7 @@ COPY package*.json ./
 RUN npm install
 
 COPY . .
+ARG VITE_GOOGLE_MAPS_API_KEY
 RUN npm run build
 
 # Step 2: Serve the app using Express proxy server

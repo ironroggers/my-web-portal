@@ -10,6 +10,6 @@ export const SURVEY_URL = "https://survey.annuprojects.com";
 export const LOCATION_URL = "https://location.annuprojects.com";
 export const ATTENDANCE_URL = "https://attendance.annuprojects.com";
 export const HOTO_URL = "https://hoto.annuprojects.com";
-export const GOOGLE_MAPS_DIRECTIONS_API = "AIzaSyC2pds2TL5_lGUM-7Y1CFiGq8Wrn0oULr0";
+export const GOOGLE_MAPS_DIRECTIONS_API = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 export const EXECUTION_URL = "https://execution.annuprojects.com";
 export const SUMMARY_URL = "https://summary.annuprojects.com";

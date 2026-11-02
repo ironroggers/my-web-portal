@@ -1,17 +1,11 @@
 import { useEffect, useState } from "react";
 import { useJsApiLoader } from "@react-google-maps/api";
-import { GOOGLE_MAPS_DIRECTIONS_API } from "../API/api-keys";
-
-// Same loader options as the map page, so the Google script is loaded once
-const GOOGLE_MAPS_LIBRARIES = ["places"];
+import { GOOGLE_MAPS_LOADER_OPTIONS } from "../components/mapViewPage/utils/googleMapsLoader";
 
 /** Address for a coordinate pair from Google's geocoder; "" until it resolves or when unavailable. */
 const useReverseGeocode = (latitude, longitude) => {
   const [locationName, setLocationName] = useState("");
-  const { isLoaded } = useJsApiLoader({
-    googleMapsApiKey: GOOGLE_MAPS_DIRECTIONS_API,
-    libraries: GOOGLE_MAPS_LIBRARIES,
-  });
+  const { isLoaded } = useJsApiLoader(GOOGLE_MAPS_LOADER_OPTIONS);
 
   useEffect(() => {
     if (!isLoaded || latitude == null || longitude == null || Number.isNaN(Number(latitude)) || Number.isNaN(Number(longitude))) {

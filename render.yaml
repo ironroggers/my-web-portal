@@ -6,4 +6,6 @@ services:
     startCommand: npm start
     envVars:
       - key: NODE_ENV
-        value: production 
+        value: production
+      - key: VITE_GOOGLE_MAPS_API_KEY
+        sync: false
