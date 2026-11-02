@@ -95,10 +95,10 @@ export const TRIANGLE_PATH = "M 0 -8 L 8 6 L -8 6 z";
 // A route marker post
 export const POST_PATH = "M -3.5 -10 L 3.5 -10 L 3.5 9 L -3.5 9 z";
 
-// line: beads (ducting), arrows (blowing); point shapes: hexagon (chamber, with its type),
+// line: tube (ducting), arrows (blowing); point shapes: hexagon (chamber, with its type),
 // triangle (coupling), post (route marker)
 export const STAGE_LAYERS = [
-  { stage: "DUCTING", key: "ducting", label: "Ducting", shape: "beads", note: "Duct run along its excavation subsection" },
+  { stage: "DUCTING", key: "ducting", label: "Ducting", shape: "tube", note: "Duct run: hollow tube around its subsection" },
   { stage: "COUPLING", key: "coupling", label: "Coupling", shape: "triangle", path: TRIANGLE_PATH, note: "Coupling at the pit where two ducts meet" },
   { stage: "CHAMBER", key: "chamber", label: "Chamber", shape: "hexagon", path: HEXAGON_PATH, note: "Chamber, with its type (MH, HH, LC)" },
   { stage: "BLOWING", key: "blowing", label: "Blowing", shape: "arrows", note: "Cable blown from one chamber to the next" },
@@ -107,14 +107,8 @@ export const STAGE_LAYERS = [
 export const STAGE_LAYER = Object.fromEntries(STAGE_LAYERS.map((l) => [l.stage, l]));
 export const STAGE_STATUSES = ["IN_PROGRESS", "PENDING_APPROVAL", "APPROVED", "REJECTED"];
 
-// Small beads along a duct run
-export const beadIcons = (color) => [
-  {
-    icon: { path: "M -1 0 A 1 1 0 1 1 1 0 A 1 1 0 1 1 -1 0", fillColor: color, fillOpacity: 1, strokeColor: "#ffffff", strokeOpacity: 1, strokeWeight: 1, scale: 3 },
-    offset: "6px",
-    repeat: "14px",
-  },
-];
+// A duct run is a hollow tube around its subsection's line: casing and core widths in pixels
+export const DUCT_TUBE = { outer: 13, inner: 7 };
 // Arrows from the From chamber to the To chamber
 export const arrowIcons = (color) => [
   { icon: { path: window.google.maps.SymbolPath.FORWARD_OPEN_ARROW, strokeColor: color, strokeOpacity: 1, strokeWeight: 2.5, scale: 2.5 }, offset: "20px", repeat: "70px" },

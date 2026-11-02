@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { Box } from "@mui/material";
 import { Marker, Polyline } from "@react-google-maps/api";
-import { STAGE_LAYER, STATUS_COLORS, arrowIcons, beadIcons, subsectionLabel, subsectionPath, symbol } from "./blockMapLayers";
+import { STAGE_LAYER, STATUS_COLORS, DUCT_TUBE, arrowIcons, subsectionLabel, subsectionPath, symbol } from "./blockMapLayers";
 import { midpointOf } from "./roadPaths";
 
 // Drawing shared by the block map (BlockMapPanel) and the master map (MasterMapBlockLayers):
@@ -43,8 +43,12 @@ export const StageRecordLayers = ({ records, subsections, roads, visible, status
     if (r.stage === "DUCTING") {
       const sub = subById.get(String(r.links?.subSection));
       const path = sub && subsectionPath(sub, roads);
+      // A hollow tube under the subsection's line: coloured casing, white core
       return path ? (
-        <Polyline key={r._id} path={path} options={{ strokeOpacity: 0, icons: beadIcons(color), zIndex: 6 }} onClick={(e) => onPick(r, at(e))} />
+        <React.Fragment key={r._id}>
+          <Polyline path={path} options={{ strokeColor: color, strokeOpacity: 0.95, strokeWeight: DUCT_TUBE.outer, zIndex: 2 }} onClick={(e) => onPick(r, at(e))} />
+          <Polyline path={path} options={{ strokeColor: "#ffffff", strokeOpacity: 1, strokeWeight: DUCT_TUBE.inner, zIndex: 2 }} onClick={(e) => onPick(r, at(e))} />
+        </React.Fragment>
       ) : null;
     }
     if (r.stage === "BLOWING") {
@@ -82,12 +86,11 @@ export const StageRecordLayers = ({ records, subsections, roads, visible, status
 /** A stage's swatch: its line pattern or point shape */
 export const StageSwatch = ({ stage, color = STATUS_COLORS.APPROVED }) => {
   const layer = STAGE_LAYER[stage];
-  if (layer.shape === "beads") {
+  if (layer.shape === "tube") {
     return (
-      <Box component="svg" viewBox="0 0 24 10" sx={{ width: 24, height: 10 }}>
-        {[4, 12, 20].map((x) => (
-          <circle key={x} cx={x} cy={5} r={3} fill={color} stroke="#fff" strokeWidth="1" />
-        ))}
+      <Box component="svg" viewBox="0 0 24 12" sx={{ width: 24, height: 12 }}>
+        <line x1="0" y1="6" x2="24" y2="6" stroke={color} strokeWidth="11" />
+        <line x1="0" y1="6" x2="24" y2="6" stroke="#fff" strokeWidth="6" />
       </Box>
     );
   }

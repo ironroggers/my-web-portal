@@ -1168,7 +1168,7 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
             ))}
             <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: "divider" }}>
               <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
-                Coloured by status. Hexagon: chamber (its type inside) · triangle: coupling · post: route marker · beads: duct run · arrows: blowing, From → To chamber.
+                Coloured by status. Hexagon: chamber (its type inside) · triangle: coupling · post: route marker · hollow tube: duct run · arrows: blowing, From → To chamber.
               </Typography>
               <Stack direction="row" useFlexGap spacing={0.75} sx={{ flexWrap: "wrap" }}>
                 {STAGE_STATUSES.map((key) => (
