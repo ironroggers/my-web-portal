@@ -74,7 +74,7 @@ const StageRecordPage = ({ approvalView = false }) => {
     ...(record.stage === "DUCTING" && record.chainageM !== undefined ? [["Route", `Ch ${record.chainageM} m to ${record.chainageEndM} m`]] : []),
     ...recordExtraRows(record),
     ...detailRows(config?.stageFields?.[record.stage] || [], record, labelOf),
-    ...(record.stage === "BLOWING"
+    ...(record.stage === "BLOWING" && record.data?.cable !== "Incremental"
       ? [
           ["Blown length", fmtDistance(record.data?.blownLengthM || 0)],
           [`At ${record.linked?.fromChamber?.name ?? "From chamber"}`, `In ${record.data?.fromIn ?? "–"} m · Out ${record.data?.fromOut ?? "–"} m · Loop ${record.data?.fromLoopM ?? "–"} m`],
@@ -170,7 +170,7 @@ const StageRecordPage = ({ approvalView = false }) => {
       {record.stage === "CHAMBER" && (
         <SectionCard title="Cable readings · from Blowing" sx={{ mb: 2 }}>
           {record.readings?.length ? (
-            record.readings.map((x) => <Row key={x.record} label={`Drum ${x.drum ?? "–"}`} value={readingText(x)} />)
+            record.readings.map((x) => <Row key={x.record} label={x.incremental ? x.run : `Drum ${x.drum ?? "–"}`} value={readingText(x)} />)
           ) : (
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
               No cable blown past this chamber yet.

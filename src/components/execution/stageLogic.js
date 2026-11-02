@@ -199,5 +199,13 @@ export const recordExtraRows = (record) => {
 };
 
 // A chamber's cable reading, or the cable passing through it
-export const readingText = (x) => (x.passesThrough ? `Cable passes through, ${x.run}` : `In ${x.in ?? "–"} m · Out ${x.out ?? "–"} m · Loop ${x.loop ?? "–"} m`);
+export const readingText = (x) =>
+  x.passesThrough ? `Cable passes through, ${x.run}` : x.incremental ? `Incremental cable · optical length ${x.lengthM ?? "–"} m` : `In ${x.in ?? "–"} m · Out ${x.out ?? "–"} m · Loop ${x.loop ?? "–"} m`;
+
+// The media rule a record follows on the form, given its values (config.stages[].mediaRuleWhen)
+export const stageMediaRule = (config, stage, values = {}) => {
+  const meta = config?.stages?.[stage] || {};
+  const name = (meta.mediaRuleWhen || []).find((w) => w.in.includes(values[w.key]))?.rule || meta.mediaRule || "stageRecord";
+  return config?.mediaRules?.[name];
+};
 

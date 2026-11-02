@@ -13,7 +13,7 @@ import MediaPicker from "../MediaPicker";
 import { RefPointDialog, RefRow } from "../RefPoint";
 import { StickyActionBar } from "../execUi";
 import { anyPending, toMediaFile } from "../mediaItems";
-import { blowingPreview, blowingRoute, chamberRows, copyRunDetails, draftErrors, emptyRecordForm, fieldShown, fillFromSubsection, landmarkText, lastCompleteRun, nextFromChamber, pitFor, recordBody, recordForm, refComplete, refSlots, refsFrom, submitErrors } from "../stageLogic";
+import { blowingPreview, blowingRoute, chamberRows, copyRunDetails, draftErrors, emptyRecordForm, fieldShown, fillFromSubsection, landmarkText, lastCompleteRun, nextFromChamber, pitFor, recordBody, recordForm, refComplete, refSlots, refsFrom, stageMediaRule, submitErrors } from "../stageLogic";
 import { attentionMessage, reportError, showToast } from "../toast";
 
 const ofId = (x) => String(x?._id ?? "");
@@ -30,6 +30,8 @@ const StageRecordFormPage = () => {
   const [stageData, setStageData] = useState(null);
   const [form, setForm] = useState(() => emptyRecordForm(search.get("pit") ? { pit: search.get("pit") } : {}));
   const [errors, setErrors] = useState({});
+  // A blowing run's photo rule depends on its cable kind
+  const rule = stageMediaRule(config, stage, form.values);
   const [picking, setPicking] = useState(null);
   // The reference point being added or edited: { index, value }
   const [refSheet, setRefSheet] = useState(null);
@@ -67,7 +69,6 @@ const StageRecordFormPage = () => {
 
   const fields = useMemo(() => config?.stageFields?.[stage] || [], [config, stage]);
   const meta = config?.stages?.[stage] || {};
-  const rule = config?.mediaRules?.[meta.mediaRule || "stageRecord"];
   const options = { chambers: [], ductRuns: [], subsections: [], pits: [], couplingPoints: [], sectionEnds: [], ...stageData?.options };
 
   // Chamber: reference points, like a pit's
@@ -420,6 +421,8 @@ const StageRecordFormPage = () => {
   const runs = stageData?.records || [];
   const lastRun = stage === "DUCTING" ? lastCompleteRun(runs, record?._id) : null;
   const preview = stage === "BLOWING" ? blowingPreview(form.values) : null;
+  // The meter readings are for a new cable only
+  const showReadings = fields.some((f) => f.end && fieldShown(f, form.values));
   const chamberName = (id, fallback) => options.chambers.find((c) => String(c._id) === id)?.name || fallback;
   const blowRoute = stage === "BLOWING" ? blowingRoute(options, form.values) : null;
   const subPicked = stage === "DUCTING" && options.subsections.find((s) => ofId(s) === form.values.subSection);
@@ -501,7 +504,7 @@ const StageRecordFormPage = () => {
           Passes through {blowRoute.through.join(", ")}.
         </Alert>
       )}
-      {preview && (
+      {preview && showReadings && (
         <>
           {readingEnd("from", chamberName(form.values.fromChamber, "From chamber"), preview.fromLoopM)}
           {readingEnd("to", chamberName(form.values.toChamber, "To chamber"), preview.toLoopM)}
