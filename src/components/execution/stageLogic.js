@@ -76,22 +76,37 @@ export const pitFor = (pits, key) => (key ? (pits || []).find((p) => p.keys.incl
 // A pit's reference points on one line, to tell it apart on site
 export const landmarkText = (pit) => (pit?.landmarks || []).map((l) => `${l.description} (${l.tapeDistanceM} m)`).join(" · ");
 
-// From and To can't be the same pit
-export const pitRows = (pits, f, values) => {
-  const other = pitFor(pits, values[{ fromPit: "toPit", toPit: "fromPit" }[f.key]]);
-  return (pits || []).map((p) => ({
-    value: p.key,
-    title: p.name,
-    sub: [p.chainageM === null || p.chainageM === undefined ? "" : `Ch ${p.chainageM} m`, p.couplingPoint ? "Coupling point" : ""].filter(Boolean).join(" · "),
-    disabled: other === p,
-  }));
+// Chambers along the route. A run needs a location at both ends, and two different chambers
+export const chamberRows = (chambers, f, values) => {
+  const other = values[{ fromChamber: "toChamber", toChamber: "fromChamber" }[f.key]];
+  const place = (c) => (c.chainageM === null || c.chainageM === undefined ? Infinity : c.chainageM);
+  return [...(chambers || [])]
+    .sort((a, b) => place(a) - place(b))
+    .map((c) => {
+      const noFix = c.latitude === null || c.latitude === undefined;
+      const value = String(c._id);
+      return {
+        value,
+        title: c.name,
+        sub: [place(c) === Infinity ? "" : `Ch ${c.chainageM} m`, c.landmark].filter(Boolean).join(" · "),
+        disabled: noFix || value === other,
+        why: noFix ? "No location yet" : value === other ? "Already picked" : "",
+      };
+    });
+};
+
+// A new run carries on from where the last one ended
+export const nextFromChamber = (records) => {
+  const last = [...(records || [])].reverse().find((r) => r.links?.toChamber);
+  return last ? String(last.links.toChamber) : undefined;
 };
 
 // A blowing run's ducts on the form, and the metres of the stretch without one
 export const blowingRoute = (options, values) => {
-  const a = pitFor(options.pits, values.fromPit);
-  const b = pitFor(options.pits, values.toPit);
-  if (!a || !b || a.chainageM === null || b.chainageM === null) {
+  const of = (id) => (options.chambers || []).find((c) => String(c._id) === id);
+  const a = of(values.fromChamber);
+  const b = of(values.toChamber);
+  if (!a || !b || a.chainageM === null || b.chainageM === null || a.chainageM === undefined || b.chainageM === undefined) {
     return null;
   }
   const lo = Math.min(a.chainageM, b.chainageM);

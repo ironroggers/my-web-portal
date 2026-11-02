@@ -12,7 +12,7 @@ import GpsField from "../GpsField";
 import MediaPicker from "../MediaPicker";
 import { StickyActionBar } from "../execUi";
 import { anyPending, toMediaFile } from "../mediaItems";
-import { blowingPreview, blowingRoute, copyRunDetails, draftErrors, emptyRecordForm, fieldShown, fillFromSubsection, landmarkText, lastCompleteRun, pitFor, pitRows, recordBody, recordForm, submitErrors } from "../stageLogic";
+import { blowingPreview, blowingRoute, chamberRows, copyRunDetails, draftErrors, emptyRecordForm, fieldShown, fillFromSubsection, landmarkText, lastCompleteRun, nextFromChamber, pitFor, recordBody, recordForm, submitErrors } from "../stageLogic";
 import { attentionMessage, reportError, showToast } from "../toast";
 
 const ofId = (x) => String(x?._id ?? "");
@@ -49,6 +49,9 @@ const StageRecordFormPage = () => {
         if (rec) {
           setRecord(rec);
           setForm(recordForm(rec));
+        } else if (st === "BLOWING") {
+          const fromChamber = nextFromChamber(list.records);
+          if (fromChamber) setForm((f) => ({ ...f, values: { ...f.values, fromChamber } }));
         }
       } catch (e) {
         reportError(e);
@@ -83,7 +86,7 @@ const StageRecordFormPage = () => {
         return { value: ofId(s), title: s.name, sub: s.noEndPit ? s.typeLabel : `${s.startPit} to ${s.endPit} · ${fmtDistance(s.doneM)}`, disabled: s.noEndPit || taken, why: taken ? `Has ${s.usedBy.name}` : s.notStarted ? "Not started" : s.noEndPit ? "End pit not marked" : "", raw: s };
       });
     }
-    return pitRows(options.pits, f, form.values);
+    return chamberRows(options.chambers, f, form.values);
   };
 
   const choose = (f, row) => {
@@ -266,8 +269,8 @@ const StageRecordFormPage = () => {
         </Box>
       );
     }
-    if (f.kind === "link" || f.kind === "pit") {
-      const row = pickerRows(f).find((x) => x.value === (f.kind === "pit" ? pitFor(options.pits, value)?.key : value));
+    if (f.kind === "link") {
+      const row = pickerRows(f).find((x) => x.value === value);
       return (
         <Box key={f.key} sx={{ mb: 2 }}>
           {label(f)}
@@ -337,7 +340,7 @@ const StageRecordFormPage = () => {
   const runs = stageData?.records || [];
   const lastRun = stage === "DUCTING" ? lastCompleteRun(runs, record?._id) : null;
   const preview = stage === "BLOWING" ? blowingPreview(form.values) : null;
-  const pitName = (key, fallback) => pitFor(options.pits, key)?.name || fallback;
+  const chamberName = (id, fallback) => options.chambers.find((c) => String(c._id) === id)?.name || fallback;
   const blowRoute = stage === "BLOWING" ? blowingRoute(options, form.values) : null;
   const subPicked = stage === "DUCTING" && options.subsections.find((s) => ofId(s) === form.values.subSection);
   const sentBack = record?.status === "IN_PROGRESS" && record.approval?.status === "REJECTED" ? record.approval : null;
@@ -420,10 +423,10 @@ const StageRecordFormPage = () => {
       )}
       {preview && (
         <>
-          {readingEnd("from", pitName(form.values.fromPit, "From pit"), preview.fromLoopM)}
-          {readingEnd("to", pitName(form.values.toPit, "To pit"), preview.toLoopM)}
+          {readingEnd("from", chamberName(form.values.fromChamber, "From chamber"), preview.fromLoopM)}
+          {readingEnd("to", chamberName(form.values.toChamber, "To chamber"), preview.toLoopM)}
           <Alert severity="success" icon={false} sx={{ mb: 2 }}>
-            Blown length: <strong>{preview.blownM === null ? "–" : fmtDistance(preview.blownM)}</strong> · Cable In at {pitName(form.values.toPit, "To")} minus Cable Out at {pitName(form.values.fromPit, "From")}
+            Blown length: <strong>{preview.blownM === null ? "–" : fmtDistance(preview.blownM)}</strong> · Cable In at {chamberName(form.values.toChamber, "To")} minus Cable Out at {chamberName(form.values.fromChamber, "From")}
           </Alert>
         </>
       )}

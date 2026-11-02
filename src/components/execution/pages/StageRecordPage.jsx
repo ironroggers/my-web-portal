@@ -76,8 +76,8 @@ const StageRecordPage = ({ approvalView = false }) => {
     ...(record.stage === "BLOWING"
       ? [
           ["Blown length", fmtDistance(record.data?.blownLengthM || 0)],
-          [`At ${record.pits?.fromPit?.name ?? "From pit"}`, `In ${record.data?.fromIn ?? "–"} m · Out ${record.data?.fromOut ?? "–"} m · Loop ${record.data?.fromLoopM ?? "–"} m`],
-          [`At ${record.pits?.toPit?.name ?? "To pit"}`, `In ${record.data?.toIn ?? "–"} m · Out ${record.data?.toOut ?? "–"} m · Loop ${record.data?.toLoopM ?? "–"} m`],
+          [`At ${record.linked?.fromChamber?.name ?? "From chamber"}`, `In ${record.data?.fromIn ?? "–"} m · Out ${record.data?.fromOut ?? "–"} m · Loop ${record.data?.fromLoopM ?? "–"} m`],
+          [`At ${record.linked?.toChamber?.name ?? "To chamber"}`, `In ${record.data?.toIn ?? "–"} m · Out ${record.data?.toOut ?? "–"} m · Loop ${record.data?.toLoopM ?? "–"} m`],
         ]
       : []),
     ...(record.remarks ? [["Remarks", record.remarks]] : []),
