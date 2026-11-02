@@ -62,12 +62,15 @@ import {
   STAGE_STATUSES,
   STATUS_COLORS,
   SUB_LABEL_ZOOM,
+  DUCTING_TYPES,
+  TYPE_COLORS,
   boundaryTicks,
   circleSymbol,
   groupMedia,
   isFlagged,
   lighten,
   lightSubsections,
+  subTypeKey,
   symbol,
 } from "./blockMapLayers";
 import { StageRecordLayers, StageSwatch, SubsectionLabel, TickSwatch } from "./MapWorkLayers";
@@ -553,6 +556,7 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
   const select = (position, body) => setSelected({ position, body });
 
   const statusLabel = (key) => (key === "LEGACY" ? "Older (trenching)" : config?.statuses?.[key]?.label || key);
+  const workTypeLabel = (key) => ({ OTHER: "Other work", LEGACY: "Older (trenching)" })[key] || config?.types?.[key]?.label || key;
   const restorationLabel = (key) => config?.restorationStates?.[key]?.label || key;
 
   // ---- info windows
@@ -740,9 +744,9 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
 
   // ---- drawing
   const renderSubsection = (s) => {
-    // Every other subsection in a section takes the light shade, so neighbours stand apart
-    const statusColor = STATUS_COLORS[subKey(s)] || STATUS_COLORS.NOT_STARTED;
-    const color = lightSubs.has(String(s._id)) ? lighten(statusColor) : statusColor;
+    // Coloured by type of work; every other subsection in a section takes the light shade, so neighbours stand apart
+    const typeColor = TYPE_COLORS[subTypeKey(s)];
+    const color = lightSubs.has(String(s._id)) ? lighten(typeColor) : typeColor;
     const executed = [s.start, ...s.entries, s.end].filter(Boolean).map((p) => ({ lat: p.lat, lng: p.lng }));
     // Along the road from the KML; without one only the field work shows
     const planned = roadPaths.subsections.get(String(s._id));
@@ -942,6 +946,7 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
   const blockInfraCount = infra.filter((i) => i.level === "BLOCK").length;
   const gpInfraCount = infra.filter((i) => i.level === "GP").length;
   const statusCount = (key) => subsections.filter((s) => subKey(s) === key).length;
+  const workTypeCount = (key) => subsections.filter((s) => subTypeKey(s) === key).length;
   const kindCount = (key) => allMedia.filter((m) => m.kind === key).length;
   const typeCount = (t) => allMedia.filter((m) => (m.fileType === "VIDEO" ? "VIDEO" : "IMAGE") === t).length;
   const flaggedCount = allMedia.filter((m) => isFlagged(m, limit)).length;
@@ -1118,21 +1123,33 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
                 ))}
               </Stack>
             </LayerRow>
-            <LayerRow swatch={<Line color={STATUS_COLORS.IN_PROGRESS} />} label="Subsections" count={subsections.length} checked={layers.subsections} onChange={() => toggleLayer("subsections")}>
+            <LayerRow swatch={<Line color={TYPE_COLORS.HDD} />} label="Subsections" count={subsections.length} checked={layers.subsections} onChange={() => toggleLayer("subsections")}>
               <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
-                Coloured by status
+                Coloured by type of work
+              </Typography>
+              <Stack spacing={0.25} sx={{ mb: 1 }}>
+                {Object.keys(TYPE_COLORS)
+                  .filter((key) => DUCTING_TYPES.includes(key) || workTypeCount(key))
+                  .map((key) => (
+                    <Key key={key} swatch={<Line color={TYPE_COLORS[key]} />}>
+                      {workTypeLabel(key)} ({workTypeCount(key)})
+                    </Key>
+                  ))}
+              </Stack>
+              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
+                Show by status
               </Typography>
               <Stack direction="row" useFlexGap spacing={0.75} sx={{ flexWrap: "wrap", mb: 1 }}>
                 {[...SUB_STATUSES, "LEGACY"]
                   .filter((key) => key !== "LEGACY" || statusCount("LEGACY"))
                   .map((key) => (
-                    <FilterChip key={key} label={statusLabel(key)} count={statusCount(key)} color={STATUS_COLORS[key]} on={subStatuses.has(key)} onClick={() => setSubStatuses((s) => toggleIn(s, key))} />
+                    <FilterChip key={key} label={statusLabel(key)} count={statusCount(key)} on={subStatuses.has(key)} onClick={() => setSubStatuses((s) => toggleIn(s, key))} />
                   ))}
               </Stack>
               <Stack spacing={0.25}>
                 <Key swatch={<Line color="#475569" dashed />}>Planned line, along the road from → to</Key>
                 <Key swatch={<Line color="#475569" />}>Executed path through the entries</Key>
-                <Key swatch={<Line color={lighten(STATUS_COLORS.IN_PROGRESS)} />}>Every other subsection in a section is a lighter shade</Key>
+                <Key swatch={<Line color={lighten(TYPE_COLORS.HDD)} />}>Every other subsection in a section is a lighter shade</Key>
                 <Key swatch={<TickSwatch />}>Tick: where one subsection ends and the next begins</Key>
                 <Key
                   swatch={

@@ -34,6 +34,18 @@ export const STATUS_COLORS = {
   LEGACY: "#92400e",
 };
 
+// Subsections on the block map by type of work. Other work (chamber, blowing, … from before
+// the section stages) and older subsections without a type take neutral shades.
+export const TYPE_COLORS = {
+  HDD: "#c026d3",
+  OT: "#a16207",
+  CLAMP: "#0891b2",
+  OTHER: "#64748b",
+  LEGACY: "#78716c",
+};
+export const DUCTING_TYPES = ["HDD", "OT", "CLAMP"];
+export const subTypeKey = (s) => (s.legacy ? "LEGACY" : DUCTING_TYPES.includes(s.typeOfWork) ? s.typeOfWork : "OTHER");
+
 // Sections by restoration state
 export const RESTORATION_COLORS = {
   LOCKED: "#94a3b8",
