@@ -21,6 +21,7 @@ import { LOCATIONS_ENABLED, SUPPORT_PAGES_ENABLED, SURVEYS_ENABLED } from "./con
 import LandingPage from "./components/LandingPage"; // Keep for backward compatibility
 import AnalyticsDashboard from "./components/AnalyticsDashboard";
 import ExecutionDashboardPage from "./components/executionDashboard/ExecutionDashboardPage";
+import ReportsPage from "./components/reports/ReportsPage";
 import LoginPage from "./components/auth/LoginPage";
 import RegisterPage from "./components/auth/RegisterPage";
 import ProfilePage from "./components/ProfilePage";
@@ -141,6 +142,14 @@ function App() {
                   }
                 />
               )}
+              <Route
+                path="/reports"
+                element={
+                  <ProtectedRoute>
+                    <ReportsPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/summary"
                 element={

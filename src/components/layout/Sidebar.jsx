@@ -154,7 +154,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, isMobile, mobileOpen, onMobileCl
                 </Typography>
               )}
               <List disablePadding>
-                {group.items.filter((item) => !item.hidden).map((item) => (
+                {group.items.filter((item) => !item.hidden && (!item.roles || item.roles.includes(user?.role))).map((item) => (
                   <NavItem
                     key={item.to}
                     item={item}

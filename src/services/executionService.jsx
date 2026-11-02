@@ -173,6 +173,29 @@ const executionService = {
     return res.json();
   },
 
+  // ---- Excel reports (Admin only): the sheets and columns on offer, then generate, list, delete
+  getReportCatalog: () => request("/api/reports/catalog"),
+  listReports: ({ level, blockProfile, page = 1, limit = 20 } = {}) => request("/api/reports", { query: { level, blockProfile, page, limit } }),
+  createReport: (body) => request("/api/reports", { method: "POST", body }),
+  deleteReport: (reportId) => request(`/api/reports/${id(reportId)}`, { method: "DELETE" }),
+  // The stored workbook, saved by the browser under the report's file name
+  async downloadReport(report) {
+    const res = await fetch(`${base}/api/reports/${id(report._id)}/download`, { headers: executionHeaders() });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      throw new Error(data?.message || `Download failed: ${res.status}`);
+    }
+    const href = URL.createObjectURL(await res.blob());
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = report.fileName || "report.xlsx";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(href), 10000);
+    return a.download;
+  },
+
   // ---- download: the stored file with its location stamp burned in (the server stamps it
   // first if that hasn't happened yet). The browser saves it as an attachment.
   mediaDownloadUrl: (media) =>

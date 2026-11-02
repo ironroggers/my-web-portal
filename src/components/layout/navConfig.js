@@ -11,6 +11,7 @@ import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
 import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurnedInOutlined";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
 import PublicOutlinedIcon from "@mui/icons-material/PublicOutlined";
+import SummarizeOutlinedIcon from "@mui/icons-material/SummarizeOutlined";
 import { LOCATIONS_ENABLED, SURVEYS_ENABLED } from "../../config/featureFlags";
 import { REVIEW_ACTIONS } from "../execution/execConstants";
 
@@ -19,7 +20,7 @@ import { REVIEW_ACTIONS } from "../execution/execConstants";
  * the item, so detail pages keep their parent module selected.
  * `permission` is an action (or a list: any of them) from the execution service's matrix (usePermissions); without it
  * the item is disabled. `badge` names a count from useWorkBadges shown next to the label.
- * `hidden` leaves the item out (a module switched off in featureFlags).
+ * `hidden` leaves the item out (a module switched off in featureFlags); `roles` leaves it out for every other role.
  */
 export const NAV_GROUPS = [
   {
@@ -39,6 +40,8 @@ export const NAV_GROUPS = [
         permission: "viewExecution",
       },
       { to: "/summary", label: "Summary", Icon: TableChartOutlinedIcon, match: ["/summary"] },
+      // Excel reports: Admin only, so the others don't see it at all
+      { to: "/reports", label: "Reports", Icon: SummarizeOutlinedIcon, match: ["/reports"], permission: "manageReports", roles: ["ADMIN"] },
     ],
   },
   {
@@ -138,6 +141,7 @@ const ROUTE_TRAILS = [
   { path: "/execution-dashboard", trail: [{ label: "Overview" }, { label: "Execution Dashboard" }] },
   { path: "/old-dashboard", trail: [{ label: "Overview" }, { label: "Classic Dashboard" }] },
   { path: "/summary", trail: [{ label: "Overview" }, { label: "Summary" }] },
+  { path: "/reports", trail: [{ label: "Overview" }, { label: "Reports" }] },
   { path: "/surveys", trail: [{ label: "Operations" }, { label: "Surveys" }] },
   { path: "/map", trail: [{ label: "Operations" }, { label: "Locations" }] },
   {
