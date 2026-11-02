@@ -140,7 +140,7 @@ export const detailRows = (fields, record, labelOf) =>
   fields
     .filter((f) => !["location", "note"].includes(f.kind) && !f.end)
     .map((f) => {
-      const raw = f.kind === "link" ? record.linked?.[f.key]?.name : f.kind === "pit" ? record.pits?.[f.key]?.name : record.data?.[f.key];
+      const raw = f.kind === "link" ? record.linked?.[f.key]?.name : f.kind === "pit" ? record.pits?.[f.key]?.name : f.kind === "node" ? record.nodes?.[f.key]?.name : record.data?.[f.key];
       if (isBlank(raw)) {
         return null;
       }
@@ -148,6 +148,12 @@ export const detailRows = (fields, record, labelOf) =>
       return [String(f.label).replace(/ \(.*\)$/, "").replace(/\?$/, ""), value];
     })
     .filter(Boolean);
+
+// The Field Executive can edit a draft, or a submitted record of an editUntilReviewed stage
+// (config.stages) that neither the Cluster Head nor the GIS Head has reviewed yet
+export const openForFieldEdit = (record, stages) =>
+  record.status === "IN_PROGRESS" ||
+  (Boolean(stages?.[record.stage]?.editUntilReviewed) && record.status === "PENDING_APPROVAL" && !record.review?.clusterHead?.status && !record.review?.gisHead?.status);
 
 // Rows a stage adds to the Details card
 export const recordExtraRows = (record) => {

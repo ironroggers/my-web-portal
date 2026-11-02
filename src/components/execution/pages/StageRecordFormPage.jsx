@@ -65,7 +65,7 @@ const StageRecordFormPage = () => {
   const fields = useMemo(() => config?.stageFields?.[stage] || [], [config, stage]);
   const meta = config?.stages?.[stage] || {};
   const rule = config?.mediaRules?.[meta.mediaRule || "stageRecord"];
-  const options = stageData?.options || { chambers: [], ductRuns: [], subsections: [], pits: [], couplingPoints: [] };
+  const options = { chambers: [], ductRuns: [], subsections: [], pits: [], couplingPoints: [], sectionEnds: [], ...stageData?.options };
   const backTo = record ? `/stage-records/${record._id}` : `/sections/${sectionId}/stages/${stage}`;
 
   const set = (key, value) => {
@@ -73,9 +73,9 @@ const StageRecordFormPage = () => {
     setErrors((e) => ({ ...e, [key]: undefined }));
   };
 
-  // A new fix means the chamber isn't taken from a coupling point any more
+  // A new fix means the chamber isn't taken from a coupling point, GP or block router any more
   const setLocation = (fix) => {
-    setForm((f) => ({ ...f, location: fix, values: stage === "CHAMBER" ? { ...f.values, atCoupling: "" } : f.values }));
+    setForm((f) => ({ ...f, location: fix, values: stage === "CHAMBER" ? { ...f.values, atCoupling: "", atNode: "" } : f.values }));
     setErrors((e) => ({ ...e, location: undefined }));
   };
 
@@ -97,11 +97,18 @@ const StageRecordFormPage = () => {
     } else set(f.key, row.value);
   };
 
-  // Chamber: at a coupling point copies its location
+  // Chamber: at a coupling point, or at the section's GP or block router, copies its location.
+  // It's one or the other, so picking one clears the other.
   const pickCoupling = (value) => {
     const p = options.couplingPoints.find((x) => x.key === value);
-    setForm((v) => ({ ...v, values: { ...v.values, atCoupling: value }, location: p ? { latitude: p.latitude, longitude: p.longitude, accuracy: p.accuracy } : v.location }));
-    setErrors((e) => ({ ...e, location: undefined }));
+    setForm((v) => ({ ...v, values: { ...v.values, atCoupling: value, atNode: value ? "" : v.values.atNode }, location: p ? { latitude: p.latitude, longitude: p.longitude, accuracy: p.accuracy } : v.location }));
+    setErrors((e) => ({ ...e, location: undefined, atNode: undefined }));
+  };
+  const pickNode = (value) => {
+    const n = options.sectionEnds.find((x) => x.key === value);
+    const has = n && n.latitude !== undefined && n.latitude !== null;
+    setForm((v) => ({ ...v, values: { ...v.values, atNode: value, atCoupling: value ? "" : v.values.atCoupling }, location: has ? { latitude: n.latitude, longitude: n.longitude } : v.location }));
+    setErrors((e) => ({ ...e, location: undefined, atNode: undefined }));
   };
 
   // Route Marker: beside a chamber copies its location, offset and position
@@ -246,6 +253,25 @@ const StageRecordFormPage = () => {
         <Box key={f.key} sx={{ mb: 2 }}>
           {label(f)}
           {chips.length ? <ChipGroup size="small" allowClear options={chips} value={pitFor(options.pits, value)?.key ?? ""} onChange={pickCoupling} /> : <Typography variant="body2">No coupling points yet.</Typography>}
+          {error && (
+            <Typography variant="caption" color="error" sx={{ display: "block" }}>
+              {error}
+            </Typography>
+          )}
+          {f.help && (
+            <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
+              {f.help}
+            </Typography>
+          )}
+        </Box>
+      );
+    }
+    if (f.kind === "node" && f.chips) {
+      const chips = options.sectionEnds.map((n) => ({ value: n.key, label: n.name }));
+      return (
+        <Box key={f.key} sx={{ mb: 2 }}>
+          {label(f)}
+          {chips.length ? <ChipGroup size="small" allowClear options={chips} value={value} onChange={pickNode} /> : <Typography variant="body2">This section has no GP or block router ends.</Typography>}
           {error && (
             <Typography variant="caption" color="error" sx={{ display: "block" }}>
               {error}
