@@ -13,7 +13,7 @@ import MediaPicker from "../MediaPicker";
 import { RefPointDialog, RefRow } from "../RefPoint";
 import { StickyActionBar } from "../execUi";
 import { anyPending, toMediaFile } from "../mediaItems";
-import { blowingPreview, blowingRoute, chamberRows, copyRunDetails, draftErrors, emptyRecordForm, fieldShown, fillFromSubsection, landmarkText, lastCompleteRun, nextFromChamber, pitFor, recordBody, recordForm, refComplete, refSlots, refsFrom, stageMediaRule, submitErrors } from "../stageLogic";
+import { blowingPreview, blowingRoute, chamberRows, copyRunDetails, draftErrors, emptyRecordForm, fieldShown, fillFromSubsection, landmarkText, lastCompleteRun, nextFromChamber, pitFor, recordBody, fieldPhotoRule, recordForm, refComplete, refSlots, refsFrom, stageMediaRule, submitErrors } from "../stageLogic";
 import { attentionMessage, reportError, showToast } from "../toast";
 
 const ofId = (x) => String(x?._id ?? "");
@@ -76,7 +76,10 @@ const StageRecordFormPage = () => {
   const refRule = refsField ? config?.mediaRules?.[refsField.mediaRule] : null;
   const refs = refsField ? refSlots(form.refs, refsField.count) : [];
   const setRefs = (fn) => setForm((f) => ({ ...f, refs: fn(refSlots(f.refs, refsField.count)) }));
-  const allPhotos = () => [...form.photos, ...refs.flatMap((r) => r.photos || [])];
+  const allPhotos = () => [...form.photos, ...refs.flatMap((r) => r.photos || []), ...Object.values(form.photoSets || {}).flat()];
+  // Blowing: photos at each chamber
+  const photoFieldAt = (end) => fields.find((f) => f.kind === "photos" && f.end === end && fieldShown(f, form.values));
+  const setPhotoSet = (key, fn) => setForm((f) => ({ ...f, photoSets: { ...f.photoSets, [key]: fn({ photos: f.photoSets?.[key] || [], video: null }).photos } }));
   const backTo = record ? `/stage-records/${record._id}` : `/sections/${sectionId}/stages/${stage}`;
 
   const set = (key, value) => {
@@ -422,28 +425,48 @@ const StageRecordFormPage = () => {
   const lastRun = stage === "DUCTING" ? lastCompleteRun(runs, record?._id) : null;
   const preview = stage === "BLOWING" ? blowingPreview(form.values) : null;
   // The meter readings are for a new cable only
-  const showReadings = fields.some((f) => f.end && fieldShown(f, form.values));
+  const showReadings = fields.some((f) => f.end && f.kind === "number" && fieldShown(f, form.values));
   const chamberName = (id, fallback) => options.chambers.find((c) => String(c._id) === id)?.name || fallback;
   const blowRoute = stage === "BLOWING" ? blowingRoute(options, form.values) : null;
   const subPicked = stage === "DUCTING" && options.subsections.find((s) => ofId(s) === form.values.subSection);
   const sentBack = record?.status === "IN_PROGRESS" && record.approval?.status === "REJECTED" ? record.approval : null;
 
-  const readingEnd = (end, title, loop) => (
-    <SectionCard key={end} title={`At ${title}`} sx={{ mb: 2 }}>
-      <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1 }}>
-        {[`${end}In`, `${end}Out`].map((key) => {
-          const f = fields.find((x) => x.key === key);
-          return <TextField key={key} size="small" type="number" label={f?.label} value={form.values[key] ?? ""} error={Boolean(errors[key])} placeholder={f?.placeholder} onChange={(e) => set(key, e.target.value)} />;
-        })}
-        <TextField size="small" label="Loop" value={loop === null ? "–" : `${loop} m`} disabled />
-      </Box>
-      {(errors[`${end}In`] || errors[`${end}Out`]) && (
-        <Typography variant="caption" color="error">
-          Enter both meter readings
-        </Typography>
-      )}
-    </SectionCard>
-  );
+  // Blowing: one card per chamber, its meter readings with the loop (a new cable only) and its photos
+  const readingEnd = (end, title, loop) => {
+    const photoField = photoFieldAt(end);
+    return (
+      <SectionCard key={end} title={`At ${title}`} sx={{ mb: 2 }}>
+        {showReadings && (
+          <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1 }}>
+            {[`${end}In`, `${end}Out`].map((key) => {
+              const f = fields.find((x) => x.key === key);
+              return <TextField key={key} size="small" type="number" label={f?.label} value={form.values[key] ?? ""} error={Boolean(errors[key])} placeholder={f?.placeholder} onChange={(e) => set(key, e.target.value)} />;
+            })}
+            <TextField size="small" label="Loop" value={loop === null ? "–" : `${loop} m`} disabled />
+          </Box>
+        )}
+        {showReadings && (errors[`${end}In`] || errors[`${end}Out`]) && (
+          <Typography variant="caption" color="error">
+            Enter both meter readings
+          </Typography>
+        )}
+        {photoField && (
+          <Box sx={{ mt: showReadings ? 2.5 : 0 }}>
+            <MediaPicker
+              title={`Photos at ${title}`}
+              rule={fieldPhotoRule(config?.mediaRules, photoField, form.values)}
+              value={{ photos: form.photoSets?.[photoField.key] || [], video: null }}
+              onUpdate={(fn) => {
+                setPhotoSet(photoField.key, fn);
+                setErrors((e) => ({ ...e, [photoField.key]: undefined }));
+              }}
+              errors={{ photos: errors[photoField.key] }}
+            />
+          </Box>
+        )}
+      </SectionCard>
+    );
+  };
 
   if (!stageData || !config) {
     return (
@@ -504,24 +527,27 @@ const StageRecordFormPage = () => {
           Passes through {blowRoute.through.join(", ")}.
         </Alert>
       )}
+      {preview && readingEnd("from", chamberName(form.values.fromChamber, "From chamber"), preview.fromLoopM)}
+      {preview && readingEnd("to", chamberName(form.values.toChamber, "To chamber"), preview.toLoopM)}
       {preview && showReadings && (
         <>
-          {readingEnd("from", chamberName(form.values.fromChamber, "From chamber"), preview.fromLoopM)}
-          {readingEnd("to", chamberName(form.values.toChamber, "To chamber"), preview.toLoopM)}
           <Alert severity="success" icon={false} sx={{ mb: 2 }}>
             Blown length: <strong>{preview.blownM === null ? "–" : fmtDistance(preview.blownM)}</strong> · Cable In at {chamberName(form.values.toChamber, "To")} minus Cable Out at {chamberName(form.values.fromChamber, "From")}
           </Alert>
         </>
       )}
-      <SectionCard title="Photos and remarks" sx={{ mb: 2 }}>
-        <MediaPicker
-          title="Geo photos"
-          rule={rule}
-          value={{ photos: form.photos, video: null }}
-          onUpdate={(fn) => setForm((f) => ({ ...f, photos: fn({ photos: f.photos, video: null }).photos }))}
-          errors={{ photos: errors.photos }}
-        />
-        <TextField fullWidth multiline minRows={2} label="Remarks (optional)" value={form.remarks} onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))} sx={{ mt: 2 }} />
+      {/* A stage whose photos sit elsewhere (Blowing: at each chamber) has none of its own */}
+      <SectionCard title={rule?.maxPhotos ? "Photos and remarks" : "Remarks"} sx={{ mb: 2 }}>
+        {rule?.maxPhotos > 0 && (
+          <MediaPicker
+            title="Geo photos"
+            rule={rule}
+            value={{ photos: form.photos, video: null }}
+            onUpdate={(fn) => setForm((f) => ({ ...f, photos: fn({ photos: f.photos, video: null }).photos }))}
+            errors={{ photos: errors.photos }}
+          />
+        )}
+        <TextField fullWidth multiline minRows={2} label="Remarks (optional)" value={form.remarks} onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))} sx={{ mt: rule?.maxPhotos ? 2 : 0 }} />
       </SectionCard>
       <StickyActionBar>
         <Button variant="outlined" disabled={busy} onClick={saveDraft}>

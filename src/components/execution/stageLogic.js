@@ -6,7 +6,8 @@ const isBlank = (v) => v === undefined || v === null || String(v).trim() === "";
 export const fieldShown = (f, values) => (f.showIf || []).every((c) => (c.set ? !isBlank(values[c.key]) : c.in.includes(values[c.key])));
 
 // A form: { values, location, photos, video, remarks, refs }. refs: the record"s reference points (Chamber)
-export const emptyRecordForm = (values = {}) => ({ values, location: null, photos: [], video: null, remarks: "", refs: [] });
+// photoSets: photos by field key, for `photos` fields (Blowing: at each chamber)
+export const emptyRecordForm = (values = {}) => ({ values, location: null, photos: [], video: null, remarks: "", refs: [], photoSets: {} });
 
 // One reference point on a form; tapeDistanceM is text while typing
 export const emptyRef = () => ({ description: "", latitude: null, longitude: null, accuracy: null, tapeDistanceM: "", photos: [] });
@@ -36,6 +37,7 @@ export const recordForm = (record) => {
     video: null,
     remarks: record.remarks || "",
     refs: (record.refs || []).map(formRef),
+    photoSets: record.photoSets || {},
   };
 };
 
@@ -57,7 +59,9 @@ export const recordBody = (fields, form, toMediaFile, version) => {
   const refs = refsField
     ? refSlots(form.refs, refsField.count).map((r) => ({ ...r, tapeDistanceM: isBlank(r.tapeDistanceM) ? undefined : Number(r.tapeDistanceM), photos: (r.photos || []).map(toMediaFile) }))
     : undefined;
-  return { version, data, links, location: form.location || undefined, photos: form.photos.map(toMediaFile), remarks: form.remarks, refs };
+  const photoFields = fields.filter((f) => f.kind === "photos" && fieldShown(f, form.values));
+  const photoSets = photoFields.length ? Object.fromEntries(photoFields.map((f) => [f.key, (form.photoSets?.[f.key] || []).map(toMediaFile)])) : undefined;
+  return { version, data, links, location: form.location || undefined, photos: form.photos.map(toMediaFile), remarks: form.remarks, refs, photoSets };
 };
 
 // Save draft needs only the identity field
@@ -75,7 +79,11 @@ export const draftErrors = (fields, form) => {
 export const submitErrors = (fields, form, rule, mediaRules) => {
   const errors = {};
   fields.forEach((f) => {
-    if (f.kind === "refs") {
+    if (f.kind === "photos") {
+      if (fieldShown(f, form.values) && (form.photoSets?.[f.key] || []).length < (fieldPhotoRule(mediaRules, f, form.values)?.minPhotos ?? 1)) {
+        errors[f.key] = f.requiredMessage;
+      }
+    } else if (f.kind === "refs") {
       const minPhotos = mediaRules?.[f.mediaRule]?.minPhotos ?? 1;
       refSlots(form.refs, f.count).forEach((r, i) => {
         if (!refComplete(r, minPhotos)) {
@@ -201,6 +209,12 @@ export const recordExtraRows = (record) => {
 // A chamber's cable reading, or the cable passing through it
 export const readingText = (x) =>
   x.passesThrough ? `Cable passes through, ${x.run}` : x.incremental ? `Incremental cable · optical length ${x.lengthM ?? "–"} m` : `In ${x.in ?? "–"} m · Out ${x.out ?? "–"} m · Loop ${x.loop ?? "–"} m`;
+
+// A photos field"s rule: none needed while an optionalWhen condition holds (Blowing: incremental cable)
+export const fieldPhotoRule = (mediaRules, f, values = {}) => {
+  const rule = mediaRules?.[f.mediaRule];
+  return rule && (f.optionalWhen || []).some((c) => c.in.includes(values[c.key])) ? { ...rule, minPhotos: 0 } : rule;
+};
 
 // The media rule a record follows on the form, given its values (config.stages[].mediaRuleWhen)
 export const stageMediaRule = (config, stage, values = {}) => {

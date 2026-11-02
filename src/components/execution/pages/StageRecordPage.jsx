@@ -178,6 +178,13 @@ const StageRecordPage = ({ approvalView = false }) => {
           )}
         </SectionCard>
       )}
+      {(config?.stageFields?.[record.stage] || [])
+        .filter((f) => f.kind === "photos" && record.photoSets?.[f.key]?.length)
+        .map((f) => (
+          <SectionCard key={f.key} title={f.end ? `Photos at ${record.linked?.[f.end === "from" ? "fromChamber" : "toChamber"]?.name ?? (f.end === "from" ? "From chamber" : "To chamber")}` : f.label} sx={{ mb: 2 }}>
+            <MediaStrip media={{ photos: record.photoSets[f.key] }} />
+          </SectionCard>
+        ))}
       {record.refs?.length > 0 && (
         <SectionCard title="Reference points" subtitle="Fixed objects near the chamber, with the tape distance to each" sx={{ mb: 2 }}>
           {record.refs.map((r, j) => (
