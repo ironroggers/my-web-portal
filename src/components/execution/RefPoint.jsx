@@ -51,13 +51,14 @@ export const GpsHint = ({ pit, refPoint }) => {
   );
 };
 
-/** Row in the pit card: "Electric pole · 5.5 m from the pit · GPS ±1.0 m" */
-export const RefRow = ({ refPoint, index, onClick, bad }) => {
-  const ok = refDone(refPoint);
-  const missing = refMissing(refPoint);
+/** Row in the pit card: "Electric pole · 5.5 m from the pit · GPS ±1.0 m". minPhotos: photos it needs */
+export const RefRow = ({ refPoint, index, onClick, bad, targetLabel = "pit", minPhotos = 0 }) => {
+  const photoCount = (refPoint?.photos || []).length;
+  const missing = [...refMissing(refPoint), ...(photoCount < minPhotos ? ["photo"] : [])];
+  const ok = refDone(refPoint) && missing.length === 0;
   const meta = ok
-    ? `${fmtDistance(refPoint.tapeDistanceM)} from the pit · GPS ±${Number(refPoint.accuracy ?? 0).toFixed(1)} m`
-    : missing.length === 3
+    ? `${fmtDistance(refPoint.tapeDistanceM)} from the ${targetLabel} · GPS ±${Number(refPoint.accuracy ?? 0).toFixed(1)} m${minPhotos ? ` · ${photoCount} photo${photoCount === 1 ? "" : "s"}` : ""}`
+    : missing.length >= 3
       ? "Not added yet"
       : `Missing ${missing.join(", ")}`;
   const content = (
@@ -107,7 +108,7 @@ export const RefRow = ({ refPoint, index, onClick, bad }) => {
  * Saving checks only this point. value / onChange: the point being edited.
  * Its optional photos and video: mediaRule, and onUpdateMedia(fn) (fn maps { photos, video }).
  */
-export const RefPointDialog = ({ open, index, value, onChange, onUpdateMedia, mediaRule, pit, pitLabel, subName, onSave, onClose }) => {
+export const RefPointDialog = ({ open, index, value, onChange, onUpdateMedia, mediaRule, pit, pitLabel, subName, onSave, onClose, targetLabel = "pit" }) => {
   const theme = useTheme();
   const wide = useMediaQuery(theme.breakpoints.up("md"));
   const { config } = useExecutionConfig();
@@ -120,6 +121,7 @@ export const RefPointDialog = ({ open, index, value, onChange, onUpdateMedia, me
 
   const save = () => {
     const e = validateRef(r);
+    if ((r.photos || []).length < (mediaRule?.minPhotos || 0)) e.photos = "Take a photo of the reference point";
     setErrors(e);
     if (Object.keys(e).length) {
       showToast("Fill the highlighted fields", "error");
@@ -159,7 +161,7 @@ export const RefPointDialog = ({ open, index, value, onChange, onUpdateMedia, me
       <TextField
         fullWidth
         size="small"
-        label="Tape distance to the pit"
+        label={`Tape distance to the ${targetLabel}`}
         placeholder="0.0"
         value={r.tapeDistanceM ?? ""}
         onChange={(e) => set("tapeDistanceM", e.target.value)}
@@ -173,10 +175,14 @@ export const RefPointDialog = ({ open, index, value, onChange, onUpdateMedia, me
       {onUpdateMedia && (
         <Box sx={{ mt: 2.5 }}>
           <MediaPicker
-            title="Photos & video (optional)"
+            title={mediaRule?.minPhotos ? "Photo" : "Photos & video (optional)"}
             rule={mediaRule || { minPhotos: 0, maxPhotos: 2, video: "optional" }}
             value={{ photos: r.photos || [], video: r.video || null }}
-            onUpdate={onUpdateMedia}
+            onUpdate={(fn) => {
+              onUpdateMedia(fn);
+              setErrors((x) => ({ ...x, photos: undefined }));
+            }}
+            errors={{ photos: errors.photos }}
           />
         </Box>
       )}

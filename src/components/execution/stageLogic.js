@@ -5,8 +5,25 @@ const isBlank = (v) => v === undefined || v === null || String(v).trim() === "";
 
 export const fieldShown = (f, values) => (f.showIf || []).every((c) => (c.set ? !isBlank(values[c.key]) : c.in.includes(values[c.key])));
 
-// A form: { values, location, photos, video, remarks }
-export const emptyRecordForm = (values = {}) => ({ values, location: null, photos: [], video: null, remarks: "" });
+// A form: { values, location, photos, video, remarks, refs }. refs: the record"s reference points (Chamber)
+export const emptyRecordForm = (values = {}) => ({ values, location: null, photos: [], video: null, remarks: "", refs: [] });
+
+// One reference point on a form; tapeDistanceM is text while typing
+export const emptyRef = () => ({ description: "", latitude: null, longitude: null, accuracy: null, tapeDistanceM: "", photos: [] });
+const formRef = (r = {}) => ({
+  description: r.description || "",
+  latitude: r.latitude ?? null,
+  longitude: r.longitude ?? null,
+  accuracy: r.accuracy ?? null,
+  tapeDistanceM: r.tapeDistanceM === undefined || r.tapeDistanceM === null ? "" : String(r.tapeDistanceM),
+  photos: r.photos || [],
+});
+// Always `count` slots, so the form shows each point
+export const refSlots = (refs, count) => Array.from({ length: count }, (_, i) => (refs?.[i] ? refs[i] : emptyRef()));
+// A pit"s reference points copied onto the form (a chamber at a coupling point)
+export const refsFrom = (refs, count) => refSlots((refs || []).map(formRef), count);
+export const refComplete = (r, minPhotos = 0) =>
+  Boolean(r && !isBlank(r.description) && r.latitude !== null && r.latitude !== undefined && Number(r.tapeDistanceM) > 0 && (r.photos || []).length >= minPhotos);
 
 export const recordForm = (record) => {
   const links = Object.fromEntries(Object.entries(record.links || {}).filter(([, id]) => id));
@@ -18,6 +35,7 @@ export const recordForm = (record) => {
     photos: record.photos || [],
     video: null,
     remarks: record.remarks || "",
+    refs: (record.refs || []).map(formRef),
   };
 };
 
@@ -35,7 +53,11 @@ export const recordBody = (fields, form, toMediaFile, version) => {
       data[f.key] = f.kind === "number" ? Number(raw) : String(raw).trim();
     }
   });
-  return { version, data, links, location: form.location || undefined, photos: form.photos.map(toMediaFile), remarks: form.remarks };
+  const refsField = fields.find((f) => f.kind === "refs");
+  const refs = refsField
+    ? refSlots(form.refs, refsField.count).map((r) => ({ ...r, tapeDistanceM: isBlank(r.tapeDistanceM) ? undefined : Number(r.tapeDistanceM), photos: (r.photos || []).map(toMediaFile) }))
+    : undefined;
+  return { version, data, links, location: form.location || undefined, photos: form.photos.map(toMediaFile), remarks: form.remarks, refs };
 };
 
 // Save draft needs only the identity field
@@ -49,11 +71,21 @@ export const draftErrors = (fields, form) => {
   return errors;
 };
 
-// Submit needs everything
-export const submitErrors = (fields, form, rule) => {
+// Submit needs everything. mediaRules: config.mediaRules, for a refs field"s photos
+export const submitErrors = (fields, form, rule, mediaRules) => {
   const errors = {};
   fields.forEach((f) => {
-    if (f.kind === "location") {
+    if (f.kind === "refs") {
+      const minPhotos = mediaRules?.[f.mediaRule]?.minPhotos ?? 1;
+      refSlots(form.refs, f.count).forEach((r, i) => {
+        if (!refComplete(r, minPhotos)) {
+          errors[`${f.key}.${i}`] = (r.photos || []).length < minPhotos && refComplete(r) ? "Take a photo of the reference point" : "Finish this reference point";
+        }
+      });
+      if (Object.keys(errors).some((k) => k.startsWith(`${f.key}.`))) {
+        errors[f.key] = f.requiredMessage;
+      }
+    } else if (f.kind === "location") {
       if (!form.location) {
         errors.location = f.requiredMessage;
       }
@@ -138,7 +170,7 @@ export const blowingPreview = (values) => {
 // The rows of the Details card, from config
 export const detailRows = (fields, record, labelOf) =>
   fields
-    .filter((f) => !["location", "note"].includes(f.kind) && !f.end)
+    .filter((f) => !["location", "note", "refs"].includes(f.kind) && !f.end)
     .map((f) => {
       const raw = f.kind === "link" ? record.linked?.[f.key]?.name : f.kind === "pit" ? record.pits?.[f.key]?.name : f.kind === "node" ? record.nodes?.[f.key]?.name : record.data?.[f.key];
       if (isBlank(raw)) {

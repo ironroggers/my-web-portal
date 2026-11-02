@@ -11,6 +11,7 @@ import { fmtAccuracy, fmtDateTime, fmtDistance, fmtLatLong } from "../../../util
 import ApprovalActions from "../ApprovalActions";
 import { ExecStatusPill, PageState, StickyActionBar } from "../execUi";
 import { MediaStrip } from "../MediaPicker";
+import { RefRow } from "../RefPoint";
 import { ReviewSlots } from "../reviewUi";
 import { detailRows, readingText, recordExtraRows } from "../stageLogic";
 import { reportError, showToast } from "../toast";
@@ -175,6 +176,20 @@ const StageRecordPage = ({ approvalView = false }) => {
               No cable blown past this chamber yet.
             </Typography>
           )}
+        </SectionCard>
+      )}
+      {record.refs?.length > 0 && (
+        <SectionCard title="Reference points" subtitle="Fixed objects near the chamber, with the tape distance to each" sx={{ mb: 2 }}>
+          {record.refs.map((r, j) => (
+            <Box key={j}>
+              <RefRow refPoint={r} index={j} targetLabel="chamber" minPhotos={config?.mediaRules?.chamberRef?.minPhotos || 0} />
+              {r.photos?.length > 0 && (
+                <Box sx={{ pl: 5, pb: 1.25 }}>
+                  <MediaStrip media={{ photos: r.photos }} size={56} />
+                </Box>
+              )}
+            </Box>
+          ))}
         </SectionCard>
       )}
       {record.photos?.length > 0 && (

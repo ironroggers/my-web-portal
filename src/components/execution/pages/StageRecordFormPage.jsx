@@ -10,9 +10,10 @@ import { distanceM, fmtDistance } from "../../../utils/executionFormat";
 import ChipGroup from "../ChipGroup";
 import GpsField from "../GpsField";
 import MediaPicker from "../MediaPicker";
+import { RefPointDialog, RefRow } from "../RefPoint";
 import { StickyActionBar } from "../execUi";
 import { anyPending, toMediaFile } from "../mediaItems";
-import { blowingPreview, blowingRoute, chamberRows, copyRunDetails, draftErrors, emptyRecordForm, fieldShown, fillFromSubsection, landmarkText, lastCompleteRun, nextFromChamber, pitFor, recordBody, recordForm, submitErrors } from "../stageLogic";
+import { blowingPreview, blowingRoute, chamberRows, copyRunDetails, draftErrors, emptyRecordForm, fieldShown, fillFromSubsection, landmarkText, lastCompleteRun, nextFromChamber, pitFor, recordBody, recordForm, refComplete, refSlots, refsFrom, submitErrors } from "../stageLogic";
 import { attentionMessage, reportError, showToast } from "../toast";
 
 const ofId = (x) => String(x?._id ?? "");
@@ -30,6 +31,8 @@ const StageRecordFormPage = () => {
   const [form, setForm] = useState(() => emptyRecordForm(search.get("pit") ? { pit: search.get("pit") } : {}));
   const [errors, setErrors] = useState({});
   const [picking, setPicking] = useState(null);
+  // The reference point being added or edited: { index, value }
+  const [refSheet, setRefSheet] = useState(null);
   const [busy, setBusy] = useState(false);
   const [section, setSection] = useState(null);
 
@@ -66,6 +69,13 @@ const StageRecordFormPage = () => {
   const meta = config?.stages?.[stage] || {};
   const rule = config?.mediaRules?.[meta.mediaRule || "stageRecord"];
   const options = { chambers: [], ductRuns: [], subsections: [], pits: [], couplingPoints: [], sectionEnds: [], ...stageData?.options };
+
+  // Chamber: reference points, like a pit's
+  const refsField = fields.find((f) => f.kind === "refs");
+  const refRule = refsField ? config?.mediaRules?.[refsField.mediaRule] : null;
+  const refs = refsField ? refSlots(form.refs, refsField.count) : [];
+  const setRefs = (fn) => setForm((f) => ({ ...f, refs: fn(refSlots(f.refs, refsField.count)) }));
+  const allPhotos = () => [...form.photos, ...refs.flatMap((r) => r.photos || [])];
   const backTo = record ? `/stage-records/${record._id}` : `/sections/${sectionId}/stages/${stage}`;
 
   const set = (key, value) => {
@@ -99,10 +109,18 @@ const StageRecordFormPage = () => {
 
   // Chamber: at a coupling point, or at the section's GP or block router, copies its location.
   // It's one or the other, so picking one clears the other.
+  // The pit's reference points come along, to edit if needed
   const pickCoupling = (value) => {
     const p = options.couplingPoints.find((x) => x.key === value);
-    setForm((v) => ({ ...v, values: { ...v.values, atCoupling: value, atNode: value ? "" : v.values.atNode }, location: p ? { latitude: p.latitude, longitude: p.longitude, accuracy: p.accuracy } : v.location }));
+    const copy = refsField && p?.refs?.length;
+    setForm((v) => ({
+      ...v,
+      values: { ...v.values, atCoupling: value, atNode: value ? "" : v.values.atNode },
+      location: p ? { latitude: p.latitude, longitude: p.longitude, accuracy: p.accuracy } : v.location,
+      refs: copy ? refsFrom(p.refs, refsField.count) : v.refs,
+    }));
     setErrors((e) => ({ ...e, location: undefined, atNode: undefined }));
+    if (copy) showToast(`Reference points copied from ${p.name}. Check them and add a photo where missing.`, "info");
   };
   const pickNode = (value) => {
     const n = options.sectionEnds.find((x) => x.key === value);
@@ -138,13 +156,13 @@ const StageRecordFormPage = () => {
   const submitted = record && record.status !== "IN_PROGRESS";
 
   const saveDraft = async () => {
-    const found = submitted ? submitErrors(fields, form, rule) : draftErrors(fields, form);
+    const found = submitted ? submitErrors(fields, form, rule, config?.mediaRules) : draftErrors(fields, form);
     if (Object.keys(found).length) {
       setErrors(found);
       showToast(submitted ? attentionMessage(found) : config?.stageDraftMessages?.[stage] || "Fill the marked fields first", "warning");
       return;
     }
-    if (anyPending(form.photos)) {
+    if (anyPending(allPhotos())) {
       showToast("Wait for the upload to finish", "warning");
       return;
     }
@@ -161,13 +179,13 @@ const StageRecordFormPage = () => {
   };
 
   const submit = async () => {
-    const found = submitErrors(fields, form, rule);
+    const found = submitErrors(fields, form, rule, config?.mediaRules);
     if (Object.keys(found).length) {
       setErrors(found);
       showToast(attentionMessage(found), "error");
       return;
     }
-    if (anyPending(form.photos)) {
+    if (anyPending(allPhotos())) {
       showToast("Wait for the upload to finish", "warning");
       return;
     }
@@ -261,6 +279,42 @@ const StageRecordFormPage = () => {
           {f.help && (
             <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
               {f.help}
+            </Typography>
+          )}
+        </Box>
+      );
+    }
+    if (f.kind === "refs") {
+      const done = refs.filter((r) => refComplete(r, refRule?.minPhotos || 0)).length;
+      return (
+        <Box key={f.key} sx={{ mb: 2 }}>
+          <Box sx={{ display: "flex", alignItems: "baseline" }}>
+            <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>
+              {f.label}
+            </Typography>
+            <Typography variant="caption" sx={{ fontWeight: 700, color: done === f.count ? "success.main" : "text.secondary" }}>
+              {done} of {f.count}
+            </Typography>
+          </Box>
+          {f.hint && (
+            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
+              {f.hint}
+            </Typography>
+          )}
+          {refs.map((r, i) => (
+            <RefRow
+              key={i}
+              refPoint={r}
+              index={i}
+              targetLabel="chamber"
+              minPhotos={refRule?.minPhotos || 0}
+              bad={Object.keys(errors).some((k) => errors[k] && (k === `${f.key}.${i}` || k.startsWith(`${f.key}.${i}.`)))}
+              onClick={() => setRefSheet({ index: i, value: { ...r } })}
+            />
+          ))}
+          {error && (
+            <Typography variant="caption" color="error" sx={{ display: "block" }}>
+              {error}
             </Typography>
           )}
         </Box>
@@ -476,6 +530,39 @@ const StageRecordFormPage = () => {
           </Button>
         )}
       </StickyActionBar>
+      {refsField && (
+        <RefPointDialog
+          open={Boolean(refSheet)}
+          index={refSheet?.index ?? 0}
+          value={refSheet?.value}
+          onChange={(value) => setRefSheet((x) => ({ ...x, value }))}
+          mediaRule={refRule}
+          onUpdateMedia={(fn) => {
+            const i = refSheet?.index;
+            const apply = (h) => ({ ...h, ...fn({ photos: h.photos || [], video: null }) });
+            setRefSheet((x) => (x && x.index === i ? { ...x, value: apply(x.value) } : x));
+            // An upload that finishes after the point was saved still lands in the saved point
+            setRefs((list) =>
+              list.map((r, j) => {
+                if (j !== i) return r;
+                const next = apply(r);
+                return { ...r, photos: (r.photos || []).map((m) => (m.key ? next.photos.find((x) => x.key === m.key) || m : m)) };
+              })
+            );
+          }}
+          pit={form.location}
+          pitLabel="Chamber"
+          subName={record?.name}
+          targetLabel="chamber"
+          onClose={() => setRefSheet(null)}
+          onSave={(value) => {
+            const i = refSheet.index;
+            setRefs((list) => list.map((r, j) => (j === i ? value : r)));
+            setRefSheet(null);
+            setErrors((e) => Object.fromEntries(Object.entries(e).filter(([k]) => k !== "refs" && k !== `refs.${i}` && !k.startsWith(`refs.${i}.`))));
+          }}
+        />
+      )}
       <Dialog open={Boolean(picking)} onClose={() => setPicking(null)} fullWidth maxWidth="xs">
         <DialogTitle>{picking?.label}</DialogTitle>
         <DialogContent sx={{ p: 0 }}>
