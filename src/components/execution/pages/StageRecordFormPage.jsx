@@ -12,7 +12,7 @@ import GpsField from "../GpsField";
 import MediaPicker from "../MediaPicker";
 import { StickyActionBar } from "../execUi";
 import { anyPending, toMediaFile } from "../mediaItems";
-import { blowingPreview, blowingRoute, copyRunDetails, draftErrors, emptyRecordForm, fieldShown, fillFromSubsection, lastCompleteRun, pitFor, pitRows, recordBody, recordForm, submitErrors } from "../stageLogic";
+import { blowingPreview, blowingRoute, copyRunDetails, draftErrors, emptyRecordForm, fieldShown, fillFromSubsection, landmarkText, lastCompleteRun, pitFor, pitRows, recordBody, recordForm, submitErrors } from "../stageLogic";
 import { attentionMessage, reportError, showToast } from "../toast";
 
 const ofId = (x) => String(x?._id ?? "");
@@ -226,6 +226,7 @@ const StageRecordFormPage = () => {
         <Box key={f.key} sx={{ mb: 2 }}>
           <Typography variant="body2" sx={{ fontWeight: 600 }}>{f.label}</Typography>
           <Typography variant="body2">Pit: {[p?.name, p?.chainageM === null || p?.chainageM === undefined ? "" : `Ch ${p.chainageM} m`].filter(Boolean).join(" · ") || "–"}</Typography>
+          {landmarkText(p) && <Typography variant="body2">Landmarks: {landmarkText(p)}</Typography>}
           {point && <Typography variant="body2">Ducts meeting: {point.ductNames.join(" and ")}</Typography>}
           <Typography variant="body2">Location: taken from the pit</Typography>
           {error && (

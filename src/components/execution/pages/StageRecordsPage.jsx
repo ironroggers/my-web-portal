@@ -13,6 +13,7 @@ import ChipGroup from "../ChipGroup";
 import { EmptyState, ExecStatusPill, ListCard, PageState } from "../execUi";
 import { ReviewSlots } from "../reviewUi";
 import { StageCompleteButton } from "../StageComplete";
+import { landmarkText } from "../stageLogic";
 import { useExecContext } from "../useExecContext";
 import { useLoader } from "../useLoader";
 
@@ -112,6 +113,11 @@ const StageRecordsPage = () => {
                 <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   {[p.chainageM === null ? "" : `Ch ${p.chainageM} m`, p.ductNames.join(" meets ")].filter(Boolean).join(" · ")}
                 </Typography>
+                {landmarkText(p) && (
+                  <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
+                    Landmarks: {landmarkText(p)}
+                  </Typography>
+                )}
               </Box>
               {canWork && !data.complete && (
                 <Button size="small" startIcon={<AddIcon />} onClick={() => go(`/sections/${sectionId}/stages/${stage}/new?pit=${encodeURIComponent(p.key)}`)}>

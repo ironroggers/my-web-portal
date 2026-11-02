@@ -73,6 +73,9 @@ export const fillFromSubsection = (values, sub) => ({ ...values, subSection: Str
 // A pit is stored as any of the subsection pits it stands for
 export const pitFor = (pits, key) => (key ? (pits || []).find((p) => p.keys.includes(key)) : undefined);
 
+// A pit's reference points on one line, to tell it apart on site
+export const landmarkText = (pit) => (pit?.landmarks || []).map((l) => `${l.description} (${l.tapeDistanceM} m)`).join(" · ");
+
 // From and To can't be the same pit
 export const pitRows = (pits, f, values) => {
   const other = pitFor(pits, values[{ fromPit: "toPit", toPit: "fromPit" }[f.key]]);
