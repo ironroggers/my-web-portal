@@ -518,7 +518,7 @@ const DesktopSurveyPanel = ({ desktopSurvey }) => {
           items={[
             { label: 'Total', value: total },
             { label: 'Completed', value: completed },
-            { label: 'Submitted to IE', value: desktopSurvey.Approved ?? 0 },
+            { label: 'Submitted to IE', value: desktopSurvey.SubmittedToIE ?? 0 },
             { label: 'Approved by IE', value: desktopSurvey.ApprovedByIE ?? 0 },
           ]}
         />
