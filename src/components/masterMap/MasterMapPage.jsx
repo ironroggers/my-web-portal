@@ -4,8 +4,6 @@ import {
   Box,
   Button,
   Card,
-  Chip,
-  Divider,
   GlobalStyles,
   Grid,
   IconButton,
@@ -22,10 +20,6 @@ import { useSearchParams } from "react-router-dom";
 import { GoogleMap, InfoWindow, useJsApiLoader } from "@react-google-maps/api";
 import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import CenterFocusStrongOutlinedIcon from "@mui/icons-material/CenterFocusStrongOutlined";
-import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
-import CloseIcon from "@mui/icons-material/Close";
 import ViewModuleOutlinedIcon from "@mui/icons-material/ViewModuleOutlined";
 import AccountTreeOutlinedIcon from "@mui/icons-material/AccountTreeOutlined";
 import StraightenOutlinedIcon from "@mui/icons-material/StraightenOutlined";
@@ -43,6 +37,8 @@ import ExecMediaViewer from "../execution/ExecMediaViewer";
 import { Badge, Diamond, Dot, FilterChip, GroupHeading, Line, Pin, Square } from "../blockProfile/BlockMapPanel";
 import { EQUIPMENT_COLORS, MEDIA_KINDS, STAGE_LAYERS, STAGE_STATUSES, STATUS_COLORS, SUB_LABEL_ZOOM } from "../blockProfile/blockMapLayers";
 import { StageSwatch, TickSwatch } from "../blockProfile/MapWorkLayers";
+import { LegendGroup, MapLegend, MapStatusBar, ZoomBadge } from "../blockProfile/MapChrome";
+import { MAP_PANEL_WIDTH, quietMapOptions, statusBarButtonSx, useMapCursor } from "../blockProfile/mapChromeUtils";
 import MasterMapBlockLayers from "./MasterMapBlockLayers";
 import MasterMapBlockTree from "./MasterMapBlockTree";
 import MasterMapInfo from "./MasterMapInfo";
@@ -69,13 +65,6 @@ import {
 const DEFAULT_CENTER = { lat: 9.31, lng: 76.45 };
 const DEFAULT_ZOOM = 7;
 const MAP_CONTAINER_STYLE = { width: "100%", height: "100%" };
-// Quieter base map so the network's colours stand out
-const MAP_STYLES = [
-  { featureType: "poi", stylers: [{ visibility: "off" }] },
-  { featureType: "transit", stylers: [{ visibility: "off" }] },
-  { featureType: "landscape", stylers: [{ saturation: -60 }] },
-];
-const PANEL_WIDTH = 320;
 
 // Parsed KML per file URL, kept for the whole session: files don't change once uploaded
 const kmlCache = new Map();
@@ -134,28 +123,6 @@ const LegendSwatch = ({ item }) => {
 
 const Swatch = ({ children }) => <Box sx={{ width: 24, display: "flex", justifyContent: "center", flexShrink: 0 }}>{children}</Box>;
 
-const ZoomBadge = ({ minZoom, zoom }) =>
-  minZoom > 0 ? (
-    <Tooltip title={zoom < minZoom ? `Zoom in to ${minZoom} to see this layer` : `Shows from zoom ${minZoom}`}>
-      <Box
-        component="span"
-        sx={{
-          px: 0.5,
-          borderRadius: 0.5,
-          fontSize: 10,
-          fontWeight: 700,
-          lineHeight: "16px",
-          border: 1,
-          borderColor: zoom < minZoom ? "warning.main" : "divider",
-          color: zoom < minZoom ? "warning.dark" : "text.secondary",
-          flexShrink: 0,
-        }}
-      >
-        z{minZoom}
-      </Box>
-    </Tooltip>
-  ) : null;
-
 /** One layer: swatch, label, min-zoom badge, count and switch; its filters show while it's on */
 const LayerRow = ({ def, count, checked, onChange, zoom, children }) => (
   <Box sx={{ px: 2, py: 0.75, "&:not(:last-of-type)": { borderBottom: 1, borderColor: "divider" } }}>
@@ -177,8 +144,6 @@ const LayerRow = ({ def, count, checked, onChange, zoom, children }) => (
     {checked && children && <Box sx={{ pl: 4, pt: 0.5, pb: 0.5 }}>{children}</Box>}
   </Box>
 );
-
-const statusBarButtonSx = { color: "text.secondary", "&:hover": { color: "text.primary" } };
 
 /**
  * Master Map: every block's network and work on one read-only map. Blocks are picked in a
@@ -312,28 +277,9 @@ const MasterMapPage = () => {
   const [view, setView] = useState(null);
   const [selectedFeature, setSelectedFeature] = useState(null);
   const [viewing, setViewing] = useState(null);
-  const [cursor, setCursor] = useState(null);
-  const [copied, setCopied] = useState(false);
-  const frameRef = useRef(0);
+  const mouse = useMapCursor();
 
-  const mapOptions = useMemo(
-    () =>
-      isLoaded
-        ? {
-            styles: MAP_STYLES,
-            streetViewControl: false,
-            fullscreenControl: true,
-            mapTypeControl: true,
-            mapTypeControlOptions: {
-              style: window.google.maps.MapTypeControlStyle.DROPDOWN_MENU,
-              position: window.google.maps.ControlPosition.TOP_LEFT,
-              mapTypeIds: ["roadmap", "satellite", "hybrid", "terrain"],
-            },
-            clickableIcons: false,
-          }
-        : undefined,
-    [isLoaded]
-  );
+  const mapOptions = useMemo(() => (isLoaded ? quietMapOptions() : undefined), [isLoaded]);
 
   const fitTo = useCallback(
     (ids) => {
@@ -366,24 +312,6 @@ const MasterMapPage = () => {
     setZoom(map.getZoom());
     const b = map.getBounds()?.toJSON();
     if (b) setView(b);
-  };
-
-  const onMouseMove = (e) => {
-    const point = e.latLng.toJSON();
-    cancelAnimationFrame(frameRef.current);
-    frameRef.current = requestAnimationFrame(() => setCursor(point));
-  };
-  useEffect(() => () => cancelAnimationFrame(frameRef.current), []);
-
-  const copyCursor = async () => {
-    if (!cursor) return;
-    try {
-      await navigator.clipboard.writeText(`${cursor.lat.toFixed(5)},${cursor.lng.toFixed(5)}`);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      setCopied(false);
-    }
   };
 
   // Which layers draw now: switched on and close enough
@@ -577,99 +505,39 @@ const MasterMapPage = () => {
   const renderLegend = () => {
     const items = defs.filter((d) => legendAll || (layers[d.key] && zoom >= d.minZoom));
     return (
-      <Paper
-        elevation={4}
-        sx={{ position: "absolute", top: 60, right: 10, width: 250, maxHeight: "calc(100% - 120px)", display: "flex", flexDirection: "column", zIndex: 2 }}
-      >
-        <Box sx={{ display: "flex", alignItems: "center", px: 1.5, py: 0.75, borderBottom: 1, borderColor: "divider" }}>
-          <Typography variant="subtitle2" sx={{ flex: 1 }}>
-            Legend
-          </Typography>
-          <Tooltip title={legendAll ? "Show only what's on the map" : "Show every layer"}>
-            <Chip size="small" label={legendAll ? "All" : "On map"} variant="outlined" onClick={() => setLegendAll((v) => !v)} sx={{ mr: 0.5, height: 22 }} />
-          </Tooltip>
-          <IconButton size="small" onClick={() => setLegendOpen(false)} aria-label="Close legend">
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </Box>
-        <Box sx={{ overflowY: "auto", px: 1.5, py: 1 }}>
-          {items.length === 0 && (
-            <Typography variant="caption" sx={{ color: "text.secondary" }}>
-              Nothing on the map at this zoom.
-            </Typography>
-          )}
-          {items.map((def) => (
-            <Box key={def.key} sx={{ mb: 1 }}>
-              <Typography variant="overline" sx={{ color: "text.secondary", lineHeight: 1.6, display: "block" }}>
-                {def.label}
-              </Typography>
-              {def.legend.map((item, i) => (
-                <Box key={i} sx={{ display: "flex", alignItems: "center", gap: 1, minHeight: 20 }}>
-                  <Swatch>
-                    <LegendSwatch item={item} />
-                  </Swatch>
-                  <Typography variant="caption">{legendLabel(item)}</Typography>
-                </Box>
-              ))}
-            </Box>
-          ))}
-        </Box>
-      </Paper>
+      <MapLegend all={legendAll} onToggleAll={() => setLegendAll((v) => !v)} onClose={() => setLegendOpen(false)} empty={items.length === 0}>
+        {items.map((def) => (
+          <LegendGroup key={def.key} label={def.label} items={def.legend.map((item) => ({ swatch: <LegendSwatch item={item} />, text: legendLabel(item) }))} />
+        ))}
+      </MapLegend>
     );
   };
 
   const renderStatusBar = () => (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        gap: { xs: 0.5, sm: 1.5 },
-        px: 1,
-        minHeight: 36,
-        borderTop: 1,
-        borderColor: "divider",
-        bgcolor: "background.paper",
-        whiteSpace: "nowrap",
-        overflow: "hidden",
-      }}
-    >
-      <Tooltip title={panelOpen ? "Hide the panel" : "Show the panel"}>
-        <IconButton size="small" onClick={() => setPanelOpen((v) => !v)} aria-label={panelOpen ? "Hide the panel" : "Show the panel"} sx={statusBarButtonSx}>
-          {panelOpen ? <ChevronLeftIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
-        </IconButton>
-      </Tooltip>
-      <Typography variant="caption" sx={{ fontVariantNumeric: "tabular-nums", color: "text.secondary", minWidth: { sm: 150 } }}>
-        {cursor ? `${cursor.lat.toFixed(5)}, ${cursor.lng.toFixed(5)}` : "Move over the map"}
-      </Typography>
-      <Tooltip title={copied ? "Copied" : "Copy coordinates"}>
-        <span>
-          <IconButton size="small" onClick={copyCursor} disabled={!cursor} aria-label="Copy coordinates" sx={statusBarButtonSx}>
-            <ContentCopyOutlinedIcon sx={{ fontSize: 16 }} />
-          </IconButton>
-        </span>
-      </Tooltip>
-      <Divider orientation="vertical" flexItem sx={{ my: 1 }} />
-      <Typography variant="caption" sx={{ color: "text.secondary", fontVariantNumeric: "tabular-nums" }}>
-        Zoom: {zoom}
-      </Typography>
-      {loadingCount > 0 && (
-        <Typography variant="caption" sx={{ color: "text.secondary", display: { xs: "none", sm: "block" } }}>
-          · Loading {loadingCount} {loadingCount === 1 ? "block" : "blocks"}…
-        </Typography>
-      )}
-      <Box sx={{ flex: 1 }} />
-      <Tooltip title="Fit the picked blocks">
-        <span>
-          <IconButton size="small" onClick={() => fitTo([...selected])} disabled={!selected.size} aria-label="Fit the picked blocks" sx={statusBarButtonSx}>
-            <CenterFocusStrongOutlinedIcon fontSize="small" />
-          </IconButton>
-        </span>
-      </Tooltip>
-      <Typography variant="caption" sx={{ color: "text.secondary" }}>
-        Legend
-      </Typography>
-      <Switch size="small" checked={legendOpen} onChange={() => setLegendOpen((v) => !v)} slotProps={{ input: { "aria-label": "Show legend" } }} />
-    </Box>
+    <MapStatusBar
+      panelOpen={panelOpen}
+      onTogglePanel={() => setPanelOpen((v) => !v)}
+      cursor={mouse}
+      zoom={zoom}
+      status={
+        loadingCount > 0 && (
+          <Typography variant="caption" sx={{ color: "text.secondary", display: { xs: "none", sm: "block" } }}>
+            · Loading {loadingCount} {loadingCount === 1 ? "block" : "blocks"}…
+          </Typography>
+        )
+      }
+      actions={
+        <Tooltip title="Fit the picked blocks">
+          <span>
+            <IconButton size="small" onClick={() => fitTo([...selected])} disabled={!selected.size} aria-label="Fit the picked blocks" sx={statusBarButtonSx}>
+              <CenterFocusStrongOutlinedIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+      }
+      legendOpen={legendOpen}
+      onToggleLegend={() => setLegendOpen((v) => !v)}
+    />
   );
 
   const selectedData = selectedFeature ? blockData[selectedFeature.blockId]?.data : null;
@@ -683,8 +551,8 @@ const MasterMapPage = () => {
       onLoad={setMap}
       onUnmount={() => setMap(null)}
       onIdle={onIdle}
-      onMouseMove={onMouseMove}
-      onMouseOut={() => setCursor(null)}
+      onMouseMove={mouse.onMouseMove}
+      onMouseOut={mouse.onMouseOut}
       onClick={() => setSelectedFeature(null)}
     >
       {inView.map((data) => (
@@ -761,7 +629,7 @@ const MasterMapPage = () => {
         {panelOpen && (
           <Box
             sx={{
-              width: { xs: "100%", md: PANEL_WIDTH },
+              width: { xs: "100%", md: MAP_PANEL_WIDTH },
               height: { xs: 380, md: "auto" },
               flexShrink: 0,
               display: "flex",
