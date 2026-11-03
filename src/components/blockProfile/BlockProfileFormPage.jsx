@@ -55,6 +55,23 @@ const newGpRow = (gp = {}) => ({
   ringCode: String(gp.ringCode || "").match(/A\d{2}$/)?.[0] || "",
 });
 
+// A BJC (branch joint closure) keeps the code it was given (BJC01, BJC02, …), since sections
+// refer to it by code; a new one takes the next number not in use
+let bjcRowId = 0;
+const newBjcRow = (bjc = {}) => ({
+  rowId: ++bjcRowId,
+  name: bjc.name || "",
+  code: bjc.code || "",
+  latitude: bjc.latitude ?? "",
+  longitude: bjc.longitude ?? "",
+});
+const nextBjcCode = (bjcs) => {
+  const used = new Set(bjcs.map((b) => b.code));
+  let n = 1;
+  while (used.has(`BJC${String(n).padStart(2, "0")}`)) n += 1;
+  return `BJC${String(n).padStart(2, "0")}`;
+};
+
 // Ring numbers follow the number of rings: A01, A02, …; a ring's code is SSDDDBBBBAAA, the
 // state, district and block LGD codes + its number (the server builds the same codes)
 const MAX_RINGS = 20;
@@ -98,7 +115,7 @@ const validateCoordinates = (errors, prefix, { latitude, longitude }) => {
 };
 
 // Keys match the server's validation paths (blockRouter.latitude, gps.0.lgdCode)
-const validate = (form, gps) => {
+const validate = (form, gps, bjcs) => {
   const errors = {};
   if (isBlank(form.block)) errors.block = "Required";
   if (isBlank(form.blockCode)) errors.blockCode = "Required";
@@ -128,10 +145,14 @@ const validate = (form, gps) => {
     else if (codeCounts[gp.lgdCode.trim()] > 1) errors[`gps.${index}.lgdCode`] = "Duplicate LGD code";
     validateCoordinates(errors, `gps.${index}`, gp);
   });
+  bjcs.forEach((bjc, index) => {
+    if (isBlank(bjc.name)) errors[`bjcs.${index}.name`] = "Required";
+    validateCoordinates(errors, `bjcs.${index}`, bjc);
+  });
   return errors;
 };
 
-const toPayload = (form, gps) => {
+const toPayload = (form, gps, bjcs) => {
   const rings = ringCodesFor(form.numberOfRings);
   const { name, siteType, latitude, longitude, address } = form.blockRouter;
   const hasRouterPoint = hasPoint(form.blockRouter);
@@ -145,6 +166,11 @@ const toPayload = (form, gps) => {
       // A GP on a ring that's no longer there goes back to not set
       ringCode: rings.includes(gp.ringCode) ? gp.ringCode : null,
       ...(hasPoint(gp) && { latitude: Number(gp.latitude), longitude: Number(gp.longitude) }),
+    })),
+    bjcs: bjcs.map((bjc) => ({
+      name: bjc.name.trim(),
+      code: bjc.code,
+      ...(hasPoint(bjc) && { latitude: Number(bjc.latitude), longitude: Number(bjc.longitude) }),
     })),
     blockRouter: {
       name: name.trim(),
@@ -163,6 +189,16 @@ const fieldGrid = {
   display: "grid",
   gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: "repeat(2, minmax(0, 1fr))" },
   gap: 2,
+};
+
+// Code, name, latitude and longitude on one line from md up
+const bjcFieldGrid = {
+  ...fieldGrid,
+  gridTemplateColumns: {
+    xs: "minmax(0, 1fr)",
+    sm: "repeat(2, minmax(0, 1fr))",
+    md: "minmax(0, 2fr) repeat(2, minmax(0, 1fr))",
+  },
 };
 
 // Name, LGD code, latitude, longitude and ring on one line from md up
@@ -185,6 +221,7 @@ const BlockProfileFormPage = () => {
   const [loadError, setLoadError] = useState("");
   const [form, setForm] = useState(EMPTY_FORM);
   const [gps, setGps] = useState([]);
+  const [bjcs, setBjcs] = useState([]);
   const [touched, setTouched] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [serverErrors, setServerErrors] = useState({});
@@ -199,11 +236,12 @@ const BlockProfileFormPage = () => {
         setProfile(data);
         setForm(toForm(data));
         setGps((data.gps || []).map((gp) => newGpRow(gp)));
+        setBjcs((data.bjcs || []).map((bjc) => newBjcRow(bjc)));
       })
       .catch((e) => setLoadError(e.message || "Failed to load the block profile"));
   }, [blockProfileId]);
 
-  const errors = useMemo(() => validate(form, gps), [form, gps]);
+  const errors = useMemo(() => validate(form, gps, bjcs), [form, gps, bjcs]);
 
   // Format problems show while typing; "Required" waits until the field is left or the form submitted
   const fieldError = (key) => {
@@ -241,6 +279,12 @@ const BlockProfileFormPage = () => {
     clearServerError("gps");
   };
 
+  const updateBjc = (rowId, key) => (event) => {
+    const { value } = event.target;
+    setBjcs((previous) => previous.map((bjc) => (bjc.rowId === rowId ? { ...bjc, [key]: value } : bjc)));
+    clearServerError("bjcs");
+  };
+
   // A block picked from the LGD master: its names, codes and GPs replace what's typed;
   // the router, rings and remarks stay as they are
   const fillFromMaster = (block) => {
@@ -267,6 +311,13 @@ const BlockProfileFormPage = () => {
     clearServerError("gps");
   };
 
+  const addBjc = () => setBjcs((previous) => [...previous, newBjcRow({ code: nextBjcCode(previous) })]);
+  const removeBjc = (rowId) => {
+    setBjcs((previous) => previous.filter((bjc) => bjc.rowId !== rowId));
+    setTouched((previous) => Object.fromEntries(Object.entries(previous).filter(([key]) => !key.startsWith("bjcs."))));
+    clearServerError("bjcs");
+  };
+
   const textField = (key, label, { helperText, ...props } = {}) => (
     <TextField
       label={label}
@@ -290,7 +341,7 @@ const BlockProfileFormPage = () => {
     setServerErrors({});
     try {
       setSaving(true);
-      const payload = toPayload(form, gps);
+      const payload = toPayload(form, gps, bjcs);
       const saved = isEdit
         ? await blockProfileService.update(blockProfileId, { ...payload, updatedBy: userId })
         : await blockProfileService.create({ ...payload, createdBy: userId });
@@ -570,6 +621,71 @@ const BlockProfileFormPage = () => {
                       <IconButton
                         aria-label={`Remove GP ${index + 1}`}
                         onClick={() => removeGp(gp.rowId)}
+                        sx={{ mt: 0.25, "&:hover": { color: "error.main" } }}
+                      >
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </SectionCard>
+        </Grid>
+
+        <Grid size={12}>
+          <SectionCard
+            title="BJCs"
+            subtitle="Branch joint closures where sections start or end. Each keeps its code (BJC01, BJC02, …); coordinates put it on the block map."
+            action={
+              <Button size="small" startIcon={<AddIcon />} onClick={addBjc}>
+                Add BJC
+              </Button>
+            }
+          >
+            {serverErrors.bjcs && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {serverErrors.bjcs}
+              </Alert>
+            )}
+            {bjcs.length === 0 ? (
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                No BJCs. Add one only where a section ends at a joint rather than a GP or the block router.
+              </Typography>
+            ) : (
+              <Box sx={{ display: "grid", gap: 1.5 }}>
+                {bjcs.map((bjc, index) => (
+                  <Box key={bjc.rowId} sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
+                    <Chip label={bjc.code} variant="outlined" size="small" sx={{ mt: 0.75, fontFamily: "monospace", flexShrink: 0 }} />
+                    <Box sx={{ ...bjcFieldGrid, flex: 1 }}>
+                      <TextField
+                        label="BJC name"
+                        value={bjc.name}
+                        onChange={updateBjc(bjc.rowId, "name")}
+                        onBlur={touch(`bjcs.${index}.name`)}
+                        error={Boolean(fieldError(`bjcs.${index}.name`))}
+                        helperText={fieldError(`bjcs.${index}.name`)}
+                        size="small"
+                        required
+                      />
+                      {["latitude", "longitude"].map((key) => (
+                        <TextField
+                          key={key}
+                          label={key === "latitude" ? "Latitude" : "Longitude"}
+                          value={bjc[key]}
+                          onChange={updateBjc(bjc.rowId, key)}
+                          onBlur={touch(`bjcs.${index}.${key}`)}
+                          error={Boolean(fieldError(`bjcs.${index}.${key}`))}
+                          helperText={fieldError(`bjcs.${index}.${key}`)}
+                          size="small"
+                          slotProps={{ htmlInput: { inputMode: "decimal" } }}
+                        />
+                      ))}
+                    </Box>
+                    <Tooltip title="Remove BJC">
+                      <IconButton
+                        aria-label={`Remove ${bjc.code}`}
+                        onClick={() => removeBjc(bjc.rowId)}
                         sx={{ mt: 0.25, "&:hover": { color: "error.main" } }}
                       >
                         <DeleteOutlineIcon fontSize="small" />

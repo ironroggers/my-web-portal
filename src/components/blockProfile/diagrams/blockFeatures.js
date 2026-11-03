@@ -5,8 +5,8 @@ import { nodeKey, projectOnto } from "./diagramGeometry";
 // network nodes, each section's route through its captured points, and the point
 // layers (joints, structures, route indicators, landmarks, crossings).
 //
-// Joint closures aren't recorded on their own yet, so they are derived:
-//   BJC  where three or more routes meet (a branch)
+// Joint closures recorded on the block (blockProfile.bjcs) are nodes; the rest are derived:
+//   BJC  where three or more routes meet at a GP (a branch)
 //   SJC  each Splicing point recorded along a section (a straight joint)
 
 const DUCT_ON_ROUTE = new Set(["HDD", "OT", "CLAMP", "BLOWING"]);
@@ -21,6 +21,9 @@ export const buildFeatures = (blockProfile, data) => {
   }
   for (const gp of blockProfile.gps || []) {
     if (gp.latitude != null && gp.longitude != null) nodes.push({ key: `GP:${gp.lgdCode}`, type: "GP", code: gp.lgdCode, name: gp.name, p: { lat: gp.latitude, lng: gp.longitude } });
+  }
+  for (const bjc of blockProfile.bjcs || []) {
+    if (bjc.latitude != null && bjc.longitude != null) nodes.push({ key: `BJC:${bjc.code}`, type: "BJC", code: bjc.code, name: bjc.name, p: { lat: bjc.latitude, lng: bjc.longitude } });
   }
   const nodeByKey = new Map(nodes.map((n) => [n.key, n]));
   const sections = data?.sections || [];

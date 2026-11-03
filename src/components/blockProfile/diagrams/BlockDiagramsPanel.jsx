@@ -61,6 +61,10 @@ const BlockDiagramsPanel = ({ blockProfile }) => {
       const r = blockProfile.blockRouter || {};
       return { type: "ROUTER", code: blockProfile.blockCode, name: routerName(blockProfile), lat: r.latitude, lng: r.longitude };
     }
+    if (node.type === "BJC") {
+      const bjc = (blockProfile.bjcs || []).find((b) => b.code === node.code) || {};
+      return { type: "BJC", code: node.code, name: bjc.name || node.name, lat: bjc.latitude, lng: bjc.longitude };
+    }
     const gp = (blockProfile.gps || []).find((g) => g.lgdCode === node.code) || {};
     return { type: "GP", code: node.code, name: gp.name || node.name, lat: gp.latitude, lng: gp.longitude };
   };
@@ -82,9 +86,10 @@ const BlockDiagramsPanel = ({ blockProfile }) => {
       const media = (data?.media || []).filter((m) => (node.type === "ROUTER" ? m.kind === "BLOCK_INFRA" : m.kind === "GP_INFRA" && m.gpLgdCode === node.code));
       return {
         title: nodeTitle(node),
-        subtitle: node.type === "ROUTER" ? `Block router · ${blockProfile.blockCode}` : `GP · LGD ${node.code}`,
+        subtitle: node.type === "ROUTER" ? `Block router · ${blockProfile.blockCode}` : node.type === "BJC" ? `BJC · ${node.code}` : `GP · LGD ${node.code}`,
         body: <NodeDetail node={node} infra={infraFor(node)} sections={touching} media={media} onSection={(s) => setSelected({ kind: "section", section: s })} />,
-        actions: <OpenButton label={infraFor(node) ? "Open infra" : "Capture infra"} onClick={() => openInfra(node)} />,
+        // A BJC has no infra of its own
+        actions: node.type === "BJC" ? null : <OpenButton label={infraFor(node) ? "Open infra" : "Capture infra"} onClick={() => openInfra(node)} />,
       };
     }
     if (selected.kind === "section") {

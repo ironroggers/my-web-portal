@@ -81,11 +81,12 @@ const SectionProgress = ({ section }) =>
     </Box>
   ) : null;
 
-// The block router and GPs: the points a section can start and end at. The router is the
+// The block router, GPs and BJCs: the points a section can start and end at. The router is the
 // block's head node; its code is the block's LGD code.
 const blockNodes = (profile) => [
   { type: "ROUTER", code: profile.blockCode, name: routerName(profile), latitude: profile.blockRouter?.latitude, longitude: profile.blockRouter?.longitude },
   ...(profile.gps || []).map((gp) => ({ type: "GP", code: gp.lgdCode, name: gp.name, latitude: gp.latitude, longitude: gp.longitude })),
+  ...(profile.bjcs || []).map((bjc) => ({ type: "BJC", code: bjc.code, name: bjc.name, latitude: bjc.latitude, longitude: bjc.longitude })),
 ];
 
 // Select values are "TYPE:code"; the server gets { type, code } back and fills in the rest

@@ -321,7 +321,7 @@ const SubsectionCreatePage = () => {
   // Only ducting can be created (the server's createTypeOrder)
   const typeChips = (config?.createTypeOrder || (config?.typeOrder || []).filter(isDucting)).map((t) => ({ value: t, label: typeOf(t).label }));
   // A section end as "Karuvatta (GP)" or "Block router (BR)"
-  const endName = (node) => (node?.name ? `${node.name} (${node.type === "GP" ? "GP" : "BR"})` : "");
+  const endName = (node) => (node?.name ? `${node.name} (${node.type === "ROUTER" ? "BR" : node.type})` : "");
   const fromName = endName(section?.fromNode);
   const toName = endName(section?.toNode);
 

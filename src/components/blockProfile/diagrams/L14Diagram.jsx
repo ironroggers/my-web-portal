@@ -78,7 +78,7 @@ const NodeChip = ({ node, infra, align, onClick }) => (
   <ButtonBase
     onClick={onClick}
     aria-label={`${node.type} ${node.name}`}
-    sx={{ display: "block", textAlign: align, px: 1.25, py: 0.5, borderRadius: 1, bgcolor: node.type === "ROUTER" ? "#1e3a8a" : "#7c3aed", color: "#fff", minWidth: 0, maxWidth: "48%" }}
+    sx={{ display: "block", textAlign: align, px: 1.25, py: 0.5, borderRadius: 1, bgcolor: node.type === "ROUTER" ? "#1e3a8a" : node.type === "BJC" ? "#c2410c" : "#7c3aed", color: "#fff", minWidth: 0, maxWidth: "48%" }}
   >
     <Typography variant="body2" noWrap sx={{ fontWeight: 700 }}>
       {nodeTitle(node)}

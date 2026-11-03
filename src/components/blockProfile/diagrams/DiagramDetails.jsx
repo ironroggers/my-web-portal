@@ -92,15 +92,20 @@ export const MediaList = ({ items }) => {
   );
 };
 
-/** Block router or GP: where it is, its infra capture and the sections that touch it */
+const NODE_TYPE_LABELS = { ROUTER: "Block router", GP: "Gram Panchayat", BJC: "Branch joint closure" };
+const NODE_CODE_LABELS = { ROUTER: "Block LGD code", GP: "LGD code", BJC: "BJC code" };
+
+/** Block router, GP or BJC: where it is, its infra capture (not for a BJC) and the sections that touch it */
 export const NodeDetail = ({ node, infra, sections, media, onSection }) => (
   <Box>
-    <Row label="Type">{node.type === "ROUTER" ? "Block router" : "Gram Panchayat"}</Row>
-    <Row label={node.type === "ROUTER" ? "Block LGD code" : "LGD code"}>{node.code}</Row>
+    <Row label="Type">{NODE_TYPE_LABELS[node.type] || node.type}</Row>
+    <Row label={NODE_CODE_LABELS[node.type] || "Code"}>{node.code}</Row>
     <Row label="Coordinates">{node.lat != null ? fmtLatLong(node.lat, node.lng) : "Not set"}</Row>
-    <Row label="Infra">
-      {infra ? `Captured · ${infra.photoCount} ${infra.photoCount === 1 ? "photo" : "photos"} · ${fmtDateTime(infra.updatedAt)}` : "Not captured"}
-    </Row>
+    {node.type !== "BJC" && (
+      <Row label="Infra">
+        {infra ? `Captured · ${infra.photoCount} ${infra.photoCount === 1 ? "photo" : "photos"} · ${fmtDateTime(infra.updatedAt)}` : "Not captured"}
+      </Row>
+    )}
     <Heading>Sections ({sections.length})</Heading>
     {sections.length ? (
       sections.map((s) => (

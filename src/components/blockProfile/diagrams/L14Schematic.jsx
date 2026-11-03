@@ -92,6 +92,15 @@ const L14Schematic = forwardRef(({ blockProfile, features, onSelect }, ref) => {
             </g>
           );
         }
+        if (n.type === "BJC") {
+          return (
+            <g key={n.key} onClick={select} style={{ cursor: "pointer" }}>
+              <title>{`BJC: ${titleCase(n.name)} · ${n.code}`}</title>
+              <Diamond x={n.x} y={n.y} fill={C.bjc} stroke="#9a3412" />
+              {nodeLabel(n, n.x, n.y, free[0] || "down")}
+            </g>
+          );
+        }
         if (n.branch) {
           // A branch: BJC on the route, the GP on a short spur
           const dir = free[0] || "down";
