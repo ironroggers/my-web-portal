@@ -83,7 +83,9 @@ import { formatNumber } from "../utils/formatNumber";
 // =============================================================================
 
 // Project targets used until the summary API provides them.
+// Physical survey is per block: the summary sends the number of blocks in Desktop Surveys; 978 until it does
 const PHYSICAL_SURVEY_TARGET = 978;
+const surveyTarget = (summaryData) => summaryData?.Physical_Survey?.Total || PHYSICAL_SURVEY_TARGET;
 const DEFAULT_TOTAL_BLOCKS = 152;
 
 // Backend field mappings for process steps
@@ -136,12 +138,35 @@ const calculateCompletionRate = (approved, submitted) => {
  * @param {Object} rawData - Raw response from summaryService.getComputedSummary()
  * @returns {Object} Processed summary with normalized structure
  */
+const blocksIn = (list) => new Set(list.map((row) => row.Block_Code).filter(Boolean)).size;
+const perBlock = (stage, lists, fallback) => {
+  const submitted = lists?.Submitted?.List;
+  const approved = lists?.Approved?.List;
+  // Only lists that hold every counted row can be counted by block
+  if (!Array.isArray(submitted) || !Array.isArray(approved) || submitted.length !== stage.Submitted || approved.length !== stage.Approved) return fallback;
+  return { ...stage, Submitted: blocksIn(submitted), Approved: blocksIn(approved) };
+};
+
+/**
+ * Physical survey and BOQ are done per block, like the desktop survey. A summary service that
+ * still counts their GP rows (no Physical_Survey.Total) is counted by block here, from its lists.
+ */
+const countSurveysByBlock = (summary, data) => {
+  if (!summary.Physical_Survey || summary.Physical_Survey.Total) return summary;
+  const physical = perBlock(summary.Physical_Survey, data.Physical_Survey, summary.Physical_Survey);
+  return {
+    ...summary,
+    Physical_Survey: { ...physical, Total: physical === summary.Physical_Survey ? undefined : DEFAULT_TOTAL_BLOCKS },
+    ...(summary.Boq && { Boq: perBlock(summary.Boq, data.Boq, summary.Boq) }),
+  };
+};
+
 const processSummaryData = (rawData) => {
   const summaryPayload = rawData.Summary || rawData.summary || {};
   const dataPayload = rawData.Data || rawData.data || {};
 
   return {
-    summary: summaryPayload,
+    summary: countSurveysByBlock(summaryPayload, dataPayload),
     data: dataPayload,
     generatedAt: rawData.GeneratedAt || rawData.generatedAt || null,
   };
@@ -197,9 +222,9 @@ const generateKPIs = (summaryData) => {
   if (summaryData.Physical_Survey?.Approved !== undefined && summaryData.Physical_Survey?.Submitted !== undefined) {
     kpis.push({
       title: 'Physical Survey Completed',
-      value: calculateCompletionRate(summaryData.Physical_Survey.Approved, PHYSICAL_SURVEY_TARGET),
+      value: calculateCompletionRate(summaryData.Physical_Survey.Approved, surveyTarget(summaryData)),
       suffix: '%',
-      subtitle: `${summaryData.Physical_Survey.Approved} completed out of ${PHYSICAL_SURVEY_TARGET} target`,
+      subtitle: `${summaryData.Physical_Survey.Approved} completed out of ${surveyTarget(summaryData)} target`,
       icon: <TravelExploreOutlinedIcon />,
     });
   }
@@ -258,11 +283,11 @@ const generateKPIs = (summaryData) => {
  */
 const processPhysicalSurveyStages = (physicalSurveyData, boqData) => {
   const stages = [];
-  const totalBlocks = PHYSICAL_SURVEY_TARGET;
+  const totalBlocks = physicalSurveyData.Total || PHYSICAL_SURVEY_TARGET;
 
   // In Progress stage
   if (physicalSurveyData.Submitted !== undefined) {
-    const inProgressCount = PHYSICAL_SURVEY_TARGET - physicalSurveyData.Submitted;
+    const inProgressCount = totalBlocks - (physicalSurveyData.Approved ?? 0);
     if (inProgressCount > 0) {
       stages.push({
         stage: 'In Progress',
@@ -320,10 +345,10 @@ const getPhysicalWorkflowStages = (summaryData) => {
     {
       label: 'In Progress',
       value: physicalSurvey?.Submitted !== undefined && physicalSurvey?.Approved !== undefined
-        ? PHYSICAL_SURVEY_TARGET - physicalSurvey.Submitted
+        ? surveyTarget(summaryData) - physicalSurvey.Approved
         : 0,
     },
-    { label: 'Completed', value: physicalSurvey?.Approved !== undefined ? physicalSurvey.Submitted : 0 },
+    { label: 'Completed', value: physicalSurvey?.Approved ?? 0 },
     { label: 'BOQ Submitted to IE', value: boq.Submitted ?? 0 },
     { label: 'BOQ Recommended by IE', value: boq.Approved ?? 0 },
     { label: 'BOQ Approved by BSNL', value: boq.Approved ?? 0 },
@@ -512,10 +537,10 @@ const DesktopSurveyPanel = ({ desktopSurvey }) => {
 /**
  * Physical survey and BOQ stages against the GP target
  */
-const PhysicalSurveyPanel = ({ stages }) => (
+const PhysicalSurveyPanel = ({ stages, total }) => (
   <SectionCard
     title="Physical survey & BOQ"
-    subtitle={`Total GP: ${formatNumber(PHYSICAL_SURVEY_TARGET)}`}
+    subtitle={`Total blocks: ${formatNumber(total)}`}
     icon={<MapOutlinedIcon />}
     contentSx={{ p: 0 }}
   >
@@ -599,7 +624,7 @@ const ProcessStepAccordion = ({ step, summaryData }) => {
   const isPhysicalSurvey = step.title === PHYSICAL_SURVEY_STEP_TITLE;
 
   const completionRate = isPhysicalSurvey
-    ? step.approved / PHYSICAL_SURVEY_TARGET
+    ? step.approved / surveyTarget(summaryData)
     : step.approved / Math.max(step.submitted, 1);
   const completionPercent = Math.round(completionRate * 100);
 
@@ -658,7 +683,7 @@ const ProcessStepAccordion = ({ step, summaryData }) => {
             <Typography variant="body1" sx={{ fontWeight: 600 }}>{step.title}</Typography>
             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
               {isPhysicalSurvey
-                ? `${formatNumber(step.approved)} completed of ${formatNumber(PHYSICAL_SURVEY_TARGET)} target`
+                ? `${formatNumber(step.approved)} completed of ${formatNumber(surveyTarget(summaryData))} target`
                 : `${formatNumber(step.approved)} approved of ${formatNumber(step.submitted)} submitted`}
             </Typography>
           </Box>
@@ -807,7 +832,7 @@ const AnalyticsDashboard = () => {
               <SectionLabel>Surveys</SectionLabel>
               <Box sx={autoGrid(420)}>
                 {summaryData.Desktop_Survey && <DesktopSurveyPanel desktopSurvey={summaryData.Desktop_Survey} />}
-                {summaryData.Physical_Survey && <PhysicalSurveyPanel stages={physicalSurveyStages} />}
+                {summaryData.Physical_Survey && <PhysicalSurveyPanel stages={physicalSurveyStages} total={surveyTarget(summaryData)} />}
               </Box>
             </Box>
           )}
