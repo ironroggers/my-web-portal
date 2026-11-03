@@ -11,6 +11,7 @@ import {
   ROUTER_COLOR,
   STAGE_LAYERS,
   STATUS_COLORS,
+  TYPE_COLORS,
   lighten,
 } from "../blockProfile/blockMapLayers";
 
@@ -89,10 +90,10 @@ export const layerDefs = () => [
     minZoom: 13,
     on: true,
     legend: [
-      ...SUB_STATUSES.map((key) => ({ shape: "line", color: STATUS_COLORS[key], status: key })),
+      ...Object.entries(TYPE_COLORS).map(([key, color]) => ({ shape: "line", color, type: key })),
       { shape: "line", color: "#475569", dashed: true, label: "Planned line, along the road" },
       { shape: "line", color: "#475569", label: "Executed path" },
-      { shape: "line", color: lighten(STATUS_COLORS.IN_PROGRESS), label: "Every other subsection, lighter" },
+      { shape: "line", color: lighten(TYPE_COLORS.HDD), label: "Every other subsection, lighter" },
       { shape: "tick", label: "Where one subsection ends and the next begins" },
       { shape: "dot", color: "#15803d", label: "A · start pit / point" },
       { shape: "dot", color: "#b91c1c", label: "B · end pit / point" },

@@ -2,7 +2,7 @@
 // and filters that are on. The zoom doesn't matter; a layer that's on exports in full.
 import * as XLSX from "xlsx";
 import { titleCase } from "../execution/execConstants";
-import { MEDIA_KIND, RESTORATION_COLORS, STATUS_COLORS, ROUTER_COLOR, GP_COLOR, INFRA_COLORS, EQUIPMENT_COLORS, REF_COLOR, RING_COLOR } from "../blockProfile/blockMapLayers";
+import { MEDIA_KIND, RESTORATION_COLORS, TYPE_COLORS, subTypeKey, ROUTER_COLOR, GP_COLOR, INFRA_COLORS, EQUIPMENT_COLORS, REF_COLOR, RING_COLOR } from "../blockProfile/blockMapLayers";
 import { SITE_TYPES, routerName } from "../blockProfile/blockProfileConstants";
 import { kmlStyleOf } from "../mapViewPage/utils/kmlUtils";
 import { EQUIPMENT_FORMS, formFields, miscItemsOf, miscTypeLabel } from "../blockProfile/equipmentForms";
@@ -311,7 +311,7 @@ const baseStyles = () => [
   lineStyle("ref-line", REF_COLOR, 1.5, "b3"),
   lineStyle("ring", RING_COLOR, 3),
   ...Object.entries(RESTORATION_COLORS).map(([key, color]) => lineStyle(`section-${key}`, color, 6, "99")),
-  ...Object.entries(STATUS_COLORS).flatMap(([key, color]) => [lineStyle(`sub-${key}`, color, 3), pointStyle(`entry-${key}`, color, 0.5)]),
+  ...Object.entries(TYPE_COLORS).flatMap(([key, color]) => [lineStyle(`sub-${key}`, color, 3), pointStyle(`entry-${key}`, color, 0.5)]),
   ...Object.entries(MEDIA_KIND).map(([key, k]) => pointStyle(`media-${key}`, k.color, 0.7)),
 ];
 
@@ -421,7 +421,8 @@ const blockFolder = (data, kml, { on, config, roads, styles, kmlStyles }) => {
 
   // A subsection: planned line, executed path, pits, entries and reference points
   const subFolder = (s) => {
-    const key = subKey(s) || "NOT_STARTED";
+    // Styled by type of work, as on the maps
+    const key = subTypeKey(s);
     const description = lines([
       ["Type of work", typeLabel(s.typeOfWork)],
       ["Status", statusLabel(subKey(s))],

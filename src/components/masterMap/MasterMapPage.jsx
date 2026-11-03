@@ -438,7 +438,8 @@ const MasterMapPage = () => {
   const countWhere = (fn) => ready.reduce((n, d) => n + fn(d), 0);
   const statusLabel = (key) => (key === "LEGACY" ? "Older (trenching)" : config?.statuses?.[key]?.label || key);
   const restorationLabel = (key) => config?.restorationStates?.[key]?.label || key;
-  const legendLabel = (item) => item.label || (item.status ? statusLabel(item.status) : item.restoration ? `Section · ${restorationLabel(item.restoration)}` : "");
+  const workTypeLabel = (key) => ({ OTHER: "Other work", LEGACY: "Older (trenching)" })[key] || config?.types?.[key]?.label || key;
+  const legendLabel = (item) => item.label || (item.type ? workTypeLabel(item.type) : item.status ? statusLabel(item.status) : item.restoration ? `Section · ${restorationLabel(item.restoration)}` : "");
 
   const exportOptions = { layers, filters, config, roadsByBlock };
   const loadingCount = [...selected].filter((id) => !blockData[id] || blockData[id].status === "loading").length;

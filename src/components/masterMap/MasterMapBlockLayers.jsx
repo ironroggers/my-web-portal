@@ -18,13 +18,14 @@ import {
   ROUTER_COLOR,
   SQUARE_PATH,
   STAGE_LAYERS,
-  STATUS_COLORS,
+  TYPE_COLORS,
   boundaryTicks,
   circleSymbol,
   groupMedia,
   isFlagged,
   lighten,
   lightSubsections,
+  subTypeKey,
   symbol,
 } from "../blockProfile/blockMapLayers";
 import { StageRecordLayers, SubsectionLabel } from "../blockProfile/MapWorkLayers";
@@ -112,9 +113,9 @@ const MasterMapBlockLayers = ({ data, kml, roads, show, filters, thick, names, l
   const nameLabel = (text) => (names ? { text: titleCase(text), className: "block-map-name", color: "#111827", fontSize: "11px", fontWeight: "600" } : undefined);
 
   const renderSubsection = (s) => {
-    // Every other subsection in a section takes the light shade, so neighbours stand apart
-    const statusColor = STATUS_COLORS[subKey(s)] || STATUS_COLORS.NOT_STARTED;
-    const color = lightSubs.has(String(s._id)) ? lighten(statusColor) : statusColor;
+    // Coloured by type of work; every other subsection in a section takes the light shade, so neighbours stand apart
+    const typeColor = TYPE_COLORS[subTypeKey(s)];
+    const color = lightSubs.has(String(s._id)) ? lighten(typeColor) : typeColor;
     const executed = [s.start, ...s.entries, s.end].filter(Boolean).map((p) => ({ lat: p.lat, lng: p.lng }));
     // The planned line follows the road from the KML; without one only the field work shows
     const planned = roads?.subsections.get(String(s._id));
