@@ -26,6 +26,7 @@ import DataRow, { ROW_NUMBER_WIDTH } from "./DataRow";
 import DataModal from "./DataModal";
 import ColumnSelector from "./ColumnSelector";
 import ExcelUploadButton from "./ExcelUploadButton";
+import ExcelDownloadButton, { ExcelDownloadAllButton } from "./ExcelDownloadButton";
 
 const ROW_NUMBER_COLUMN = "Row #";
 const DEFAULT_COLUMN_WIDTH = 200;
@@ -249,6 +250,9 @@ const SheetDataDisplay = ({
           selectedSheet={selectedSheet}
           onVisibleHeadersChange={setVisibleHeaders}
         />
+
+        <ExcelDownloadButton selectedSheet={selectedSheet} headers={headers} rows={sheetData} />
+        <ExcelDownloadAllButton sheetNames={sheetNames} />
 
         <ExcelUploadButton
           selectedSheet={selectedSheet}
