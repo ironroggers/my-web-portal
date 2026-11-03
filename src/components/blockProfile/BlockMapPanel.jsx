@@ -8,12 +8,13 @@ import {
   Chip,
   CircularProgress,
   GlobalStyles,
-  Grid,
   IconButton,
   Link,
   Skeleton,
   Stack,
   Switch,
+  Tab,
+  Tabs,
   Tooltip,
   Typography,
 } from "@mui/material";
@@ -23,6 +24,7 @@ import UploadFileOutlinedIcon from "@mui/icons-material/UploadFileOutlined";
 import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import CenterFocusStrongOutlinedIcon from "@mui/icons-material/CenterFocusStrongOutlined";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import blockProfileService from "../../services/blockProfileService.jsx";
 import executionService from "../../services/executionService.jsx";
@@ -32,7 +34,6 @@ import KMLLayer from "../mapViewPage/mapComponents/KMLLayer";
 import { initiallyHiddenLayers, kmlLayers } from "../mapViewPage/utils/kmlUtils";
 import KmlLayerList from "./KmlLayerList";
 import { GOOGLE_MAPS_LOADER_OPTIONS } from "../mapViewPage/utils/googleMapsLoader";
-import SectionCard from "../common/SectionCard";
 import ConfirmDeleteDialog from "../common/ConfirmDeleteDialog";
 import ExecMediaViewer from "../execution/ExecMediaViewer";
 import { posterSrc, mediaSrc } from "../execution/mediaItems";
@@ -74,6 +75,8 @@ import {
   symbol,
 } from "./blockMapLayers";
 import { StageRecordLayers, StageSwatch, SubsectionLabel, TickSwatch } from "./MapWorkLayers";
+import { LegendGroup, MapLegend, MapStatusBar, ZoomBadge } from "./MapChrome";
+import { MAP_PANEL_WIDTH, quietMapOptions, readMapPrefs, statusBarButtonSx, useMapCursor, writeMapPrefs } from "./mapChromeUtils";
 import { exportBlockKml } from "../masterMap/masterMapExport";
 import { ROAD_TOLERANCE_M, buildRoadNetwork, buildRoadPaths, midpointOf, pathLength } from "./roadPaths";
 
@@ -81,7 +84,8 @@ import { ROAD_TOLERANCE_M, buildRoadNetwork, buildRoadPaths, midpointOf, pathLen
 const DEFAULT_CENTER = { lat: 9.31, lng: 76.45 };
 const DEFAULT_ZOOM = 8;
 const MAP_CONTAINER_STYLE = { width: "100%", height: "100%" };
-const MAP_OPTIONS = { streetViewControl: false, mapTypeControl: true, fullscreenControl: true };
+// Layer switches and filters, remembered per browser like the Master Map's
+const PREFS_KEY = "portal.blockMap.prefs";
 
 // One colour per KML file so overlapping routes stay distinguishable; none is used by another layer
 const KML_COLORS = ["#f97316", "#ca8a04", "#e11d48", "#0e7490", "#65a30d", "#78350f"];
@@ -301,6 +305,8 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
   const { config } = useExecutionConfig();
   const limit = config?.accuracyLimitM ?? 1;
   const { isLoaded, loadError } = useJsApiLoader(GOOGLE_MAPS_LOADER_OPTIONS);
+  const mapOptions = useMemo(() => (isLoaded ? quietMapOptions() : undefined), [isLoaded]);
+  const mouse = useMapCursor();
   const blockProfileId = blockProfile._id;
   const kmlFiles = useMemo(() => blockProfile.kmlFiles || [], [blockProfile.kmlFiles]);
 
@@ -331,7 +337,8 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
 
   // Layers and their filters. Attachments and reference points start off: they are many
   // small dots that hide the network until someone looks for them.
-  const [layers, setLayers] = useState({
+  const [prefs] = useState(() => readMapPrefs(PREFS_KEY));
+  const [layers, setLayers] = useState(() => ({
     network: true,
     names: true,
     blockInfra: true,
@@ -343,15 +350,33 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
     subLabels: true,
     refs: false,
     media: false,
-  });
-  const [equipmentForms, setEquipmentForms] = useState(() => new Set(EQUIPMENT_FORMS_ON_MAP.map((f) => f.key)));
-  const [subStatuses, setSubStatuses] = useState(() => new Set([...SUB_STATUSES, "LEGACY"]));
-  const [mediaKinds, setMediaKinds] = useState(() => new Set(MEDIA_KINDS.map((k) => k.key)));
+    ...prefs.layers,
+  }));
+  const [equipmentForms, setEquipmentForms] = useState(() => new Set(prefs.equipmentForms || EQUIPMENT_FORMS_ON_MAP.map((f) => f.key)));
+  const [subStatuses, setSubStatuses] = useState(() => new Set(prefs.subStatuses || [...SUB_STATUSES, "LEGACY"]));
+  const [mediaKinds, setMediaKinds] = useState(() => new Set(prefs.mediaKinds || MEDIA_KINDS.map((k) => k.key)));
   // Section stages: which are drawn, and which record statuses
-  const [stages, setStages] = useState(() => new Set(STAGE_LAYERS.map((l) => l.stage)));
-  const [stageStatuses, setStageStatuses] = useState(() => new Set(STAGE_STATUSES));
-  const [fileTypes, setFileTypes] = useState(() => new Set(["IMAGE", "VIDEO"]));
+  const [stages, setStages] = useState(() => new Set(prefs.stages || STAGE_LAYERS.map((l) => l.stage)));
+  const [stageStatuses, setStageStatuses] = useState(() => new Set(prefs.stageStatuses || STAGE_STATUSES));
+  const [fileTypes, setFileTypes] = useState(() => new Set(prefs.fileTypes || ["IMAGE", "VIDEO"]));
   const [flaggedOnly, setFlaggedOnly] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(prefs.legendOpen ?? true);
+  const [legendAll, setLegendAll] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(prefs.panelOpen ?? true);
+  const [tab, setTab] = useState("layers");
+  useEffect(() => {
+    writeMapPrefs(PREFS_KEY, {
+      layers,
+      equipmentForms: [...equipmentForms],
+      subStatuses: [...subStatuses],
+      mediaKinds: [...mediaKinds],
+      stages: [...stages],
+      stageStatuses: [...stageStatuses],
+      fileTypes: [...fileTypes],
+      legendOpen,
+      panelOpen,
+    });
+  }, [layers, equipmentForms, subStatuses, mediaKinds, stages, stageStatuses, fileTypes, legendOpen, panelOpen]);
   const toggleLayer = (key) => setLayers((l) => ({ ...l, [key]: !l[key] }));
 
   const fileInputRef = useRef(null);
@@ -493,9 +518,8 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
     data ? `${infra.length}/${equipment.length}/${sections.length}/${subsections.length}/${allMedia.length}/${stageRecords.length}` : "",
   ].join("|");
 
-  useEffect(() => {
-    if (!map || points.length === 0 || fitKey === lastFitKeyRef.current) return;
-    lastFitKeyRef.current = fitKey;
+  const fitAll = useCallback(() => {
+    if (!map || points.length === 0) return;
     if (points.length === 1) {
       map.setCenter(points[0]);
       map.setZoom(15);
@@ -504,7 +528,12 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
     const bounds = new window.google.maps.LatLngBounds();
     points.forEach((point) => bounds.extend(point));
     map.fitBounds(bounds, 48);
-  }, [map, points, fitKey]);
+  }, [map, points]);
+  useEffect(() => {
+    if (!map || points.length === 0 || fitKey === lastFitKeyRef.current) return;
+    lastFitKeyRef.current = fitKey;
+    fitAll();
+  }, [map, points, fitKey, fitAll]);
 
   // Each file's KML layers (folders), for the list under it
   const layersByFile = useMemo(() => Object.fromEntries(Object.entries(kmlState).map(([id, st]) => [id, kmlLayers(st.features)])), [kmlState]);
@@ -825,10 +854,12 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
       mapContainerStyle={MAP_CONTAINER_STYLE}
       center={DEFAULT_CENTER}
       zoom={DEFAULT_ZOOM}
-      options={MAP_OPTIONS}
+      options={mapOptions}
       onLoad={setMap}
       onUnmount={() => setMap(null)}
       onZoomChanged={() => map && setZoom(map.getZoom())}
+      onMouseMove={mouse.onMouseMove}
+      onMouseOut={mouse.onMouseOut}
       onClick={() => setSelected(null)}
     >
       {kmlFiles.map((file, index) =>
@@ -952,6 +983,383 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
   const flaggedCount = allMedia.filter((m) => isFlagged(m, limit)).length;
   const refCount = subsections.reduce((n, s) => n + (s.start?.refs.length || 0) + (s.end?.refs.length || 0), 0);
 
+  // ---- side panel: layers and KML files, as on the Master Map
+  const renderLayersPanel = () => (
+    <Box sx={{ flex: 1, overflowY: "auto" }}>
+      {dataError && (
+        <Alert severity="error" sx={{ m: 2 }} action={<Button color="inherit" size="small" onClick={reload}>Retry</Button>}>
+          {dataError}
+        </Alert>
+      )}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 2, py: 1, borderBottom: 1, borderColor: "divider" }}>
+        <Swatch>
+          <Typography variant="caption" sx={{ fontWeight: 700 }}>
+            Aa
+          </Typography>
+        </Swatch>
+        <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>
+          Names
+        </Typography>
+        <ZoomBadge minZoom={NAME_ZOOM} zoom={zoom} />
+        <Switch size="small" checked={layers.names} onChange={() => toggleLayer("names")} slotProps={{ input: { "aria-label": "Show names" } }} />
+      </Box>
+      <GroupHeading>Network</GroupHeading>
+      <LayerRow
+        swatch={<Diamond color={GP_COLOR} />}
+        label="Block router and GPs"
+        count={gpPoints.length + (router ? 1 : 0)}
+        checked={layers.network}
+        onChange={() => toggleLayer("network")}
+      >
+        <Stack spacing={0.25}>
+          {unmappedGps > 0 && (
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+              {unmappedGps} {unmappedGps === 1 ? "GP has" : "GPs have"} no coordinates and {unmappedGps === 1 ? "isn't" : "aren't"} on the map.
+            </Typography>
+          )}
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
+            Click the block router or a GP to see its infra capture and equipment sheets.
+          </Typography>
+        </Stack>
+      </LayerRow>
+
+      <GroupHeading>Infra</GroupHeading>
+      <LayerRow
+        swatch={<Pin color={INFRA_COLORS.BLOCK} />}
+        label="Block infra capture"
+        count={blockInfraCount}
+        checked={layers.blockInfra}
+        onChange={() => toggleLayer("blockInfra")}
+      />
+      <LayerRow swatch={<Pin color={INFRA_COLORS.GP} />} label="GP infra capture" count={gpInfraCount} checked={layers.gpInfra} onChange={() => toggleLayer("gpInfra")} />
+      <LayerRow
+        swatch={<Badge color={EQUIPMENT_COLORS.router} text="R" />}
+        label="Equipment"
+        count={equipment.length}
+        checked={layers.equipment}
+        onChange={() => toggleLayer("equipment")}
+      >
+        <Stack direction="row" useFlexGap spacing={0.75} sx={{ flexWrap: "wrap" }}>
+          {EQUIPMENT_FORMS_ON_MAP.map((f) => (
+            <FilterChip
+              key={f.key}
+              label={f.label}
+              count={equipment.filter((e) => e.form === f.key).length}
+              color={f.key === "misc" ? EQUIPMENT_COLORS.misc : EQUIPMENT_COLORS.router}
+              square
+              on={equipmentForms.has(f.key)}
+              onClick={() => setEquipmentForms((s) => toggleIn(s, f.key))}
+            />
+          ))}
+        </Stack>
+      </LayerRow>
+      <LayerRow
+        swatch={<Line color={RING_COLOR} dashed />}
+        label="Ring links"
+        count={ringLinks.length - offRoadRings}
+        checked={layers.rings}
+        onChange={() => toggleLayer("rings")}
+      >
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
+          Previous → next node from the GP equipment sheets, along the KML road; the arrow points clockwise. Click a link for its optical length.
+        </Typography>
+        {offRoadRings > 0 && (
+          <Typography variant="caption" component="div" sx={{ color: "warning.dark", mt: 0.5 }}>
+            {offRoadRings} {offRoadRings === 1 ? "link isn't" : "links aren't"} drawn: no KML road runs between {offRoadRings === 1 ? "its" : "their"} nodes.
+          </Typography>
+        )}
+      </LayerRow>
+
+      <GroupHeading>Work</GroupHeading>
+      <LayerRow
+        swatch={<Line color={RESTORATION_COLORS.APPROVED} thick />}
+        label="Sections"
+        count={(data?.sections?.length || 0) - offRoadSections.length}
+        checked={layers.sections}
+        onChange={() => toggleLayer("sections")}
+      >
+        <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
+          Wide band along the road from the block&apos;s KML, from node to node, coloured by restoration (see the legend). Each node snaps to the nearest KML road within {ROAD_TOLERANCE_M} m.
+        </Typography>
+        {data && kmlFiles.every((file) => kmlState[file._id]) && offRoadSections.length > 0 && (
+          <Alert severity="warning" sx={{ mb: 1, py: 0, "& .MuiAlert-message": { py: 0.75 } }}>
+            <Typography variant="caption" component="div" sx={{ fontWeight: 700 }}>
+              {offRoadSections.length} {offRoadSections.length === 1 ? "section isn't" : "sections aren't"} on the map
+            </Typography>
+            {offRoadSections.slice(0, 5).map((s) => (
+              <Typography key={s._id} variant="caption" component="div">
+                <b>{s.name}:</b> {roadPaths.problems.get(String(s._id))}
+              </Typography>
+            ))}
+            {offRoadSections.length > 5 && (
+              <Typography variant="caption" component="div">
+                and {offRoadSections.length - 5} more
+              </Typography>
+            )}
+          </Alert>
+        )}
+      </LayerRow>
+      <LayerRow swatch={<Line color={TYPE_COLORS.HDD} />} label="Subsections" count={subsections.length} checked={layers.subsections} onChange={() => toggleLayer("subsections")}>
+        <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
+          Show by status
+        </Typography>
+        <Stack direction="row" useFlexGap spacing={0.75} sx={{ flexWrap: "wrap", mb: 1 }}>
+          {[...SUB_STATUSES, "LEGACY"]
+            .filter((key) => key !== "LEGACY" || statusCount("LEGACY"))
+            .map((key) => (
+              <FilterChip key={key} label={statusLabel(key)} count={statusCount(key)} on={subStatuses.has(key)} onClick={() => setSubStatuses((s) => toggleIn(s, key))} />
+            ))}
+        </Stack>
+        <Stack spacing={0.25}>
+          <Key
+            swatch={
+              <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                Aa
+              </Typography>
+            }
+            action={<Switch size="small" checked={layers.subLabels} onChange={() => toggleLayer("subLabels")} slotProps={{ input: { "aria-label": "Show subsection labels" } }} />}
+          >
+            Name and length <ZoomBadge minZoom={SUB_LABEL_ZOOM} zoom={zoom} />
+          </Key>
+          <Key
+            swatch={<Dot color={REF_COLOR} size={9} />}
+            action={<Switch size="small" checked={layers.refs} onChange={() => toggleLayer("refs")} slotProps={{ input: { "aria-label": "Show reference points" } }} />}
+          >
+            Reference points ({refCount})
+          </Key>
+        </Stack>
+      </LayerRow>
+
+      <GroupHeading>Stages</GroupHeading>
+      {STAGE_LAYERS.map((l) => (
+        <LayerRow
+          key={l.stage}
+          swatch={<StageSwatch stage={l.stage} />}
+          label={config?.stages?.[l.stage]?.label || l.label}
+          count={stageRecords.filter((r) => r.stage === l.stage).length}
+          checked={stages.has(l.stage)}
+          onChange={() => setStages((v) => toggleIn(v, l.stage))}
+        />
+      ))}
+      <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: "divider" }}>
+        <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
+          Show by status
+        </Typography>
+        <Stack direction="row" useFlexGap spacing={0.75} sx={{ flexWrap: "wrap" }}>
+          {STAGE_STATUSES.map((key) => (
+            <FilterChip
+              key={key}
+              label={statusLabel(key)}
+              count={stageRecords.filter((r) => r.status === key).length}
+              color={STATUS_COLORS[key]}
+              on={stageStatuses.has(key)}
+              onClick={() => setStageStatuses((v) => toggleIn(v, key))}
+            />
+          ))}
+        </Stack>
+      </Box>
+
+      <GroupHeading>Attachments</GroupHeading>
+      <LayerRow swatch={<Dot color="#0891b2" />} label="Geotagged photos and videos" count={allMedia.length} checked={layers.media} onChange={() => toggleLayer("media")}>
+        <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
+          Captured at
+        </Typography>
+        <Stack direction="row" useFlexGap spacing={0.75} sx={{ flexWrap: "wrap", mb: 1 }}>
+          {MEDIA_KINDS.map((k) => (
+            <FilterChip key={k.key} label={k.label} count={kindCount(k.key)} color={k.color} on={mediaKinds.has(k.key)} onClick={() => setMediaKinds((s) => toggleIn(s, k.key))} />
+          ))}
+        </Stack>
+        <Stack direction="row" useFlexGap spacing={0.75} sx={{ flexWrap: "wrap", mb: 1 }}>
+          <FilterChip label="Photos" count={typeCount("IMAGE")} color="#475569" on={fileTypes.has("IMAGE")} onClick={() => setFileTypes((s) => toggleIn(s, "IMAGE"))} />
+          <FilterChip label="Videos" count={typeCount("VIDEO")} color="#475569" square on={fileTypes.has("VIDEO")} onClick={() => setFileTypes((s) => toggleIn(s, "VIDEO"))} />
+          <FilterChip label="Flagged only" count={flaggedCount} color="#f59e0b" on={flaggedOnly} onClick={() => setFlaggedOnly((v) => !v)} />
+        </Stack>
+        <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
+          Circle: photo · square: video · number: attachments at the same spot · amber ring: GPS above ±{limit} m, uploaded or location typed.
+          {visibleMedia.length !== allMedia.length && ` Showing ${visibleMedia.length} of ${allMedia.length}.`}
+          {data?.mediaWithoutLocation ? ` ${data.mediaWithoutLocation} without a location aren't on the map.` : ""}
+        </Typography>
+      </LayerRow>
+      <Typography variant="caption" component="p" sx={{ color: "text.secondary", px: 2, py: 1.5 }}>
+        {data ? `${allMedia.length} geotagged ${allMedia.length === 1 ? "attachment" : "attachments"}. ` : "Loading the block's work… "}
+        What each colour and shape means is in the legend on the map.
+      </Typography>
+    </Box>
+  );
+
+  const renderKmlPanel = () => (
+    <Box sx={{ flex: 1, overflowY: "auto" }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, px: 2, py: 1, borderBottom: 1, borderColor: "divider" }}>
+        <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>
+          {kmlFiles.length} {kmlFiles.length === 1 ? "file" : "files"}
+        </Typography>
+        <Tooltip title={!data || !kmlLoaded ? "Loading the block's work and KML…" : "The uploaded KML with its layers, plus the network, sections, subsections, infra, equipment and attachments"}>
+          <span>
+            <Button size="small" startIcon={<FileDownloadOutlinedIcon />} onClick={exportKml} disabled={!data || !kmlLoaded}>
+              Export KML
+            </Button>
+          </span>
+        </Tooltip>
+        {canManageKml && (
+          <Button
+            size="small"
+            startIcon={uploading ? <CircularProgress size={14} color="inherit" /> : <UploadFileOutlinedIcon />}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+          >
+            {uploading ? "Uploading…" : "Upload"}
+          </Button>
+        )}
+      </Box>
+      {kmlError && (
+        <Alert severity="error" onClose={() => setKmlError("")} sx={{ m: 2 }}>
+          {kmlError}
+        </Alert>
+      )}
+      {kmlFiles.length === 0 ? (
+        <Typography variant="body2" sx={{ color: "text.secondary", px: 2.5, py: 3, textAlign: "center" }}>
+          {canManageKml ? "No KML files yet. Upload a .kml or .kmz route." : "No KML files yet."}
+        </Typography>
+      ) : (
+        kmlFiles.map((file, index) => {
+          const state = kmlState[file._id];
+          const visible = !hidden.has(file._id);
+          const status = !state
+            ? visible
+              ? "Loading…"
+              : ""
+            : state.status === "error"
+              ? "Couldn't load this file"
+              : `${state.features.length} ${state.features.length === 1 ? "feature" : "features"}`;
+          const layers = layersByFile[file._id] || [];
+          return (
+            <Box key={file._id} sx={{ px: 2.5, py: 1.25, "&:not(:last-of-type)": { borderBottom: 1, borderColor: "divider" } }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                <Box sx={{ width: 12, height: 12, borderRadius: 0.5, bgcolor: kmlColor(index), flexShrink: 0, opacity: visible ? 1 : 0.35 }} />
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="body2" noWrap sx={{ fontWeight: 600 }} title={file.name}>
+                    {file.name}
+                  </Typography>
+                  <Typography variant="caption" component="div" sx={{ color: state?.status === "error" ? "error.main" : "text.secondary" }}>
+                    {[status, layers.length ? `${layers.length} ${layers.length === 1 ? "layer" : "layers"}` : "", formatSize(file.sizeBytes), formatDate(file.uploadedAt)]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </Typography>
+                </Box>
+                <Tooltip title={visible ? "Hide on map" : "Show on map"}>
+                  <Switch size="small" checked={visible} onChange={() => toggleVisible(file._id)} slotProps={{ input: { "aria-label": `Show ${file.name} on map` } }} />
+                </Tooltip>
+                {canManageKml && (
+                  <Tooltip title="Remove file">
+                    <IconButton
+                      size="small"
+                      aria-label={`Remove ${file.name}`}
+                      onClick={() => {
+                        setRemoveError("");
+                        setRemoveTarget(file);
+                      }}
+                      sx={{ "&:hover": { color: "error.main" } }}
+                    >
+                      <DeleteOutlineIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Box>
+              {visible && layers.length > 0 && (
+                <Box sx={{ pl: 3.5, pt: 0.75 }}>
+                  <KmlLayerList
+                    layers={layers}
+                    hidden={hiddenLayers[file._id] || new Set()}
+                    onChange={(next) => setHiddenLayers((previous) => ({ ...previous, [file._id]: next }))}
+                    fileName={file.name}
+                  />
+                </Box>
+              )}
+            </Box>
+          );
+        })
+      )}
+    </Box>
+  );
+
+  // ---- legend over the map: the layers that are on, or every layer
+  const legendGroups = [
+    {
+      on: layers.network,
+      label: "Block router and GPs",
+      items: [
+        { swatch: <Square color={ROUTER_COLOR} size={11} />, text: router ? "Block router (head node)" : "Block router (no coordinates)" },
+        { swatch: <Diamond color={GP_COLOR} />, text: "Gram Panchayat" },
+      ],
+    },
+    {
+      on: layers.blockInfra || layers.gpInfra,
+      label: "Infra capture",
+      items: [
+        { swatch: <Pin color={INFRA_COLORS.BLOCK} />, text: "Block infra capture" },
+        { swatch: <Pin color={INFRA_COLORS.GP} />, text: "GP infra capture" },
+      ],
+    },
+    {
+      on: layers.equipment,
+      label: "Equipment",
+      items: [
+        { swatch: <Badge color={EQUIPMENT_COLORS.router} text="R" />, text: "Router (block or GP sheet)" },
+        { swatch: <Badge color={EQUIPMENT_COLORS.misc} text="FD" />, text: "Misc: RA rack, FD FDMS, FT FTB, CC CCU, SP SPV, ER earthing, EM electric meter" },
+      ],
+    },
+    { on: layers.rings, label: "Ring links", items: [{ swatch: <Line color={RING_COLOR} dashed />, text: "Previous → next node; the arrow points clockwise" }] },
+    {
+      on: layers.sections,
+      label: "Sections",
+      items: Object.entries(RESTORATION_COLORS).map(([key, color]) => ({ swatch: <Line color={color} thick />, text: `Restoration · ${restorationLabel(key)}` })),
+    },
+    {
+      on: layers.subsections,
+      label: "Subsections",
+      items: [
+        ...Object.keys(TYPE_COLORS)
+          .filter((key) => DUCTING_TYPES.includes(key) || workTypeCount(key))
+          .map((key) => ({ swatch: <Line color={TYPE_COLORS[key]} />, text: `${workTypeLabel(key)} (${workTypeCount(key)})` })),
+        { swatch: <Line color="#475569" dashed />, text: "Planned line, along the road from → to" },
+        { swatch: <Line color="#475569" />, text: "Executed path through the entries" },
+        { swatch: <Line color={lighten(TYPE_COLORS.HDD)} />, text: "Every other subsection in a section is lighter" },
+        { swatch: <TickSwatch />, text: "Where one subsection ends and the next begins" },
+        { swatch: <Dot color="#15803d" size={14} />, text: "A · start pit / point" },
+        { swatch: <Dot color="#b91c1c" size={14} />, text: "B · end pit / point" },
+        ...(layers.refs ? [{ swatch: <Dot color={REF_COLOR} size={9} />, text: "Reference point" }] : []),
+      ],
+    },
+    ...STAGE_LAYERS.map((l) => ({ on: stages.has(l.stage), label: config?.stages?.[l.stage]?.label || l.label, items: [{ swatch: <StageSwatch stage={l.stage} />, text: l.note }] })),
+    {
+      on: stages.size > 0,
+      label: "Stage records",
+      items: STAGE_STATUSES.map((key) => ({ swatch: <Dot color={STATUS_COLORS[key]} />, text: statusLabel(key) })),
+    },
+    {
+      on: layers.media,
+      label: "Attachments",
+      items: [
+        ...MEDIA_KINDS.map((k) => ({ swatch: <Dot color={k.color} />, text: k.label })),
+        { swatch: <Dot color="#475569" />, text: "Photo · a number when several are at one spot" },
+        { swatch: <Square color="#475569" size={11} />, text: "Video" },
+        { swatch: <Dot color="#475569" ring="#f59e0b" />, text: `GPS above ±${limit} m, uploaded or location typed` },
+      ],
+    },
+    ...(gaps.length ? [{ on: true, label: "Pit gaps", items: [{ swatch: <Dot color="#f59e0b" size={14} />, text: `Pits within ${gapData.maxGapM} m to compare and merge` }] }] : []),
+  ];
+
+  const renderLegend = () => {
+    const shown = legendGroups.filter((g) => legendAll || g.on);
+    return (
+      <MapLegend all={legendAll} onToggleAll={() => setLegendAll((v) => !v)} onClose={() => setLegendOpen(false)} empty={shown.length === 0}>
+        {shown.map((g) => (
+          <LegendGroup key={g.label} label={g.label} items={g.items} />
+        ))}
+      </MapLegend>
+    );
+  };
+
   return (
     <>
       <GlobalStyles styles={{ ".block-map-name": { textShadow: "0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff", whiteSpace: "nowrap" } }} />
@@ -970,9 +1378,31 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
           reloadGaps();
         }}
       />
-      <Grid container spacing={3}>
-        <Grid size={{ xs: 12, lg: 8 }}>
-          <Card sx={{ position: "relative", height: { xs: 460, md: 680 }, overflow: "hidden" }}>
+      <Card sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, height: { md: "calc(100vh - 240px)" }, minHeight: { md: 600 }, overflow: "hidden" }}>
+        {panelOpen && (
+          <Box
+            sx={{
+              width: { xs: "100%", md: MAP_PANEL_WIDTH },
+              height: { xs: 380, md: "auto" },
+              flexShrink: 0,
+              display: "flex",
+              flexDirection: "column",
+              borderRight: { md: 1 },
+              borderBottom: { xs: 1, md: 0 },
+              borderColor: "divider",
+              minHeight: 0,
+            }}
+          >
+            <Tabs value={tab} onChange={(e, value) => setTab(value)} variant="fullWidth" sx={{ borderBottom: 1, borderColor: "divider", minHeight: 44, "& .MuiTab-root": { minHeight: 44 } }}>
+              <Tab value="layers" label="Layers" />
+              <Tab value="kml" label={`KML files${kmlFiles.length ? ` (${kmlFiles.length})` : ""}`} />
+            </Tabs>
+            {tab === "layers" ? renderLayersPanel() : renderKmlPanel()}
+          </Box>
+        )}
+
+        <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", height: { xs: 520, md: "auto" } }}>
+          <Box sx={{ position: "relative", flex: 1, minHeight: 0 }}>
             {loadError ? (
               <Alert severity="error" sx={{ m: 2 }}>
                 Couldn&apos;t load Google Maps. Check the connection and the Maps API key.
@@ -982,345 +1412,42 @@ const BlockMapPanel = ({ blockProfile, canManageKml = false, userId, onProfileCh
             ) : (
               <Skeleton variant="rectangular" sx={{ width: "100%", height: "100%" }} />
             )}
-          </Card>
-        </Grid>
-
-        <Grid size={{ xs: 12, lg: 4 }} sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          <SectionCard
-            title="Layers"
-            subtitle={data ? `${allMedia.length} geotagged ${allMedia.length === 1 ? "attachment" : "attachments"}` : "Loading the block's work…"}
-            contentSx={{ p: 0 }}
-            action={
-              <Tooltip title="Reload the map data">
-                <IconButton size="small" onClick={reload} aria-label="Reload the map data">
-                  <RefreshIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
+            {isLoaded && legendOpen && renderLegend()}
+          </Box>
+          <MapStatusBar
+            panelOpen={panelOpen}
+            onTogglePanel={() => setPanelOpen((v) => !v)}
+            cursor={mouse}
+            zoom={zoom}
+            status={
+              !data &&
+              !dataError && (
+                <Typography variant="caption" sx={{ color: "text.secondary", display: { xs: "none", sm: "block" } }}>
+                  · Loading the block&apos;s work…
+                </Typography>
+              )
             }
-          >
-            {dataError && (
-              <Alert severity="error" sx={{ m: 2 }} action={<Button color="inherit" size="small" onClick={reload}>Retry</Button>}>
-                {dataError}
-              </Alert>
-            )}
-            <GroupHeading>Network</GroupHeading>
-            <LayerRow
-              swatch={<Diamond color={GP_COLOR} />}
-              label="Block router and GPs"
-              count={gpPoints.length + (router ? 1 : 0)}
-              checked={layers.network}
-              onChange={() => toggleLayer("network")}
-            >
-              <Stack spacing={0.25}>
-                <Key swatch={<Square color={ROUTER_COLOR} size={11} />}>{router ? "Block router (head node)" : "Block router (no coordinates)"}</Key>
-                <Key swatch={<Diamond color={GP_COLOR} />}>Gram Panchayat</Key>
-                <Key
-                  swatch={
-                    <Typography variant="caption" sx={{ fontWeight: 700 }}>
-                      Aa
-                    </Typography>
-                  }
-                  action={<Switch size="small" checked={layers.names} onChange={() => toggleLayer("names")} slotProps={{ input: { "aria-label": "Show names" } }} />}
-                >
-                  Names {zoom < NAME_ZOOM && layers.names ? "(zoom in to see them)" : ""}
-                </Key>
-                {unmappedGps > 0 && (
-                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                    {unmappedGps} {unmappedGps === 1 ? "GP has" : "GPs have"} no coordinates and {unmappedGps === 1 ? "isn't" : "aren't"} on the map.
-                  </Typography>
-                )}
-                <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                  Click the block router or a GP to see its infra capture and equipment sheets.
-                </Typography>
-              </Stack>
-            </LayerRow>
-
-            <GroupHeading>Infra</GroupHeading>
-            <LayerRow
-              swatch={<Pin color={INFRA_COLORS.BLOCK} />}
-              label="Block infra capture"
-              count={blockInfraCount}
-              checked={layers.blockInfra}
-              onChange={() => toggleLayer("blockInfra")}
-            />
-            <LayerRow swatch={<Pin color={INFRA_COLORS.GP} />} label="GP infra capture" count={gpInfraCount} checked={layers.gpInfra} onChange={() => toggleLayer("gpInfra")} />
-            <LayerRow
-              swatch={<Badge color={EQUIPMENT_COLORS.router} text="R" />}
-              label="Equipment"
-              count={equipment.length}
-              checked={layers.equipment}
-              onChange={() => toggleLayer("equipment")}
-            >
-              <Stack direction="row" useFlexGap spacing={0.75} sx={{ flexWrap: "wrap", mb: 1 }}>
-                {EQUIPMENT_FORMS_ON_MAP.map((f) => (
-                  <FilterChip
-                    key={f.key}
-                    label={f.label}
-                    count={equipment.filter((e) => e.form === f.key).length}
-                    color={f.key === "misc" ? EQUIPMENT_COLORS.misc : EQUIPMENT_COLORS.router}
-                    square
-                    on={equipmentForms.has(f.key)}
-                    onClick={() => setEquipmentForms((s) => toggleIn(s, f.key))}
-                  />
-                ))}
-              </Stack>
-              <Stack spacing={0.25}>
-                <Key swatch={<Badge color={EQUIPMENT_COLORS.router} text="R" />}>Router (block or GP sheet)</Key>
-                <Key swatch={<Badge color={EQUIPMENT_COLORS.misc} text="FD" />}>Misc: RA rack, FD FDMS, FT FTB, CC CCU, SP SPV, ER earthing, EM electric meter</Key>
-              </Stack>
-            </LayerRow>
-            <LayerRow
-              swatch={<Line color={RING_COLOR} dashed />}
-              label="Ring links"
-              count={ringLinks.length - offRoadRings}
-              checked={layers.rings}
-              onChange={() => toggleLayer("rings")}
-            >
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                Previous → next node from the GP equipment sheets, along the KML road; the arrow points clockwise. Click a link for its optical length.
-              </Typography>
-              {offRoadRings > 0 && (
-                <Typography variant="caption" component="div" sx={{ color: "warning.dark", mt: 0.5 }}>
-                  {offRoadRings} {offRoadRings === 1 ? "link isn't" : "links aren't"} drawn: no KML road runs between {offRoadRings === 1 ? "its" : "their"} nodes.
-                </Typography>
-              )}
-            </LayerRow>
-
-            <GroupHeading>Work</GroupHeading>
-            <LayerRow
-              swatch={<Line color={RESTORATION_COLORS.APPROVED} thick />}
-              label="Sections"
-              count={(data?.sections?.length || 0) - offRoadSections.length}
-              checked={layers.sections}
-              onChange={() => toggleLayer("sections")}
-            >
-              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
-                Wide band along the road from the block&apos;s KML, from node to node, coloured by restoration. Each node snaps to the nearest KML road within {ROAD_TOLERANCE_M} m.
-              </Typography>
-              {data && kmlFiles.every((file) => kmlState[file._id]) && offRoadSections.length > 0 && (
-                <Alert severity="warning" sx={{ mb: 1, py: 0, "& .MuiAlert-message": { py: 0.75 } }}>
-                  <Typography variant="caption" component="div" sx={{ fontWeight: 700 }}>
-                    {offRoadSections.length} {offRoadSections.length === 1 ? "section isn't" : "sections aren't"} on the map
-                  </Typography>
-                  {offRoadSections.slice(0, 5).map((s) => (
-                    <Typography key={s._id} variant="caption" component="div">
-                      <b>{s.name}:</b> {roadPaths.problems.get(String(s._id))}
-                    </Typography>
-                  ))}
-                  {offRoadSections.length > 5 && (
-                    <Typography variant="caption" component="div">
-                      and {offRoadSections.length - 5} more
-                    </Typography>
-                  )}
-                </Alert>
-              )}
-              <Stack direction="row" useFlexGap spacing={1} sx={{ flexWrap: "wrap" }}>
-                {Object.entries(RESTORATION_COLORS).map(([key, color]) => (
-                  <Box key={key} sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
-                    <Line color={color} thick />
-                    <Typography variant="caption">{restorationLabel(key)}</Typography>
-                  </Box>
-                ))}
-              </Stack>
-            </LayerRow>
-            <LayerRow swatch={<Line color={TYPE_COLORS.HDD} />} label="Subsections" count={subsections.length} checked={layers.subsections} onChange={() => toggleLayer("subsections")}>
-              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
-                Coloured by type of work
-              </Typography>
-              <Stack spacing={0.25} sx={{ mb: 1 }}>
-                {Object.keys(TYPE_COLORS)
-                  .filter((key) => DUCTING_TYPES.includes(key) || workTypeCount(key))
-                  .map((key) => (
-                    <Key key={key} swatch={<Line color={TYPE_COLORS[key]} />}>
-                      {workTypeLabel(key)} ({workTypeCount(key)})
-                    </Key>
-                  ))}
-              </Stack>
-              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
-                Show by status
-              </Typography>
-              <Stack direction="row" useFlexGap spacing={0.75} sx={{ flexWrap: "wrap", mb: 1 }}>
-                {[...SUB_STATUSES, "LEGACY"]
-                  .filter((key) => key !== "LEGACY" || statusCount("LEGACY"))
-                  .map((key) => (
-                    <FilterChip key={key} label={statusLabel(key)} count={statusCount(key)} on={subStatuses.has(key)} onClick={() => setSubStatuses((s) => toggleIn(s, key))} />
-                  ))}
-              </Stack>
-              <Stack spacing={0.25}>
-                <Key swatch={<Line color="#475569" dashed />}>Planned line, along the road from → to</Key>
-                <Key swatch={<Line color="#475569" />}>Executed path through the entries</Key>
-                <Key swatch={<Line color={lighten(TYPE_COLORS.HDD)} />}>Every other subsection in a section is a lighter shade</Key>
-                <Key swatch={<TickSwatch />}>Tick: where one subsection ends and the next begins</Key>
-                <Key
-                  swatch={
-                    <Typography variant="caption" sx={{ fontWeight: 700 }}>
-                      Aa
-                    </Typography>
-                  }
-                  action={<Switch size="small" checked={layers.subLabels} onChange={() => toggleLayer("subLabels")} slotProps={{ input: { "aria-label": "Show subsection labels" } }} />}
-                >
-                  Name and length {zoom < SUB_LABEL_ZOOM && layers.subLabels ? "(zoom in to see them)" : ""}
-                </Key>
-                <Key swatch={<Dot color="#15803d" size={14} />}>A · start pit / point</Key>
-                <Key swatch={<Dot color="#b91c1c" size={14} />}>B · end pit / point</Key>
-                <Key
-                  swatch={<Dot color={REF_COLOR} size={9} />}
-                  action={<Switch size="small" checked={layers.refs} onChange={() => toggleLayer("refs")} slotProps={{ input: { "aria-label": "Show reference points" } }} />}
-                >
-                  Reference points ({refCount})
-                </Key>
-              </Stack>
-            </LayerRow>
-
-            <GroupHeading>Stages</GroupHeading>
-            {STAGE_LAYERS.map((l) => (
-              <LayerRow
-                key={l.stage}
-                swatch={<StageSwatch stage={l.stage} />}
-                label={config?.stages?.[l.stage]?.label || l.label}
-                count={stageRecords.filter((r) => r.stage === l.stage).length}
-                checked={stages.has(l.stage)}
-                onChange={() => setStages((v) => toggleIn(v, l.stage))}
-              />
-            ))}
-            <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: "divider" }}>
-              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
-                Coloured by status. Hexagon: chamber (its type inside) · triangle: coupling · post: route marker · hollow tube: duct run · arrows: blowing, From → To chamber.
-              </Typography>
-              <Stack direction="row" useFlexGap spacing={0.75} sx={{ flexWrap: "wrap" }}>
-                {STAGE_STATUSES.map((key) => (
-                  <FilterChip
-                    key={key}
-                    label={statusLabel(key)}
-                    count={stageRecords.filter((r) => r.status === key).length}
-                    color={STATUS_COLORS[key]}
-                    on={stageStatuses.has(key)}
-                    onClick={() => setStageStatuses((v) => toggleIn(v, key))}
-                  />
-                ))}
-              </Stack>
-            </Box>
-
-            <GroupHeading>Attachments</GroupHeading>
-            <LayerRow swatch={<Dot color="#0891b2" />} label="Geotagged photos and videos" count={allMedia.length} checked={layers.media} onChange={() => toggleLayer("media")}>
-              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
-                Captured at
-              </Typography>
-              <Stack direction="row" useFlexGap spacing={0.75} sx={{ flexWrap: "wrap", mb: 1 }}>
-                {MEDIA_KINDS.map((k) => (
-                  <FilterChip key={k.key} label={k.label} count={kindCount(k.key)} color={k.color} on={mediaKinds.has(k.key)} onClick={() => setMediaKinds((s) => toggleIn(s, k.key))} />
-                ))}
-              </Stack>
-              <Stack direction="row" useFlexGap spacing={0.75} sx={{ flexWrap: "wrap", mb: 1 }}>
-                <FilterChip label="Photos" count={typeCount("IMAGE")} color="#475569" on={fileTypes.has("IMAGE")} onClick={() => setFileTypes((s) => toggleIn(s, "IMAGE"))} />
-                <FilterChip label="Videos" count={typeCount("VIDEO")} color="#475569" square on={fileTypes.has("VIDEO")} onClick={() => setFileTypes((s) => toggleIn(s, "VIDEO"))} />
-                <FilterChip label="Flagged only" count={flaggedCount} color="#f59e0b" on={flaggedOnly} onClick={() => setFlaggedOnly((v) => !v)} />
-              </Stack>
-              <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
-                Circle: photo · square: video · number: attachments at the same spot · amber ring: GPS above ±{limit} m, uploaded or location typed.
-                {visibleMedia.length !== allMedia.length && ` Showing ${visibleMedia.length} of ${allMedia.length}.`}
-                {data?.mediaWithoutLocation ? ` ${data.mediaWithoutLocation} without a location aren't on the map.` : ""}
-              </Typography>
-            </LayerRow>
-          </SectionCard>
-
-          <SectionCard
-            title="KML files"
-            subtitle={`${kmlFiles.length} ${kmlFiles.length === 1 ? "file" : "files"}`}
-            contentSx={{ p: 0 }}
-            action={
-              <Stack direction="row" spacing={0.5}>
-                <Tooltip title={!data || !kmlLoaded ? "Loading the block's work and KML…" : "The uploaded KML with its layers, plus the network, sections, subsections, infra, equipment and attachments"}>
+            actions={
+              <>
+                <Tooltip title="Reload the map data">
+                  <IconButton size="small" onClick={reload} aria-label="Reload the map data" sx={statusBarButtonSx}>
+                    <RefreshIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Fit the block">
                   <span>
-                    <Button size="small" startIcon={<FileDownloadOutlinedIcon />} onClick={exportKml} disabled={!data || !kmlLoaded}>
-                      Export KML
-                    </Button>
+                    <IconButton size="small" onClick={fitAll} disabled={!points.length} aria-label="Fit the block" sx={statusBarButtonSx}>
+                      <CenterFocusStrongOutlinedIcon fontSize="small" />
+                    </IconButton>
                   </span>
                 </Tooltip>
-                {canManageKml && (
-                  <Button
-                    size="small"
-                    startIcon={uploading ? <CircularProgress size={14} color="inherit" /> : <UploadFileOutlinedIcon />}
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                  >
-                    {uploading ? "Uploading…" : "Upload"}
-                  </Button>
-                )}
-              </Stack>
+              </>
             }
-          >
-            {kmlError && (
-              <Alert severity="error" onClose={() => setKmlError("")} sx={{ m: 2 }}>
-                {kmlError}
-              </Alert>
-            )}
-            {kmlFiles.length === 0 ? (
-              <Typography variant="body2" sx={{ color: "text.secondary", px: 2.5, py: 3, textAlign: "center" }}>
-                {canManageKml ? "No KML files yet. Upload a .kml or .kmz route." : "No KML files yet."}
-              </Typography>
-            ) : (
-              kmlFiles.map((file, index) => {
-                const state = kmlState[file._id];
-                const visible = !hidden.has(file._id);
-                const status = !state
-                  ? visible
-                    ? "Loading…"
-                    : ""
-                  : state.status === "error"
-                    ? "Couldn't load this file"
-                    : `${state.features.length} ${state.features.length === 1 ? "feature" : "features"}`;
-                const layers = layersByFile[file._id] || [];
-                return (
-                  <Box key={file._id} sx={{ px: 2.5, py: 1.25, "&:not(:last-of-type)": { borderBottom: 1, borderColor: "divider" } }}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                      <Box sx={{ width: 12, height: 12, borderRadius: 0.5, bgcolor: kmlColor(index), flexShrink: 0, opacity: visible ? 1 : 0.35 }} />
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant="body2" noWrap sx={{ fontWeight: 600 }} title={file.name}>
-                          {file.name}
-                        </Typography>
-                        <Typography variant="caption" component="div" sx={{ color: state?.status === "error" ? "error.main" : "text.secondary" }}>
-                          {[status, layers.length ? `${layers.length} ${layers.length === 1 ? "layer" : "layers"}` : "", formatSize(file.sizeBytes), formatDate(file.uploadedAt)]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </Typography>
-                      </Box>
-                      <Tooltip title={visible ? "Hide on map" : "Show on map"}>
-                        <Switch size="small" checked={visible} onChange={() => toggleVisible(file._id)} slotProps={{ input: { "aria-label": `Show ${file.name} on map` } }} />
-                      </Tooltip>
-                      {canManageKml && (
-                        <Tooltip title="Remove file">
-                          <IconButton
-                            size="small"
-                            aria-label={`Remove ${file.name}`}
-                            onClick={() => {
-                              setRemoveError("");
-                              setRemoveTarget(file);
-                            }}
-                            sx={{ "&:hover": { color: "error.main" } }}
-                          >
-                            <DeleteOutlineIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </Box>
-                    {visible && layers.length > 0 && (
-                      <Box sx={{ pl: 3.5, pt: 0.75 }}>
-                        <KmlLayerList
-                          layers={layers}
-                          hidden={hiddenLayers[file._id] || new Set()}
-                          onChange={(next) => setHiddenLayers((previous) => ({ ...previous, [file._id]: next }))}
-                          fileName={file.name}
-                        />
-                      </Box>
-                    )}
-                  </Box>
-                );
-              })
-            )}
-          </SectionCard>
-        </Grid>
-      </Grid>
+            legendOpen={legendOpen}
+            onToggleLegend={() => setLegendOpen((v) => !v)}
+          />
+        </Box>
+      </Card>
 
       <input ref={fileInputRef} type="file" accept=".kml,.kmz" hidden onChange={handleFile} />
 
